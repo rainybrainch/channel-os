@@ -505,9 +505,12 @@ function renderPlanPanel(char) {
   return `
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
     <div class="card">
-      <div class="card-title">企画テーマ入力</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">企画テーマ入力</div>
+        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
+      </div>
       <div class="form-row">
-        <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣">
+        <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣" onkeydown="if(event.key==='Enter')generatePlan()">
         <button class="btn btn-primary" onclick="generatePlan()">3案生成</button>
       </div>
       <div id="planLoading" class="loading" style="display:none;margin-top:10px;">
@@ -524,7 +527,7 @@ function renderPlanPanel(char) {
 async function generatePlan() {
   const char = data.characters.find(c => c.id === currentCharId);
   const theme = document.getElementById('planTheme').value.trim();
-  if (!theme) { alert('テーマを入力してください'); return; }
+  if (!theme) { showToast('テーマを入力してください'); return; }
   document.getElementById('planLoading').style.display = 'flex';
   document.getElementById('planResults').innerHTML = '';
   const prompt = `あなたはYouTubeチャンネルの企画プロデューサーです。
@@ -565,7 +568,10 @@ function renderScriptPanel(char) {
   return `
   <div class="panel ${currentTab==='script'?'active':''}" id="panelScript">
     <div class="card">
-      <div class="card-title">台本生成</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">台本生成</div>
+        <button class="btn btn-secondary btn-sm" onclick="switchTab('plan')">← 企画に戻る</button>
+      </div>
       ${selectedPlan ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:var(--text-muted);">選択中: <strong style="color:var(--text);">${selectedPlan.title}</strong></div>` : `<p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;">企画タブで企画を選択してください</p>`}
       <div class="form-row">
         <div style="flex:1;"><label>動画形式</label>
@@ -626,7 +632,7 @@ ${isShorts ? `【構成】
     switchTab('script');
   } catch(e) {
     document.getElementById('scriptLoading').style.display = 'none';
-    alert('エラー: ' + e.message);
+    showToast('エラー: ' + e.message);
   }
 }
 
@@ -637,7 +643,10 @@ function renderMetaPanel(char) {
   return `
   <div class="panel ${currentTab==='meta'?'active':''}" id="panelMeta">
     <div class="card">
-      <div class="card-title">投稿情報生成</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">投稿情報生成</div>
+        <button class="btn btn-secondary btn-sm" onclick="switchTab('script')">← 台本に戻る</button>
+      </div>
       <button class="btn btn-primary" onclick="generateMeta()" ${!generatedScript?'disabled':''}>タイトル・概要欄・タグを生成</button>
       ${!generatedScript?`<p style="font-size:.78rem;color:var(--text-muted);margin-top:8px;">先に台本を生成してください</p>`:''}
       <div id="metaLoading" class="loading" style="display:none;margin-top:10px;"><div class="spinner"></div><span>投稿情報を最適化中...</span></div>
@@ -661,7 +670,7 @@ async function generateMeta() {
     document.getElementById('metaResultArea').innerHTML = renderMetaResult(generatedMeta);
   } catch(e) {
     document.getElementById('metaLoading').style.display = 'none';
-    alert('エラー: ' + e.message);
+    showToast('エラー: ' + e.message);
   }
 }
 
@@ -697,7 +706,8 @@ function renderScenePanel() {
       <div class="form-row" style="margin-bottom:10px;">
         <div style="flex:1;"><label>用途</label>
           <select id="sceneUse">
-            <option value="thumbnail">サムネイル</option>
+            <option value="thumbnail_horizontal">サムネイル（横動画 16:9）</option>
+            <option value="thumbnail_shorts">サムネイル（ショート 9:16）</option>
             <option value="bg_horizontal">背景（横動画 16:9）</option>
             <option value="bg_shorts">背景（ショート 9:16）</option>
             <option value="character">キャラクター立ち絵</option>
@@ -727,9 +737,9 @@ async function generateImagePrompt() {
   const tool = document.getElementById('sceneTool').value;
   const extra = document.getElementById('sceneExtra').value.trim();
   const apiKey = localStorage.getItem('channelos_claude_api_key');
-  if (!apiKey) { alert('設定タブでClaude APIキーを入力してください'); return; }
+  if (!apiKey) { showToast('設定タブでClaude APIキーを入力してください'); return; }
 
-  const useLabel = { thumbnail:'サムネイル', bg_horizontal:'背景（横動画）', bg_shorts:'背景（ショート）', character:'キャラクター立ち絵' }[use];
+  const useLabel = { thumbnail_horizontal:'サムネイル（横動画）', thumbnail_shorts:'サムネイル（ショート）', bg_horizontal:'背景（横動画）', bg_shorts:'背景（ショート）', character:'キャラクター立ち絵' }[use];
   const toolLabel = { midjourney:'Midjourney', chatgpt:'ChatGPT（DALL·E）', stable:'Stable Diffusion' }[tool];
 
   const context = [
@@ -746,7 +756,10 @@ AIツール: ${toolLabel}
 ${extra ? `追加指示: ${extra}` : ''}
 
 以下のJSON形式のみ出力（他テキスト不要）:
-{"ja":"日本語での画像説明","en":"English prompt for ${toolLabel}","tips":"使い方のコツ（1〜2行）"}`;
+{"ja":"日本語での画像説明","en":"English prompt for ${toolLabel}","tips":"使い方のコツ（1〜2行）"}
+
+アスペクト比: ${use==='thumbnail_horizontal'||use==='bg_horizontal'?'16:9（横長）':'9:16（縦長）'}
+${use.startsWith('thumbnail')?'YouTubeサムネイル向け: 文字が映える・高コントラスト・顔・感情を強調したデザインに':''}`;
 
   document.getElementById('sceneLoading').style.display = 'flex';
   document.getElementById('sceneResults').innerHTML = '';
@@ -903,7 +916,7 @@ function useAssetInScene(idx) {
   const asset = driveAssets[idx];
   if (!asset) return;
   const url = asset.blobUrl;
-  if (!url) { alert('画像をロード中です。少し待ってから再度お試しください。'); return; }
+  if (!url) { showToast('画像をロード中です。少し待ってから再度お試しください。'); return; }
   const img = new Image();
   img.onload = () => {
     if (assetPickTarget === 'bg') { sceneBg = { url, name: asset.name, img }; }
@@ -1017,7 +1030,7 @@ function handleDrop(e) {
 async function uploadFiles(files) {
   const token    = localStorage.getItem(GD_TOKEN_SK);
   const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
-  if (!token) { alert('設定タブでGoogle Drive認証を行ってください'); switchTab('settings'); return; }
+  if (!token) { showToast('設定タブでGoogle Drive認証を行ってください'); switchTab('settings'); return; }
   const prog = document.getElementById('uploadProgress');
   const msg  = document.getElementById('uploadMsg');
   prog.style.display = 'flex';
@@ -1036,7 +1049,7 @@ async function uploadFiles(files) {
       });
       if (!res.ok) throw new Error('Upload failed: ' + res.status);
       done++;
-    } catch(e) { alert(`${file.name} のアップロードに失敗: ${e.message}`); }
+    } catch(e) { showToast(`${file.name} のアップロードに失敗: ${e.message}`); }
   }
   prog.style.display = 'none';
   msg.textContent = '';
@@ -1089,7 +1102,7 @@ JSONのみ出力: [{"date":"YYYY-MM-DD","episode":1,"format":"horizontal|shorts"
       </div>`;
   } catch(e) {
     document.getElementById('scheduleLoading').style.display = 'none';
-    alert('エラー: ' + e.message);
+    showToast('エラー: ' + e.message);
   }
 }
 
@@ -1158,7 +1171,7 @@ function saveGDSettings() {
 
 function gdAuth() {
   const clientId = document.getElementById('gdClientId').value.trim() || localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
-  if (!clientId) { alert('クライアントIDを入力してください'); return; }
+  if (!clientId) { showToast('クライアントIDを入力してください'); return; }
   localStorage.setItem(GD_CLIENT_SK, clientId);
   const redirect = encodeURIComponent('https://rainybrainch.github.io/channel-os/');
   const scope    = encodeURIComponent('https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file');
@@ -1206,7 +1219,7 @@ function openEditChar(id) {
 
 function saveNewChar() {
   const name = document.getElementById('newCharName').value.trim();
-  if (!name) { alert('キャラクター名を入力してください'); return; }
+  if (!name) { showToast('キャラクター名を入力してください'); return; }
   const icons = ['🐯','🐻','🐼','🦊','🐺','🦅','🐬','🦄','🐲','🎭'];
   data.characters.push({
     id: 'char_' + Date.now(), name,
@@ -1265,7 +1278,7 @@ async function callClaude(prompt) {
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function copyText(text) { navigator.clipboard.writeText(text).then(()=>showToast('コピーしました')).catch(()=>alert('コピー失敗')); }
+function copyText(text) { navigator.clipboard.writeText(text).then(()=>showToast('コピーしました')).catch(()=>showToast('コピー失敗')); }
 
 function parseScript(raw) {
   try {
@@ -1279,7 +1292,7 @@ function parseScript(raw) {
 
 function copyScriptLines() {
   const lines = parseScript(generatedScript).lines;
-  navigator.clipboard.writeText(lines).then(() => showToast('セリフをコピーしました')).catch(() => alert('コピー失敗'));
+  navigator.clipboard.writeText(lines).then(() => showToast('セリフをコピーしました')).catch(() => showToast('コピー失敗'));
 }
 function copyMeta() {
   if (!generatedMeta) return;
@@ -1295,7 +1308,7 @@ function importData() {
   input.type = 'file'; input.accept = '.json';
   input.onchange = e => {
     const reader = new FileReader();
-    reader.onload = ev => { try { data = JSON.parse(ev.target.result); saveData(data); renderSidebar(); alert('インポート完了'); } catch { alert('読み込み失敗'); } };
+    reader.onload = ev => { try { data = JSON.parse(ev.target.result); saveData(data); renderSidebar(); showToast('インポート完了'); } catch { showToast('読み込み失敗'); } };
     reader.readAsText(e.target.files[0]);
   };
   input.click();
