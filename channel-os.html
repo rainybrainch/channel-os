@@ -268,7 +268,9 @@ function newEpisode() {
   data.episodes = data.episodes || [];
   data.episodes.push(ep);
   saveData(data);
+  autoSaveToDrive();
   loadEpisode(id);
+  renderSidebar();
 }
 
 function loadEpisode(id) {
@@ -1145,13 +1147,13 @@ function renderSettingsPanel() {
 
 function saveApiKey() {
   localStorage.setItem(API_KEY_SK, document.getElementById('claudeApiKey').value.trim());
-  alert('APIキーを保存しました');
+  showToast('APIキーを保存しました');
 }
 
 function saveGDSettings() {
   localStorage.setItem(GD_CLIENT_SK, document.getElementById('gdClientId').value.trim());
   localStorage.setItem(GD_FOLDER_SK, document.getElementById('gdFolderId').value.trim());
-  alert('Google Drive設定を保存しました');
+  showToast('設定を保存しました');
 }
 
 function gdAuth() {
@@ -1171,7 +1173,7 @@ function gdLogout() { localStorage.removeItem(GD_TOKEN_SK); switchTab('settings'
   const hash = location.hash;
   if (hash.includes('access_token=')) {
     const token = new URLSearchParams(hash.slice(1)).get('access_token');
-    if (token) { localStorage.setItem(GD_TOKEN_SK, token); history.replaceState(null,'',location.pathname); alert('Google Drive認証完了'); }
+    if (token) { localStorage.setItem(GD_TOKEN_SK, token); history.replaceState(null,'',location.pathname); showToast('☁️ Google Drive認証完了'); }
   }
 })();
 
