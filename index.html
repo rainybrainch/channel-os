@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBAI Channel OS</title>
+<style>
+  :root {
+    --accent: #c9a84c;
+    --bg: #0d0d0d;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --text: #e8e8e8;
+    --text-muted: #888;
+    --border: #333;
+    --char-color: #c9a84c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif JP', 'Hiragino Serif', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  header span { color: var(--text-muted); font-size: 0.8rem; }
+
+  /* ── Layout ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    padding: 14px 16px 8px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .char-list { flex: 1; }
+  .char-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .char-item:hover { background: var(--surface2); }
+  .char-item.active {
+    border-left-color: var(--char-color);
+    background: var(--surface2);
+  }
+  .char-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .char-name { font-size: 0.9rem; font-weight: 600; }
+  .char-theme { font-size: 0.7rem; color: var(--text-muted); }
+  .add-char-btn {
+    margin: 12px;
+    padding: 10px;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.2s;
+  }
+  .add-char-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Main ── */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Char Header ── */
+  .char-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-left: 4px solid var(--char-color);
+  }
+  .char-header-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+  }
+  .char-header-info h2 { font-size: 1.3rem; color: var(--char-color); }
+  .char-header-info p { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+  .char-header-badges {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--char-color); border-bottom-color: var(--char-color); }
+
+  /* ── Panel ── */
+  .panel { display: none; flex-direction: column; gap: 16px; }
+  .panel.active { display: flex; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .card-title {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  /* ── Form ── */
+  .form-row { display: flex; gap: 10px; align-items: flex-end; }
+  .form-row.col { flex-direction: column; align-items: stretch; }
+  label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; display: block; }
+  input, textarea, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--char-color);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 9px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--char-color);
+    color: #0d0d0d;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--char-color); }
+  .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Result area ── */
+  .result-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 80px;
+    color: var(--text);
+    display: none;
+  }
+  .result-box.visible { display: block; }
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .result-label { font-size: 0.75rem; color: var(--char-color); font-weight: 700; }
+
+  /* ── Plan cards ── */
+  .plan-grid { display: flex; flex-direction: column; gap: 10px; }
+  .plan-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .plan-card:hover { border-color: var(--char-color); }
+  .plan-card.selected { border-color: var(--char-color); background: #1e1a14; }
+  .plan-card-label { font-size: 0.72rem; color: var(--char-color); font-weight: 700; margin-bottom: 4px; }
+  .plan-card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+  .plan-card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── Schedule ── */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .schedule-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+  .schedule-date { color: var(--char-color); font-weight: 700; margin-bottom: 4px; }
+  .schedule-ep { color: var(--text-muted); font-size: 0.75rem; }
+
+  /* ── Settings ── */
+  .settings-section { margin-bottom: 16px; }
+  .settings-section h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── Loading ── */
+  .loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem; padding: 8px 0; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--char-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty h3 { font-size: 1rem; margin-bottom: 6px; color: var(--text); }
+  .empty p { font-size: 0.82rem; line-height: 1.6; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    width: 90%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .modal h2 { font-size: 1rem; color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    aside { width: 60px; }
+    .char-name, .char-theme, .sidebar-title { display: none; }
+    .char-item { justify-content: center; padding: 12px 8px; }
+    .add-char-btn { font-size: 0; padding: 10px; }
+    .add-char-btn::before { content: '+'; font-size: 1rem; }
+    main { padding: 16px; }
+  }
+  @media (max-width: 480px) {
+    .form-row { flex-direction: column; }
+    .tabs { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🎬 RBAI Channel OS</h1>
+  </div>
+  <span id="headerSub">キャラクターを選択してください</span>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-title">キャラクター</div>
+    <div class="char-list" id="charList"></div>
+    <button class="add-char-btn" onclick="openAddCharModal()">＋ キャラ追加</button>
+  </aside>
+
+  <!-- Main -->
+  <main id="mainArea">
+    <div class="empty">
+      <div class="empty-icon">🦁</div>
+      <h3>キャラクターを選択</h3>
+      <p>左のサイドバーからキャラクターを選択するか<br>新しいキャラクターを追加してください</p>
+    </div>
+  </main>
+</div>
+
+<!-- Add Character Modal -->
+<div class="modal-overlay" id="addCharModal">
+  <div class="modal">
+    <h2>🎭 新しいキャラクターを追加</h2>
+    <div class="form-row col">
+      <label>キャラクター名</label>
+      <input type="text" id="newCharName" placeholder="例: ガオル">
+    </div>
+    <div class="form-row col">
+      <label>種族・見た目</label>
+      <input type="text" id="newCharSpecies" placeholder="例: ライオン（筋トレ）">
+    </div>
+    <div class="form-row col">
+      <label>テーマ・ジャンル</label>
+      <input type="text" id="newCharTheme" placeholder="例: 筋トレ・フィットネス">
+    </div>
+    <div class="form-row col">
+      <label>トーン・口調</label>
+      <input type="text" id="newCharTone" placeholder="例: 熱血・ポジティブ・体育会系">
+    </div>
+    <div class="form-row col">
+      <label>シンボルカラー</label>
+      <input type="color" id="newCharColor" value="#FF4500" style="height:40px; cursor:pointer;">
+    </div>
+    <div class="form-row col">
+      <label>AI人格メモ（台本生成の参考）</label>
+      <textarea id="newCharPersonality" placeholder="例: 熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。" style="min-height:60px;"></textarea>
+    </div>
+    <div class="form-row col">
+      <label>YouTubeチャンネルID（任意）</label>
+      <input type="text" id="newCharChannelId" placeholder="例: UCxxxxxxxxxx">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeAddCharModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveNewChar()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage ──
+const STORAGE_KEY = 'channelos_data';
+const API_KEY_STORAGE = 'channelos_claude_api_key';
+const YT_TOKEN_STORAGE = 'channelos_yt_token';
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return getDefaultData();
+  try { return JSON.parse(raw); } catch { return getDefaultData(); }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getDefaultData() {
+  return {
+    characters: [
+      {
+        id: 'gaoru',
+        name: 'ガオル',
+        species: 'ライオン（筋トレ）',
+        theme: '筋トレ・フィットネス',
+        tone: '熱血・ポジティブ・体育会系',
+        color: '#FF4500',
+        channel_id: '',
+        ai_personality: '熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。視聴者を仲間と呼ぶ。',
+        icon: '🦁'
+      }
+    ],
+    episodes: [],
+    schedules: []
+  };
+}
+
+// ── State ──
+let data = loadData();
+let currentCharId = null;
+let currentTab = 'plan';
+let selectedPlan = null;
+let generatedScript = '';
+let generatedMeta = null;
+
+// ── Init ──
+renderSidebar();
+
+// ── Sidebar ──
+function renderSidebar() {
+  const list = document.getElementById('charList');
+  list.innerHTML = data.characters.map(c => `
+    <div class="char-item ${c.id === currentCharId ? 'active' : ''}" onclick="selectChar('${c.id}')">
+      <div class="char-icon" style="background:${c.color}22; color:${c.color}; font-size:1.2rem;">${c.icon || '🎭'}</div>
+      <div>
+        <div class="char-name">${c.name}</div>
+        <div class="char-theme">${c.theme}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectChar(id) {
+  currentCharId = id;
+  selectedPlan = null;
+  generatedScript = '';
+  generatedMeta = null;
+  renderSidebar();
+  renderMain();
+}
+
+// ── Main ──
+function renderMain() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) return;
+
+  document.getElementById('headerSub').textContent = char.name + ' — ' + char.theme;
+  document.documentElement.style.setProperty('--char-color', char.color);
+
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `
+    <!-- Char Header -->
+    <div class="char-header">
+      <div class="char-header-icon" style="background:${char.color}22; color:${char.color};">${char.icon || '🎭'}</div>
+      <div class="char-header-info">
+        <h2>${char.name}</h2>
+        <p>${char.species} ／ ${char.tone}</p>
+        <div class="char-header-badges">
+          <span class="badge">${char.theme}</span>
+          ${char.channel_id ? `<span class="badge">CH: ${char.channel_id}</span>` : ''}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openEditChar('${char.id}')" style="margin-left:auto;">編集</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab ${currentTab==='plan'?'active':''}" onclick="switchTab('plan')">📋 企画生成</button>
+      <button class="tab ${currentTab==='script'?'active':''}" onclick="switchTab('script')">📝 台本生成</button>
+      <button class="tab ${currentTab==='meta'?'active':''}" onclick="switchTab('meta')">🎯 投稿情報</button>
+      <button class="tab ${currentTab==='schedule'?'active':''}" onclick="switchTab('schedule')">📅 スケジュール</button>
+      <button class="tab ${currentTab==='settings'?'active':''}" onclick="switchTab('settings')">⚙️ 設定</button>
+    </div>
+
+    <!-- Panel: 企画 -->
+    <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
+      <div class="card">
+        <div class="card-title">企画テーマ入力</div>
+        <div class="form-row">
+          <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣、夏までに腹筋6つ割りルーティン">
+          <button class="btn btn-primary" onclick="generatePlan()">3案生成</button>
+        </div>
+        <div id="planLoading" class="loading" style="display:none; margin-top:10px;">
+          <div class="spinner"></div><span>Claude が企画を考えています...</span>
+        </div>
+      </div>
+      <div id="planResults" class="plan-grid"></div>
+      <div id="planSelected" style="display:none;">
+        <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
+      </div>
+    </div>
+
+    <!-- Panel: 台本 -->
+    <div class="panel ${currentTab==='script'?'active':''}" id="panelScript">
+      <div class="card">
+        <div class="card-title">台本生成</div>
+        ${selectedPlan ? `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--text-muted);">
+            選択中: <strong style="color:var(--text);">${selectedPlan.title}</strong>
+          </div>
+        ` : `<p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">企画タブで企画を選択してください</p>`}
+        <div class="form-row col">
+          <label>動画の長さ（分）</label>
+          <select id="scriptLength">
+            <option value="3">3分（ショート向け）</option>
+            <option value="8" selected>8分（標準）</option>
+            <option value="15">15分（深掘り）</option>
+          </select>
+        </div>
+        <div class="form-row col" style="margin-top:10px;">
+          <label>追加指示（任意）</label>
+          <textarea id="scriptNote" placeholder="例: ギャグシーンを多めに、専門用語は避けて"></textarea>
+        </div>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="generateScript()" ${!selectedPlan?'disabled':''}>台本生成</button>
+        <div id="scriptLoading" class="loading" style="display:none; margin-top:10px;">
+          <div class="spinner"></div><span>台本を執筆中...</span>
+        </div>
+      </div>
+      <div class="card" id="scriptResultCard" style="${generatedScript?'':'display:none'}">
+        <div class="result-header">
+          <span class="result-label">生成された台本</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="copyText(generatedScript)">コピー</button>
+            <button class="btn btn-primary btn-sm" onclick="switchTab('meta')">投稿情報を生成 →</button>
+          </div>
+        </div>
+        <div class="result-box visible" id="scriptResult">${generatedScript}</div>
+      </div>
+    </div>
+
+    <!-- Panel: 投稿情報 -->
+    <div class="panel ${currentTab==='meta'?'active':''}" id="panelMeta">
+      <div class="card">
+        <div class="card-title">投稿情報生成</div>
+        <button class="btn btn-primary" onclick="generateMeta()" ${!generatedScript?'disabled':''}>タイトル・概要欄・タグを生成</button>
+        ${!generatedScript ? `<p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">先に台本を生成してください</p>` : ''}
+        <div id="metaLoading" class="loading" style="display:none; margin-top:10px;">
+          <div class="spinner"></div><span>投稿情報を最適化中...</span>
+        </div>
+      </div>
+      <div id="metaResultArea"></div>
+      ${generatedMeta ? renderMetaResult(generatedMeta) : ''}
+    </div>
+
+    <!-- Panel: スケジュール -->
+    <div class="panel ${currentTab==='schedule'?'active':''}" id="panelSchedule">
+      <div class="card">
+        <div class="card-title">月間スケジュール生成</div>
+        <div class="form-row">
+          <div style="flex:1;">
+            <label>対象月</label>
+            <input type="month" id="scheduleMonth" value="${new Date().toISOString().slice(0,7)}">
+          </div>
+          <div style="flex:1;">
+            <label>週あたり投稿数</label>
+            <select id="scheduleFreq">
+              <option value="1">週1本</option>
+              <option value="2" selected>週2本</option>
+              <option value="3">週3本</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="margin-top:18px;" onclick="generateSchedule()">生成</button>
+        </div>
+        <div id="scheduleLoading" class="loading" style="display:none; margin-top:10px;">
+          <div class="spinner"></div><span>スケジュールを作成中...</span>
+        </div>
+      </div>
+      <div id="scheduleResult"></div>
+    </div>
+
+    <!-- Panel: 設定 -->
+    <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
+      <div class="card">
+        <div class="settings-section">
+          <h3>Claude API キー</h3>
+          <div class="form-row col">
+            <input type="password" id="claudeApiKey" placeholder="sk-ant-..." value="${localStorage.getItem(API_KEY_STORAGE)||''}">
+          </div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="saveApiKey()">保存</button>
+        </div>
+        <div class="settings-section" style="margin-top:20px;">
+          <h3>YouTube 認証</h3>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;">YouTube Data API を使って投稿情報をセットします</p>
+          <button class="btn btn-secondary btn-sm" onclick="ytAuth()">Google アカウントで認証</button>
+          <span id="ytAuthStatus" style="font-size:0.78rem;color:var(--text-muted);margin-left:10px;">
+            ${localStorage.getItem(YT_TOKEN_STORAGE) ? '✅ 認証済み' : '未認証'}
+          </span>
+        </div>
+        <div class="settings-section" style="margin-top:20px;">
+          <h3>データ管理</h3>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">データをエクスポート</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="importData()">インポート</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  renderMain();
+}
+
+// ── Claude API ──
+async function callClaude(prompt) {
+  const apiKey = localStorage.getItem(API_KEY_STORAGE);
+  if (!apiKey) {
+    alert('設定タブでClaude APIキーを入力してください');
+    switchTab('settings');
+    throw new Error('No API key');
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + res.status);
+  }
+  const json = await res.json();
+  return json.content[0].text;
+}
+
+// ── 企画生成 ──
+async function generatePlan() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  const theme = document.getElementById('planTheme').value.trim();
+  if (!theme) { alert('テーマを入力してください'); return; }
+
+  document.getElementById('planLoading').style.display = 'flex';
+  document.getElementById('planResults').innerHTML = '';
+
+  const prompt = `あなたはYouTubeチャンネルの企画プロデューサーです。
+
+キャラクター情報:
+- 名前: ${char.name}
+- 種族: ${char.species}
+- テーマ: ${char.theme}
+- トーン: ${char.tone}
+- AI人格: ${char.ai_personality}
+
+テーマキーワード: ${theme}
+
+このキャラクターのYouTube動画企画を3案、以下のJSON形式で出力してください。
+他のテキストは不要です。JSONのみ出力してください。
+
+[
+  {
+    "label": "案A（王道）",
+    "title": "動画タイトル案",
+    "description": "企画の内容・見どころ（2〜3文）",
+    "hook": "冒頭30秒のつかみ案"
+  },
+  {
+    "label": "案B（連携・コラボ）",
+    "title": "動画タイトル案",
+    "description": "企画の内容・見どころ（2〜3文）",
+    "hook": "冒頭30秒のつかみ案"
+  },
+  {
+    "label": "案C（枠超え・挑戦）",
+    "title": "動画タイトル案",
+    "description": "企画の内容・見どころ（2〜3文）",
+    "hook": "冒頭30秒のつかみ案"
+  }
+]`;
+
+  try {
+    const text = await callClaude(prompt);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const plans = JSON.parse(jsonMatch[0]);
+
+    document.getElementById('planLoading').style.display = 'none';
+    document.getElementById('planResults').innerHTML = plans.map((p, i) => `
+      <div class="plan-card" id="planCard${i}" onclick="selectPlan(${i}, ${JSON.stringify(p).replace(/"/g,'&quot;')})">
+        <div class="plan-card-label">${p.label}</div>
+        <div class="plan-card-title">${p.title}</div>
+        <div class="plan-card-desc">${p.description}</div>
+        <div style="margin-top:8px;font-size:0.75rem;color:var(--char-color);">つかみ: ${p.hook}</div>
+      </div>
+    `).join('');
+    document.getElementById('planSelected').style.display = 'none';
+  } catch (e) {
+    document.getElementById('planLoading').style.display = 'none';
+    document.getElementById('planResults').innerHTML = `<div style="color:#e55;font-size:0.82rem;padding:10px;">エラー: ${e.message}</div>`;
+  }
+}
+
+function selectPlan(i, plan) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan-card').forEach((el, j) => {
+    el.classList.toggle('selected', i === j);
+  });
+  document.getElementById('planSelected').style.display = 'block';
+}
+
+// ── 台本生成 ──
+async function generateScript() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  const length = document.getElementById('scriptLength').value;
+  const note = document.getElementById('scriptNote').value;
+
+  document.getElementById('scriptLoading').style.display = 'flex';
+
+  const prompt = `あなたはYouTube台本ライターです。
+
+キャラクター情報:
+- 名前: ${char.name}（${char.species}）
+- テーマ: ${char.theme}
+- トーン・口調: ${char.tone}
+- AI人格: ${char.ai_personality}
+
+企画:
+タイトル案: ${selectedPlan.title}
+内容: ${selectedPlan.description}
+つかみ: ${selectedPlan.hook}
+
+動画の長さ: 約${length}分
+追加指示: ${note || 'なし'}
+
+以下の構成で台本を作成してください:
+【オープニング】（${Math.ceil(length*0.15)}分）
+【本編】（${Math.ceil(length*0.7)}分）
+【まとめ・CTA】（${Math.ceil(length*0.15)}分）
+
+${char.name}のキャラクターらしい口調・テンションで書いてください。
+ナレーション部分と映像指示（括弧書き）を区別して書いてください。`;
+
+  try {
+    generatedScript = await callClaude(prompt);
+    document.getElementById('scriptLoading').style.display = 'none';
+
+    const card = document.getElementById('scriptResultCard');
+    if (card) {
+      card.style.display = 'block';
+      document.getElementById('scriptResult').textContent = generatedScript;
+    } else {
+      switchTab('script');
+    }
+  } catch(e) {
+    document.getElementById('scriptLoading').style.display = 'none';
+    alert('エラー: ' + e.message);
+  }
+}
+
+// ── 投稿情報生成 ──
+async function generateMeta() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  document.getElementById('metaLoading').style.display = 'flex';
+
+  const prompt = `以下の台本を元に、YouTube投稿情報を生成してください。
+
+キャラクター: ${char.name}（${char.theme}）
+
+台本（抜粋）:
+${generatedScript.slice(0, 800)}...
+
+以下のJSON形式で出力してください（他のテキスト不要）:
+{
+  "title": "クリックされやすいタイトル（30文字以内）",
+  "title_alt": "代替タイトル案",
+  "description": "概要欄（検索SEOを意識・400文字程度）",
+  "tags": ["タグ1", "タグ2", "タグ3", "タグ4", "タグ5", "タグ6", "タグ7", "タグ8"],
+  "hashtags": ["#ハッシュタグ1", "#ハッシュタグ2", "#ハッシュタグ3"],
+  "thumbnail_idea": "サムネイル画像のアイデア（1文）",
+  "best_post_time": "投稿に最適な曜日・時間帯"
+}`;
+
+  try {
+    const text = await callClaude(prompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    generatedMeta = JSON.parse(jsonMatch[0]);
+    document.getElementById('metaLoading').style.display = 'none';
+    document.getElementById('metaResultArea').innerHTML = renderMetaResult(generatedMeta);
+  } catch(e) {
+    document.getElementById('metaLoading').style.display = 'none';
+    alert('エラー: ' + e.message);
+  }
+}
+
+function renderMetaResult(meta) {
+  if (!meta) return '';
+  return `
+    <div class="card">
+      <div class="result-header">
+        <span class="result-label">投稿情報</span>
+        <button class="btn btn-secondary btn-sm" onclick="copyMeta()">全コピー</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px;">
+        <div>
+          <label>タイトル（推奨）</label>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;font-size:0.95rem;">${meta.title}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">代替案: ${meta.title_alt}</div>
+        </div>
+        <div>
+          <label>概要欄</label>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:0.82rem;line-height:1.7;white-space:pre-wrap;">${meta.description}</div>
+        </div>
+        <div>
+          <label>タグ</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${meta.tags.map(t => `<span class="badge">${t}</span>`).join('')}</div>
+        </div>
+        <div>
+          <label>ハッシュタグ</label>
+          <div style="font-size:0.88rem;color:var(--char-color);">${meta.hashtags.join(' ')}</div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:0.8rem;">
+          <div><span style="color:var(--text-muted);">サムネ案: </span>${meta.thumbnail_idea}</div>
+          <div><span style="color:var(--text-muted);">最適投稿時間: </span>${meta.best_post_time}</div>
+        </div>
+        <button class="btn btn-primary" onclick="pushToYoutube()">▶ YouTubeにセット</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── スケジュール生成 ──
+async function generateSchedule() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  const month = document.getElementById('scheduleMonth').value;
+  const freq = document.getElementById('scheduleFreq').value;
+
+  document.getElementById('scheduleLoading').style.display = 'flex';
+
+  const prompt = `${char.name}（${char.theme}）のYouTubeチャンネル用に、${month}の月間投稿スケジュールを作成してください。
+
+週${freq}本のペースで、バランスよくテーマを配置してください。
+
+以下のJSON形式で出力してください（他のテキスト不要）:
+[
+  {"date": "YYYY-MM-DD", "episode": 1, "theme": "テーマ", "title_idea": "タイトルアイデア"},
+  ...
+]`;
+
+  try {
+    const text = await callClaude(prompt);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const schedule = JSON.parse(jsonMatch[0]);
+    document.getElementById('scheduleLoading').style.display = 'none';
+    document.getElementById('scheduleResult').innerHTML = `
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">${month} 投稿スケジュール（${schedule.length}本）</div>
+        <div class="schedule-grid">
+          ${schedule.map(s => `
+            <div class="schedule-item">
+              <div class="schedule-date">${s.date.slice(5)} EP${s.episode}</div>
+              <div style="font-size:0.82rem;margin-bottom:2px;">${s.title_idea}</div>
+              <div class="schedule-ep">${s.theme}</div>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="copyText(${JSON.stringify(JSON.stringify(schedule, null, 2))})">JSONコピー</button>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('scheduleLoading').style.display = 'none';
+    alert('エラー: ' + e.message);
+  }
+}
+
+// ── YouTube API ──
+function ytAuth() {
+  const clientId = prompt('Google Cloud Console のクライアントID を入力してください:');
+  if (!clientId) return;
+  localStorage.setItem('channelos_yt_client_id', clientId);
+  const redirectUri = location.href.split('?')[0];
+  const scope = encodeURIComponent('https://www.googleapis.com/auth/youtube.force-ssl');
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+  window.open(url, '_blank');
+  alert('認証後、アクセストークンをURLの #access_token= 以降からコピーして次のダイアログに貼り付けてください');
+  const token = prompt('アクセストークンを貼り付けてください:');
+  if (token) {
+    localStorage.setItem(YT_TOKEN_STORAGE, token);
+    alert('YouTube認証完了');
+    renderMain();
+  }
+}
+
+async function pushToYoutube() {
+  const token = localStorage.getItem(YT_TOKEN_STORAGE);
+  if (!token) { alert('設定タブでYouTube認証を行ってください'); switchTab('settings'); return; }
+  if (!generatedMeta) { alert('先に投稿情報を生成してください'); return; }
+
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char.channel_id) { alert('キャラクターのチャンネルIDを設定してください（編集ボタンから）'); return; }
+
+  try {
+    const body = {
+      snippet: {
+        title: generatedMeta.title,
+        description: generatedMeta.description + '\n\n' + generatedMeta.hashtags.join(' '),
+        tags: generatedMeta.tags,
+        defaultLanguage: 'ja'
+      }
+    };
+    alert('YouTube Data APIへの投稿情報セット機能：\n\n実際の動画アップロード後、YouTube Studioで以下をコピー&ペーストしてください。\n\nタイトル: ' + generatedMeta.title + '\n\n（コピーボタンで全情報をコピー済み）');
+    copyMeta();
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  }
+}
+
+// ── Character CRUD ──
+function openAddCharModal() {
+  document.getElementById('addCharModal').classList.add('open');
+}
+function closeAddCharModal() {
+  document.getElementById('addCharModal').classList.remove('open');
+}
+function saveNewChar() {
+  const name = document.getElementById('newCharName').value.trim();
+  if (!name) { alert('キャラクター名を入力してください'); return; }
+  const icons = ['🐯','🐻','🐼','🦊','🐺','🦅','🐬','🦄','🐲','🎭'];
+  const newChar = {
+    id: 'char_' + Date.now(),
+    name,
+    species: document.getElementById('newCharSpecies').value.trim(),
+    theme: document.getElementById('newCharTheme').value.trim(),
+    tone: document.getElementById('newCharTone').value.trim(),
+    color: document.getElementById('newCharColor').value,
+    channel_id: document.getElementById('newCharChannelId').value.trim(),
+    ai_personality: document.getElementById('newCharPersonality').value.trim(),
+    icon: icons[Math.floor(Math.random() * icons.length)]
+  };
+  data.characters.push(newChar);
+  saveData(data);
+  closeAddCharModal();
+  renderSidebar();
+  selectChar(newChar.id);
+}
+
+function openEditChar(id) {
+  const char = data.characters.find(c => c.id === id);
+  document.getElementById('newCharName').value = char.name;
+  document.getElementById('newCharSpecies').value = char.species;
+  document.getElementById('newCharTheme').value = char.theme;
+  document.getElementById('newCharTone').value = char.tone;
+  document.getElementById('newCharColor').value = char.color;
+  document.getElementById('newCharChannelId').value = char.channel_id || '';
+  document.getElementById('newCharPersonality').value = char.ai_personality || '';
+  const modal = document.getElementById('addCharModal');
+  modal.querySelector('h2').textContent = '🎭 キャラクターを編集';
+  modal.querySelector('.btn-primary').onclick = () => updateChar(id);
+  modal.classList.add('open');
+}
+
+function updateChar(id) {
+  const char = data.characters.find(c => c.id === id);
+  char.name = document.getElementById('newCharName').value.trim();
+  char.species = document.getElementById('newCharSpecies').value.trim();
+  char.theme = document.getElementById('newCharTheme').value.trim();
+  char.tone = document.getElementById('newCharTone').value.trim();
+  char.color = document.getElementById('newCharColor').value;
+  char.channel_id = document.getElementById('newCharChannelId').value.trim();
+  char.ai_personality = document.getElementById('newCharPersonality').value.trim();
+  saveData(data);
+  closeAddCharModal();
+  renderSidebar();
+  renderMain();
+}
+
+// ── Utilities ──
+function saveApiKey() {
+  const key = document.getElementById('claudeApiKey').value.trim();
+  localStorage.setItem(API_KEY_STORAGE, key);
+  alert('APIキーを保存しました');
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => alert('コピーしました')).catch(() => alert('コピー失敗'));
+}
+
+function copyMeta() {
+  if (!generatedMeta) return;
+  const text = `【タイトル】\n${generatedMeta.title}\n\n【概要欄】\n${generatedMeta.description}\n\n${generatedMeta.hashtags.join(' ')}\n\n【タグ】\n${generatedMeta.tags.join(', ')}\n\n【サムネイルアイデア】\n${generatedMeta.thumbnail_idea}\n\n【最適投稿時間】\n${generatedMeta.best_post_time}`;
+  copyText(text);
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'channelos-backup.json';
+  a.click();
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        data = JSON.parse(ev.target.result);
+        saveData(data);
+        renderSidebar();
+        currentCharId = null;
+        document.getElementById('mainArea').innerHTML = '<div class="empty"><div class="empty-icon">✅</div><h3>インポート完了</h3></div>';
+      } catch { alert('ファイルの読み込みに失敗しました'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+</script>
+</body>
+</html>
