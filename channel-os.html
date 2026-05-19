@@ -220,6 +220,16 @@ function loadData() {
   } catch { return defaultData(); }
 }
 
+// キャラが空のlocalStorageは強制リセット
+(function() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && (!saved.characters || saved.characters.length === 0)) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch(e) { localStorage.removeItem(STORAGE_KEY); }
+})();
+
 let data          = loadData();
 let currentCharId = null;
 let currentTab    = 'plan';
