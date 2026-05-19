@@ -757,8 +757,8 @@ function handleDrop(e) {
 
 async function uploadFiles(files) {
   const token    = localStorage.getItem(GD_TOKEN_SK);
-  const folderId = localStorage.getItem(GD_FOLDER_SK);
-  if (!token || !folderId) { alert('設定タブでGoogle Drive認証とフォルダIDを設定してください'); switchTab('settings'); return; }
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  if (!token) { alert('設定タブでGoogle Drive認証を行ってください'); switchTab('settings'); return; }
   const prog = document.getElementById('uploadProgress');
   const msg  = document.getElementById('uploadMsg');
   prog.style.display = 'flex';
