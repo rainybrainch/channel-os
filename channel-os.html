@@ -658,17 +658,20 @@ function pickAsset(target) {
   switchTab('assets');
 }
 
-function useAssetInScene(asset) {
+function useAssetInScene(idx) {
+  const asset = driveAssets[idx];
+  if (!asset) return;
+  const url = asset.blobUrl;
+  if (!url) { alert('画像をロード中です。少し待ってから再度お試しください。'); return; }
   const img = new Image();
-  img.crossOrigin = 'anonymous';
   img.onload = () => {
-    if (assetPickTarget === 'bg') { sceneBg = { url: asset.url, name: asset.name, img }; }
-    else { sceneChar = { url: asset.url, name: asset.name, img, scale: 0.5 }; }
+    if (assetPickTarget === 'bg') { sceneBg = { url, name: asset.name, img }; }
+    else { sceneChar = { url, name: asset.name, img, scale: 0.5 }; }
     assetPickTarget = null;
     switchTab('scene');
+    drawScene();
   };
-  img.onerror = () => alert('画像の読み込みに失敗しました。CORSの問題の可能性があります。');
-  img.src = asset.url;
+  img.src = url;
 }
 
 // ════════════════════════════════════
@@ -722,28 +725,40 @@ async function loadDriveAssets() {
     if (res.status === 401) { localStorage.removeItem(GD_TOKEN_SK); grid.innerHTML = `<p style="font-size:.8rem;color:#e55;">認証切れです。再度ログインしてください</p>`; return; }
     const json = await res.json();
     driveAssets = (json.files || []).map(f => ({
-      id: f.id, name: f.name,
-      url: `https://drive.google.com/uc?export=view&id=${f.id}`,
-      thumb: f.thumbnailLink || '',
-      mimeType: f.mimeType
+      id: f.id, name: f.name, mimeType: f.mimeType, blobUrl: null
     }));
     renderAssetGrid();
+    // サムネをBlobURLで非同期ロード（CORS回避）
+    driveAssets.forEach((a, i) => loadDriveThumb(a, i, token));
   } catch(e) {
     grid.innerHTML = `<p style="font-size:.8rem;color:#e55;">エラー: ${e.message}</p>`;
   }
+}
+
+async function loadDriveThumb(asset, idx, token) {
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${asset.id}?alt=media`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    driveAssets[idx].blobUrl = url;
+    const img = document.getElementById(`asset-img-${idx}`);
+    if (img) img.src = url;
+  } catch(e) { /* サムネ失敗は無視 */ }
 }
 
 function renderAssetGrid() {
   const grid = document.getElementById('assetGrid');
   if (!grid) return;
   if (!driveAssets.length) { grid.innerHTML = `<p style="font-size:.8rem;color:var(--text-muted);">素材がありません。上からアップロードしてください</p>`; return; }
-  grid.innerHTML = driveAssets.map(a => `
-    <div class="asset-card" onclick="useAssetInScene(${JSON.stringify(a).replace(/"/g,'&quot;')})">
+  grid.innerHTML = driveAssets.map((a, i) => `
+    <div class="asset-card" onclick="useAssetInScene(${i})">
       <div class="asset-thumb">
-        ${a.thumb ? `<img src="${a.thumb}" style="width:100%;height:100%;object-fit:cover;">` : '🖼'}
+        <img id="asset-img-${i}" src="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">
       </div>
       <div class="asset-name">${escHtml(a.name)}</div>
-      <button class="asset-use-btn" onclick="event.stopPropagation();useAssetInScene(${JSON.stringify(a).replace(/"/g,'&quot;')})">使う</button>
+      <button class="asset-use-btn" onclick="event.stopPropagation();useAssetInScene(${i})">使う</button>
     </div>`).join('');
 }
 
