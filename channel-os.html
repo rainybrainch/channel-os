@@ -150,7 +150,8 @@
 <header>
   <h1>🎬 RBAI Channel OS</h1>
   <span id="headerSub">キャラクターを選択してください</span>
-  <span id="saveIndicator" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">☁️ 保存済</span>
+  <span id="syncStatus" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);">— Drive未確認</span>
+  <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
   <button onclick="switchTab('settings')" style="margin-left:12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️ 設定</button>
 </header>
 
@@ -357,28 +358,35 @@ async function autoSaveToDrive() {
       if (res) { const j = await res.json(); sharedFileId = j.id; }
     }
     showSaveIndicator();
-  } catch(e) { /* 保存失敗は無視 */ }
+    setSyncStatus('ok', `保存済 (${(data.episodes||[]).length}プロジェクト)`);
+  } catch(e) { setSyncStatus('error', `保存失敗: ${e.message}`); }
+}
+
+function setSyncStatus(status, msg) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const icons = { ok:'☁️', error:'⚠️', loading:'🔄', none:'—' };
+  el.textContent = `${icons[status]||''} ${msg}`;
+  el.style.color = status === 'error' ? '#e55' : status === 'ok' ? '#4caf50' : 'var(--text-muted)';
 }
 
 async function loadFromDrive() {
   const token = localStorage.getItem(GD_TOKEN_SK);
-  if (!token) return;
+  if (!token) { setSyncStatus('none', 'Drive未接続'); return; }
+  setSyncStatus('loading', '同期中...');
   try {
     if (!sharedFileId) sharedFileId = await findSharedFile();
-    if (!sharedFileId) { await autoSaveToDrive(); return; }
+    if (!sharedFileId) { await autoSaveToDrive(); setSyncStatus('ok', '新規作成完了'); return; }
     const res = await driveRequest(`https://www.googleapis.com/drive/v3/files/${sharedFileId}?alt=media`);
-    if (!res) return;
+    if (!res) { setSyncStatus('error', '読込失敗（認証切れ？）'); return; }
     const remote = await res.json();
-    if (!remote || !remote.characters) return;
-    // キャラはDriveを正とする。episodesはローカルとマージ（IDベース）
+    if (!remote || !remote.characters) { setSyncStatus('error', 'データ破損'); return; }
     const localEpisodes = data.episodes || [];
     data = remote;
     data.episodes = data.episodes || [];
-    // ローカルにあってDriveにないエピソードを追加（ローカル作業が消えないように）
     localEpisodes.forEach(local => {
       if (!data.episodes.find(e => e.id === local.id)) data.episodes.push(local);
     });
-    // デフォルトキャラフィールド補完
     defaultData().characters.forEach(def => {
       const existing = data.characters.find(c => c.id === def.id);
       if (!existing) {
@@ -392,8 +400,11 @@ async function loadFromDrive() {
     saveData(data);
     renderSidebar();
     if (currentCharId) renderMain();
-    showToast('☁️ Driveからデータを同期しました');
-  } catch(e) { /* 失敗は無視 */ }
+    const epCount = (data.episodes||[]).length;
+    setSyncStatus('ok', `同期完了 (${epCount}プロジェクト)`);
+  } catch(e) {
+    setSyncStatus('error', `エラー: ${e.message}`);
+  }
 }
 
 function showSaveIndicator() {
