@@ -372,10 +372,6 @@ let sceneCanvas, sceneCtx;
 // Assets (Drive + local cache)
 let driveAssets   = [];  // [{id, name, url, type:'char'|'bg'|'other', mimeType}]
 
-// ════════════════════════════════════
-//  Init
-// ════════════════════════════════════
-renderSidebar();
 window.addEventListener('message', handleOAuthCallback);
 
 // ════════════════════════════════════
@@ -1238,6 +1234,9 @@ function importData() {
   input.click();
 }
 function handleOAuthCallback(e) { /* handled via location.hash above */ }
+
+// ── 起動 ──
+renderSidebar();
 </script>
 </body>
 </html>
