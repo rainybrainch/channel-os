@@ -1106,7 +1106,7 @@ function gdAuth() {
   const clientId = document.getElementById('gdClientId').value.trim() || localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
   if (!clientId) { alert('クライアントIDを入力してください'); return; }
   localStorage.setItem(GD_CLIENT_SK, clientId);
-  const redirect = encodeURIComponent(location.href.split('?')[0].split('#')[0]);
+  const redirect = encodeURIComponent('https://rainybrainch.github.io/channel-os/');
   const scope    = encodeURIComponent('https://www.googleapis.com/auth/drive.file');
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=token&scope=${scope}&prompt=consent`;
   window.location.href = url;
