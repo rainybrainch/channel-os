@@ -198,22 +198,26 @@ const GD_TOKEN_SK   = 'channelos_gd_token';
 const GD_CLIENT_SK  = 'channelos_gd_client_id';
 const GD_FOLDER_SK  = 'channelos_gd_folder_id';
 
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData(); }
-  catch { return defaultData(); }
-}
 function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
 function defaultData() {
   return {
     characters: [{
       id: 'gaoru', name: 'ガオル', species: 'ライオン（筋トレ）',
       theme: '筋トレ・フィットネス', tone: '熱血・ポジティブ・体育会系',
-      color: '#FF4500', channel_id: '',
+      color: '#FF4500', channel_id: 'UC39C9TLzlPxvFv6Radzgbcw',
       ai_personality: '熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。視聴者を仲間と呼ぶ。',
       icon: '🦁', avatar_url: ''
     }],
     episodes: [], schedules: [], assets: []
   };
+}
+
+function loadData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || !saved.characters || saved.characters.length === 0) return defaultData();
+    return saved;
+  } catch { return defaultData(); }
 }
 
 let data          = loadData();
