@@ -530,6 +530,10 @@ function switchTab(tab) {
     const char = data.characters.find(c => c.id === currentCharId);
     if (char) { const sp = document.getElementById('panelScript'); if (sp) sp.outerHTML = renderScriptPanel(char); }
   }
+  if (tab === 'meta') {
+    const char = data.characters.find(c => c.id === currentCharId);
+    if (char) { const mp = document.getElementById('panelMeta'); if (mp) mp.outerHTML = renderMetaPanel(char); }
+  }
 }
 
 // ════════════════════════════════════
