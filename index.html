@@ -676,13 +676,12 @@ function useAssetInScene(asset) {
 // ════════════════════════════════════
 function renderAssetsPanel() {
   const hasToken  = !!localStorage.getItem(GD_TOKEN_SK);
-  const hasFolder = !!localStorage.getItem(GD_FOLDER_SK);
   return `
   <div class="panel ${currentTab==='assets'?'active':''}" id="panelAssets">
-    ${!hasToken || !hasFolder ? `
+    ${!hasToken ? `
     <div class="card" style="border-color:var(--char-color);">
-      <div class="card-title">⚠️ Google Drive 未設定</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;">設定タブでGoogle Drive認証とフォルダIDを設定してください</p>
+      <div class="card-title">⚠️ Google Drive 未接続</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;">設定タブでGoogle Driveに接続してください</p>
       <button class="btn btn-primary btn-sm" onclick="switchTab('settings')">設定へ →</button>
     </div>` : ''}
     <div class="card">
