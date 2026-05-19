@@ -181,6 +181,7 @@
     <div class="form-row col"><label>シンボルカラー</label><input type="color" id="newCharColor" value="#FF4500" style="height:40px;cursor:pointer;"></div>
     <div class="form-row col"><label>AI人格メモ</label><textarea id="newCharPersonality" placeholder="例: 熱血で前向きなライオン。ギャグ多め。" style="min-height:60px;"></textarea></div>
     <div class="form-row col"><label>YouTubeチャンネルID（任意）</label><input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxx"></div>
+    <div class="form-row col"><label>Google DriveフォルダID（任意）</label><input type="text" id="newCharFolderId" placeholder="1ABCxyz...（DriveのフォルダURLの末尾）"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addCharModal')">キャンセル</button>
       <button class="btn btn-primary" id="modalSaveBtn" onclick="saveNewChar()">追加</button>
@@ -1210,7 +1211,7 @@ function openAddCharModal() {
   editingCharId = null;
   document.getElementById('modalTitle').textContent = '🎭 新しいキャラクターを追加';
   document.getElementById('modalSaveBtn').onclick = saveNewChar;
-  ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality'].forEach(id => document.getElementById(id).value = '');
+  ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality','newCharFolderId'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('newCharColor').value = '#c9a84c';
   openModal('addCharModal');
 }
@@ -1227,6 +1228,7 @@ function openEditChar(id) {
   document.getElementById('newCharColor').value       = char.color;
   document.getElementById('newCharChannelId').value   = char.channel_id || '';
   document.getElementById('newCharPersonality').value = char.ai_personality || '';
+  document.getElementById('newCharFolderId').value    = char.drive_folder_id || '';
   openModal('addCharModal');
 }
 
@@ -1242,7 +1244,8 @@ function saveNewChar() {
     color:         document.getElementById('newCharColor').value,
     channel_id:    document.getElementById('newCharChannelId').value.trim(),
     ai_personality:document.getElementById('newCharPersonality').value.trim(),
-    icon: icons[Math.floor(Math.random()*icons.length)], avatar_url: ''
+    icon: icons[Math.floor(Math.random()*icons.length)], avatar_url: '',
+    drive_folder_id: document.getElementById('newCharFolderId').value.trim()
   });
   saveData(data);
   closeModal('addCharModal');
@@ -1258,7 +1261,8 @@ function updateChar() {
   char.tone           = document.getElementById('newCharTone').value.trim();
   char.color          = document.getElementById('newCharColor').value;
   char.channel_id     = document.getElementById('newCharChannelId').value.trim();
-  char.ai_personality = document.getElementById('newCharPersonality').value.trim();
+  char.ai_personality  = document.getElementById('newCharPersonality').value.trim();
+  char.drive_folder_id = document.getElementById('newCharFolderId').value.trim();
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
