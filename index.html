@@ -479,64 +479,100 @@ function renderMetaResult(meta) {
 }
 
 // ════════════════════════════════════
-//  Scene Composer Panel
+//  Scene / Image Prompt Panel
 // ════════════════════════════════════
 function renderScenePanel() {
-  const bgName   = sceneBg   ? sceneBg.name   : '未選択';
-  const charName = sceneChar ? sceneChar.name : '未選択';
   return `
   <div class="panel ${currentTab==='scene'?'active':''}" id="panelScene">
     <div class="card">
-      <div class="card-title">シーンコンポーザー</div>
-      <div class="format-toggle" style="margin-bottom:12px;">
-        <button class="format-btn ${sceneFormat==='horizontal'?'active':''}" onclick="setFormat('horizontal')">▬ 横動画 16:9</button>
-        <button class="format-btn ${sceneFormat==='shorts'?'active':''}" onclick="setFormat('shorts')">▮ ショート 9:16</button>
-      </div>
-      <div class="scene-layout">
-        <div class="canvas-wrap">
-          <canvas id="sceneCanvas"></canvas>
+      <div class="card-title">🎨 画像生成プロンプト作成</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;">台本・投稿情報から、Midjourney / ChatGPT / Stable Diffusion 用のプロンプトをClaudeが自動生成します。</p>
+      <div class="form-row" style="margin-bottom:10px;">
+        <div style="flex:1;"><label>用途</label>
+          <select id="sceneUse">
+            <option value="thumbnail">サムネイル</option>
+            <option value="bg_horizontal">背景（横動画 16:9）</option>
+            <option value="bg_shorts">背景（ショート 9:16）</option>
+            <option value="character">キャラクター立ち絵</option>
+          </select>
         </div>
-        <div class="scene-controls">
-          <div class="card-title">レイヤー</div>
-          <div class="layer-item">
-            <div style="font-size:1.2rem;">🖼</div>
-            <div style="flex:1;font-size:.78rem;">背景: <span style="color:var(--char-color);">${bgName}</span></div>
-            <button class="btn btn-secondary btn-sm" onclick="pickAsset('bg')">選択</button>
-          </div>
-          <div class="layer-item">
-            <div style="font-size:1.2rem;">🦁</div>
-            <div style="flex:1;font-size:.78rem;">キャラ: <span style="color:var(--char-color);">${charName}</span></div>
-            <button class="btn btn-secondary btn-sm" onclick="pickAsset('char')">選択</button>
-          </div>
-          <div style="border-top:1px solid var(--border);padding-top:10px;">
-            <div class="card-title">テキスト追加</div>
-            <input type="text" id="sceneTextInput" placeholder="テロップ・タイトル" style="margin-bottom:6px;">
-            <div class="form-row" style="margin-bottom:6px;">
-              <input type="number" id="sceneTextSize" value="48" style="width:70px;" min="12" max="200">
-              <input type="color" id="sceneTextColor" value="#ffffff" style="height:36px;cursor:pointer;">
-            </div>
-            <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="addSceneText()">テキスト追加</button>
-          </div>
-          ${sceneTexts.length ? `
-          <div>
-            <div class="card-title">テキスト一覧</div>
-            ${sceneTexts.map((t,i) => `
-              <div class="layer-item" style="margin-bottom:4px;">
-                <div style="flex:1;font-size:.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(t.text)}</div>
-                <button class="btn btn-secondary btn-sm" onclick="removeText(${i})">✕</button>
-              </div>`).join('')}
-          </div>` : ''}
-          <div style="border-top:1px solid var(--border);padding-top:10px;">
-            <div class="card-title">書き出し</div>
-            <div class="export-btns">
-              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportPNG()">PNG</button>
-              <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="exportWebM()">WebM（無音）</button>
-            </div>
-            <p style="font-size:.7rem;color:var(--text-muted);margin-top:6px;">WebMはCapCut/DaVinciで音を付けてください</p>
-          </div>
+        <div style="flex:1;"><label>AIツール</label>
+          <select id="sceneTool">
+            <option value="midjourney">Midjourney</option>
+            <option value="chatgpt">ChatGPT（DALL·E）</option>
+            <option value="stable">Stable Diffusion</option>
+          </select>
         </div>
       </div>
+      <div style="margin-bottom:10px;"><label>追加指示（任意）</label>
+        <input type="text" id="sceneExtra" placeholder="例: 夕暮れの体育館、アニメ風">
+      </div>
+      <button class="btn btn-primary" onclick="generateImagePrompt()">プロンプト生成</button>
+      <div id="sceneLoading" class="loading" style="display:none;margin-top:10px;"><div class="spinner"></div><span>生成中...</span></div>
     </div>
+    <div id="sceneResults"></div>
+  </div>`;
+}
+
+async function generateImagePrompt() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  const use  = document.getElementById('sceneUse').value;
+  const tool = document.getElementById('sceneTool').value;
+  const extra = document.getElementById('sceneExtra').value.trim();
+  const apiKey = localStorage.getItem('channelos_claude_api_key');
+  if (!apiKey) { alert('設定タブでClaude APIキーを入力してください'); return; }
+
+  const useLabel = { thumbnail:'サムネイル', bg_horizontal:'背景（横動画）', bg_shorts:'背景（ショート）', character:'キャラクター立ち絵' }[use];
+  const toolLabel = { midjourney:'Midjourney', chatgpt:'ChatGPT（DALL·E）', stable:'Stable Diffusion' }[tool];
+
+  const context = [
+    selectedPlan ? `企画: ${selectedPlan.title} — ${selectedPlan.description}` : '',
+    generatedScript ? `台本抜粋: ${generatedScript.slice(0,300)}` : '',
+    generatedMeta ? `サムネ案: ${generatedMeta.thumbnail_idea}` : ''
+  ].filter(Boolean).join('\n');
+
+  const prompt = `あなたは画像生成AIのプロンプトエンジニアです。
+キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
+${context}
+用途: ${useLabel}
+AIツール: ${toolLabel}
+${extra ? `追加指示: ${extra}` : ''}
+
+以下のJSON形式のみ出力（他テキスト不要）:
+{"ja":"日本語での画像説明","en":"English prompt for ${toolLabel}","tips":"使い方のコツ（1〜2行）"}`;
+
+  document.getElementById('sceneLoading').style.display = 'flex';
+  document.getElementById('sceneResults').innerHTML = '';
+  try {
+    const text = await callClaude(prompt);
+    const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    document.getElementById('sceneLoading').style.display = 'none';
+    document.getElementById('sceneResults').innerHTML = `
+    <div class="card">
+      <div class="card-title">${useLabel} — ${toolLabel}</div>
+      <div style="margin-bottom:12px;">
+        <label>日本語メモ</label>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.7;">${escHtml(result.ja)}</div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label>生成プロンプト（コピーして使用）</label>
+        <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:.85rem;font-family:monospace;line-height:1.6;cursor:pointer;" onclick="copyText('${escHtml(result.en).replace(/'/g,"\\'")}', this)">${escHtml(result.en)}<br><span style="font-size:.7rem;color:var(--text-muted);">クリックでコピー</span></div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;">💡 ${escHtml(result.tips)}</div>
+    </div>`;
+  } catch(e) {
+    document.getElementById('sceneLoading').style.display = 'none';
+    document.getElementById('sceneResults').innerHTML = `<div style="color:#e55;font-size:.82rem;padding:10px;">エラー: ${e.message}</div>`;
+  }
+}
+
+function copyText(text, el) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.querySelector('span').textContent;
+    el.querySelector('span').textContent = 'コピーしました！';
+    setTimeout(() => { el.querySelector('span').textContent = orig; }, 1500);
+  });
+}
   </div>`;
 }
 
