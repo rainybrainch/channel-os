@@ -502,38 +502,45 @@ function renderMain() {
 
 function switchTab(tab) {
   currentTab = tab;
-  // 設定はヘッダーボタンから開く専用パネル
+  const char = data.characters.find(c => c.id === currentCharId);
+
+  // 設定：ヘッダーボタン専用
   if (tab === 'settings') {
-    const main = document.getElementById('mainArea');
-    // キャラ未選択時は設定画面を直接表示
     if (!currentCharId) {
-      main.innerHTML = renderSettingsPanel();
-      return;
+      document.getElementById('mainArea').innerHTML = renderSettingsPanel();
+    } else {
+      const el = document.getElementById('panelSettings');
+      if (el) el.outerHTML = renderSettingsPanel();
+      ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
+        const p = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (p) p.classList.toggle('active', t === 'settings');
+      });
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     }
-    // キャラ選択済みの場合は既存パネルを切り替え
-    ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
-      const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
-      if (el) el.classList.toggle('active', t === tab);
-    });
-    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     return;
   }
-  // タブボタンのactive切り替え
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール'}[tab]||'')));
-  // パネルのactive切り替え
+
+  // 各パネルを最新状態で再描画してからアクティブ化
+  if (char) {
+    const renders = {
+      plan:     () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); },
+      script:   () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
+      meta:     () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); },
+      assets:   () => { loadDriveAssets(); },
+      scene:    () => { setTimeout(initCanvas, 50); },
+    };
+    if (renders[tab]) renders[tab]();
+  }
+
+  // タブボタンactive
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active',
+    b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール'}[tab]||'__none__')
+  ));
+  // パネルactive
   ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
     if (el) el.classList.toggle('active', t === tab);
   });
-  if (tab === 'assets') loadDriveAssets();
-  if (tab === 'script') {
-    const char = data.characters.find(c => c.id === currentCharId);
-    if (char) { const sp = document.getElementById('panelScript'); if (sp) sp.outerHTML = renderScriptPanel(char); }
-  }
-  if (tab === 'meta') {
-    const char = data.characters.find(c => c.id === currentCharId);
-    if (char) { const mp = document.getElementById('panelMeta'); if (mp) mp.outerHTML = renderMetaPanel(char); }
-  }
 }
 
 // ════════════════════════════════════
@@ -663,10 +670,7 @@ ${isShorts ? `【構成】
     generatedScript = await callClaude(prompt);
     document.getElementById('scriptLoading').style.display = 'none';
     saveCurrentEpisode();
-    // 台本パネルを再描画してから切り替え
-    const char2 = data.characters.find(c => c.id === currentCharId);
-    const sp = document.getElementById('panelScript');
-    if (sp) sp.outerHTML = renderScriptPanel(char2);
+    // 再描画してアクティブ化（switchTabは再描画するので直接呼ぶ）
     switchTab('script');
   } catch(e) {
     document.getElementById('scriptLoading').style.display = 'none';
