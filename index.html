@@ -617,6 +617,10 @@ ${isShorts ? `【構成】
     generatedScript = await callClaude(prompt);
     document.getElementById('scriptLoading').style.display = 'none';
     saveCurrentEpisode();
+    // 台本パネルを再描画してから切り替え
+    const char2 = data.characters.find(c => c.id === currentCharId);
+    const sp = document.getElementById('panelScript');
+    if (sp) sp.outerHTML = renderScriptPanel(char2);
     switchTab('script');
   } catch(e) {
     document.getElementById('scriptLoading').style.display = 'none';
