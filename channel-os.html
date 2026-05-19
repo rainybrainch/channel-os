@@ -105,6 +105,22 @@
   .upload-zone .upload-icon { font-size: 2rem; margin-bottom: 8px; }
   .upload-zone p { font-size: .82rem; }
 
+  /* ── Storyboard ── */
+  .storyboard-grid { display: flex; flex-direction: column; gap: 14px; }
+  .sb-scene { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .sb-scene-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .sb-scene-badge { background: var(--char-color); color: #0d0d0d; border-radius: 4px; padding: 2px 8px; font-size: .72rem; font-weight: 700; }
+  .sb-scene-time { font-size: .75rem; color: var(--text-muted); }
+  .sb-scene-body { display: grid; grid-template-columns: 160px 1fr; gap: 0; }
+  .sb-image-col { border-right: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .sb-image-preview { width: 136px; height: 90px; object-fit: cover; border-radius: 6px; background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 1.8rem; border: 1px solid var(--border); overflow: hidden; }
+  .sb-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .sb-text-col { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .sb-script-lines { font-size: .78rem; color: var(--text-muted); line-height: 1.6; background: var(--surface); border-radius: 4px; padding: 8px 10px; max-height: 80px; overflow-y: auto; }
+  .sb-prompt-row { display: flex; gap: 6px; }
+  .sb-prompt-input { flex: 1; font-size: .8rem; padding: 6px 10px; }
+  @media (max-width: 600px) { .sb-scene-body { grid-template-columns: 1fr; } .sb-image-col { border-right: none; border-bottom: 1px solid var(--border); } }
+
   /* ── Scene Composer ── */
   .scene-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
   .canvas-wrap { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
@@ -184,6 +200,7 @@
     <div class="form-row col"><label>AI人格メモ</label><textarea id="newCharPersonality" placeholder="例: 熱血で前向きなライオン。ギャグ多め。" style="min-height:60px;"></textarea></div>
     <div class="form-row col"><label>YouTubeチャンネルID（任意）</label><input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxx"></div>
     <div class="form-row col"><label>Google DriveフォルダID（任意）</label><input type="text" id="newCharFolderId" placeholder="1ABCxyz...（DriveのフォルダURLの末尾）"></div>
+    <div class="form-row col"><label>VOICEVOX 話者ID（任意・デフォルト: 3=ずんだもん）</label><input type="number" id="newCharVoicevox" placeholder="3" min="0" value="3"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addCharModal')">キャンセル</button>
       <button class="btn btn-primary" id="modalSaveBtn" onclick="saveNewChar()">追加</button>
@@ -233,6 +250,7 @@ function loadData() {
 ['channelos_data', 'channelos_data_v1'].forEach(k => localStorage.removeItem(k));
 
 let data = loadData();
+// loadStoryboard() は定義後に呼ぶ（ページ読み込み時 renderMain より前に DOMContentLoaded で実行）
 
 // デフォルトキャラのマージ（不足フィールドを常に補完）
 {
@@ -257,6 +275,7 @@ let currentCharId = null;
 let currentTab    = 'plan';
 let selectedPlan  = null;
 let generatedScript = '';
+let storyboardData = {};
 let generatedMeta   = null;
 let editingCharId   = null;
 
@@ -657,8 +676,10 @@ function renderScriptPanel(char) {
     <div class="card">
       <div class="result-header">
         <span class="card-title" style="margin:0;">🎤 セリフ（コピーしてそのまま使用）</span>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="copyScriptLines()">全コピー</button>
+          <button class="btn btn-secondary btn-sm" onclick="generateVoicevox()" title="VOICEVOX（localhost:50021）で音声生成">🎙 音声生成</button>
+          <button class="btn btn-secondary btn-sm" onclick="switchTab('scene')">📽 絵コンテへ →</button>
           <button class="btn btn-primary btn-sm" onclick="switchTab('meta')">投稿情報を生成 →</button>
         </div>
       </div>
@@ -762,6 +783,182 @@ ${isShorts ? `
     document.getElementById('scriptLoading').style.display = 'none';
     showToast('エラー: ' + e.message);
   }
+}
+
+// ════════════════════════════════════
+//  VOICEVOX 音声生成
+// ════════════════════════════════════
+async function generateVoicevox() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!generatedScript) { showToast('先に台本を生成してください'); return; }
+  const speakerId = char.voicevox_speaker ?? 3;
+  const text = parseScript(generatedScript).lines;
+  if (!text) { showToast('台本のセリフが取得できませんでした'); return; }
+  showToast('🎙 VOICEVOX に送信中… (localhost:50021 が起動している必要があります)');
+  try {
+    const qRes = await fetch(`http://localhost:50021/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST' });
+    if (!qRes.ok) throw new Error('audio_query 失敗: ' + qRes.status + ' (VOICEVOXは起動していますか？)');
+    const query = await qRes.json();
+    const sRes = await fetch(`http://localhost:50021/synthesis?speaker=${speakerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(query)
+    });
+    if (!sRes.ok) throw new Error('synthesis 失敗: ' + sRes.status);
+    const blob = await sRes.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${char.name}_${(selectedPlan?.title||'script').replace(/[\\/:*?"<>|]/g,'_')}.wav`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast('✅ 音声ファイルをダウンロードしました');
+  } catch(e) {
+    showToast('❌ ' + e.message);
+  }
+}
+
+// ════════════════════════════════════
+//  Storyboard（絵コンテ）
+// ════════════════════════════════════
+// storyboardData は上部で宣言済み
+
+function splitScriptToScenes(linesText, format) {
+  const lines = linesText.split('\n').filter(l => l.trim());
+  const defs = format === 'shorts'
+    ? [ {label:'フック',       time:'0〜2秒',    ratio:.08},
+        {label:'結論',         time:'3〜10秒',   ratio:.15},
+        {label:'理由・具体例', time:'11〜45秒',  ratio:.62},
+        {label:'CTA',          time:'46〜60秒',  ratio:.15} ]
+    : [ {label:'フック',       time:'0〜15秒',   ratio:.09},
+        {label:'課題提起',     time:'15〜45秒',  ratio:.18},
+        {label:'解決策',       time:'45〜150秒', ratio:.62},
+        {label:'行動喚起',     time:'150〜180秒',ratio:.11} ];
+  let idx = 0;
+  return defs.map((d, i) => {
+    const count = i === defs.length-1 ? lines.length - idx : Math.max(1, Math.round(lines.length * d.ratio));
+    const sl = lines.slice(idx, idx + count);
+    idx += sl.length;
+    return { label: d.label, time: d.time, lines: sl, prompt: '', imageDataUrl: '' };
+  });
+}
+
+function initStoryboard(format) {
+  if (!generatedScript) { showToast('先に台本を生成してください'); return; }
+  const linesText = parseScript(generatedScript).lines;
+  const scenes = splitScriptToScenes(linesText, format);
+  const prev = storyboardData[currentCharId];
+  // 既存プロンプト・画像を引き継ぐ
+  if (prev && prev.scenes && prev.scenes.length === scenes.length) {
+    scenes.forEach((s, i) => { s.prompt = prev.scenes[i].prompt || ''; s.imageDataUrl = prev.scenes[i].imageDataUrl || ''; });
+  }
+  storyboardData[currentCharId] = { format, scenes };
+  saveStoryboard();
+  const el = document.getElementById('storyboardContainer');
+  if (el) el.innerHTML = renderStoryboard();
+}
+
+function saveStoryboard() {
+  try {
+    localStorage.setItem('channelos_storyboard', JSON.stringify(storyboardData));
+  } catch(e) { showToast('⚠ 画像サイズが大きすぎてlocalStorageに保存できません'); }
+}
+
+function loadStoryboard() {
+  try {
+    const s = localStorage.getItem('channelos_storyboard');
+    if (s) storyboardData = JSON.parse(s);
+  } catch(e) { storyboardData = {}; }
+}
+
+function renderStoryboard() {
+  const sb = storyboardData[currentCharId];
+  if (!sb || !sb.scenes) return '<p style="font-size:.82rem;color:var(--text-muted);">「台本から絵コンテを生成」ボタンを押してください。</p>';
+  return sb.scenes.map((scene, i) => `
+  <div class="sb-scene">
+    <div class="sb-scene-header">
+      <span class="sb-scene-badge">${escHtml(scene.label)}</span>
+      <span class="sb-scene-time">${escHtml(scene.time)}</span>
+    </div>
+    <div class="sb-scene-body">
+      <div class="sb-image-col">
+        <div class="sb-image-preview" id="sbPreview${i}">
+          ${scene.imageDataUrl ? `<img src="${scene.imageDataUrl}" alt="scene${i}">` : '🖼'}
+        </div>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;text-align:center;width:100%;">
+          📁 画像を選択
+          <input type="file" accept="image/*" style="display:none" onchange="handleSceneImage(${i}, this)">
+        </label>
+        ${scene.imageDataUrl ? `<button class="btn btn-secondary btn-sm" onclick="clearSceneImage(${i})" style="width:100%;">✕ 削除</button>` : ''}
+      </div>
+      <div class="sb-text-col">
+        <div class="sb-script-lines">${escHtml(scene.lines.join('\n'))}</div>
+        <div class="sb-prompt-row">
+          <input type="text" class="sb-prompt-input" placeholder="画像プロンプト（例: 筋トレしているライオン、アニメ風）" value="${escHtml(scene.prompt)}" oninput="updateScenePrompt(${i}, this.value)">
+          <button class="btn btn-secondary btn-sm" onclick="generateScenePrompt(${i})">AI</button>
+        </div>
+        ${scene.prompt ? `<div style="font-size:.72rem;color:var(--text-muted);padding:4px 2px;word-break:break-all;">${escHtml(scene.prompt)}</div>` : ''}
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+function handleSceneImage(sceneIdx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const sb = storyboardData[currentCharId];
+    if (!sb) return;
+    sb.scenes[sceneIdx].imageDataUrl = e.target.result;
+    saveStoryboard();
+    const el = document.getElementById('storyboardContainer');
+    if (el) el.innerHTML = renderStoryboard();
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearSceneImage(sceneIdx) {
+  const sb = storyboardData[currentCharId];
+  if (!sb) return;
+  sb.scenes[sceneIdx].imageDataUrl = '';
+  saveStoryboard();
+  const el = document.getElementById('storyboardContainer');
+  if (el) el.innerHTML = renderStoryboard();
+}
+
+function updateScenePrompt(sceneIdx, value) {
+  const sb = storyboardData[currentCharId];
+  if (!sb) return;
+  sb.scenes[sceneIdx].prompt = value;
+  saveStoryboard();
+}
+
+async function generateScenePrompt(sceneIdx) {
+  const char = data.characters.find(c => c.id === currentCharId);
+  const sb = storyboardData[currentCharId];
+  if (!sb) return;
+  const scene = sb.scenes[sceneIdx];
+  const apiKey = localStorage.getItem('channelos_claude_api_key');
+  if (!apiKey) { showToast('設定タブでClaude APIキーを入力してください'); return; }
+  showToast('AI生成中...');
+  const prompt = `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme}
+シーン: ${scene.label}（${scene.time}）
+台詞: ${scene.lines.join('、')}
+企画: ${selectedPlan?.title||''}
+
+このシーンに合う背景・演出画像のプロンプトを日本語で1〜2文で書いてください。
+Midjourney/DALL-E向けの英語プロンプトも書いてください。
+JSON形式のみ: {"ja":"...","en":"..."}`;
+  try {
+    const text = await callClaude(prompt);
+    const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    sb.scenes[sceneIdx].prompt = result.en || result.ja;
+    saveStoryboard();
+    const el = document.getElementById('storyboardContainer');
+    if (el) el.innerHTML = renderStoryboard();
+    showToast('✅ プロンプト生成完了');
+  } catch(e) { showToast('エラー: ' + e.message); }
 }
 
 // ════════════════════════════════════
@@ -888,6 +1085,17 @@ function renderMetaResult(meta) {
 function renderScenePanel() {
   return `
   <div class="panel ${currentTab==='scene'?'active':''}" id="panelScene">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">📽 絵コンテ（シーン分割）</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="initStoryboard('horizontal')">横動画で生成</button>
+          <button class="btn btn-secondary btn-sm" onclick="initStoryboard('shorts')">ショートで生成</button>
+        </div>
+      </div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">台本を時間帯ごとに分割し、各シーンに画像とプロンプトを設定できます。</p>
+      <div class="storyboard-grid" id="storyboardContainer">${renderStoryboard()}</div>
+    </div>
     <div class="card">
       <div class="card-title">🎨 画像生成プロンプト作成</div>
       <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;">台本・投稿情報から、Midjourney / ChatGPT / Stable Diffusion 用のプロンプトをClaudeが自動生成します。</p>
@@ -1387,6 +1595,7 @@ function openAddCharModal() {
   document.getElementById('modalTitle').textContent = '🎭 新しいキャラクターを追加';
   document.getElementById('modalSaveBtn').onclick = saveNewChar;
   ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality','newCharFolderId'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('newCharVoicevox').value = '3';
   document.getElementById('newCharColor').value = '#c9a84c';
   openModal('addCharModal');
 }
@@ -1404,6 +1613,7 @@ function openEditChar(id) {
   document.getElementById('newCharChannelId').value   = char.channel_id || '';
   document.getElementById('newCharPersonality').value = char.ai_personality || '';
   document.getElementById('newCharFolderId').value    = char.drive_folder_id || '';
+  document.getElementById('newCharVoicevox').value    = char.voicevox_speaker ?? 3;
   openModal('addCharModal');
 }
 
@@ -1420,7 +1630,8 @@ function saveNewChar() {
     channel_id:    document.getElementById('newCharChannelId').value.trim(),
     ai_personality:document.getElementById('newCharPersonality').value.trim(),
     icon: icons[Math.floor(Math.random()*icons.length)], avatar_url: '',
-    drive_folder_id: document.getElementById('newCharFolderId').value.trim()
+    drive_folder_id: document.getElementById('newCharFolderId').value.trim(),
+    voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || 3
   });
   saveData(data);
   closeModal('addCharModal');
@@ -1439,8 +1650,9 @@ function updateChar() {
   char.tone           = document.getElementById('newCharTone').value.trim();
   char.color          = document.getElementById('newCharColor').value;
   char.channel_id     = document.getElementById('newCharChannelId').value.trim();
-  char.ai_personality  = document.getElementById('newCharPersonality').value.trim();
-  char.drive_folder_id = document.getElementById('newCharFolderId').value.trim();
+  char.ai_personality   = document.getElementById('newCharPersonality').value.trim();
+  char.drive_folder_id  = document.getElementById('newCharFolderId').value.trim();
+  char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || 3;
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
@@ -1526,6 +1738,7 @@ function importData() {
 function handleOAuthCallback(e) { /* handled via location.hash above */ }
 
 // ── 起動 ──
+loadStoryboard();
 renderSidebar();
 </script>
 </body>
