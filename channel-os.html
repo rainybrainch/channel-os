@@ -232,23 +232,23 @@ function loadData() {
 
 let data = loadData();
 
-// デフォルトキャラが存在しない場合は追加
-if (!data.characters || data.characters.length === 0) {
-  data = defaultData();
-  saveData(data);
-} else {
-  let changed = false;
-  defaultData().characters.forEach(def => {
-    const existing = data.characters.find(c => c.id === def.id);
-    if (!existing) {
-      data.characters.push(def);
-      changed = true;
-    } else if (!existing.drive_folder_id && def.drive_folder_id) {
-      // drive_folder_id が未設定なら補完
-      existing.drive_folder_id = def.drive_folder_id;
-      changed = true;
-    }
-  });
+// デフォルトキャラのマージ（不足フィールドを常に補完）
+{
+  let changed = !data.characters || data.characters.length === 0;
+  if (changed) { data = defaultData(); }
+  else {
+    defaultData().characters.forEach(def => {
+      const existing = data.characters.find(c => c.id === def.id);
+      if (!existing) {
+        data.characters.push(def); changed = true;
+      } else {
+        // フィールドが未設定なら常にデフォルト値で補完
+        ['drive_folder_id','channel_id','ai_personality','icon','color','species','theme','tone'].forEach(k => {
+          if (!existing[k] && def[k]) { existing[k] = def[k]; changed = true; }
+        });
+      }
+    });
+  }
   if (changed) saveData(data);
 }
 let currentCharId = null;
