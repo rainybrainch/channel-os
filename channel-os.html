@@ -317,12 +317,16 @@ async function loadFromDrive() {
       headers: { Authorization: `Bearer ${token}` }
     });
     const remote = await res.json();
-    // ローカルとマージ（remoteを優先）
-    data = remote;
+    // キャラクターはローカルを優先、episodesはマージ
+    const localChars = data.characters || [];
+    data.episodes = remote.episodes || [];
+    // ローカルにキャラがあればそちらを使う
+    if (localChars.length > 0) data.characters = localChars;
+    else if (remote.characters) data.characters = remote.characters;
     saveData(data);
     renderSidebar();
     if (currentCharId) renderMain();
-    showToast('Driveからデータを読み込みました');
+    showToast('Driveから動画データを読み込みました');
   } catch(e) { /* 失敗は無視 */ }
 }
 
