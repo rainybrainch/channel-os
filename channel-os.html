@@ -840,7 +840,7 @@ JSONのみ出力: [{"date":"YYYY-MM-DD","episode":1,"format":"horizontal|shorts"
 function renderSettingsPanel() {
   const gdToken  = !!localStorage.getItem(GD_TOKEN_SK);
   const gdFolder = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
-  const gdClient = localStorage.getItem(GD_CLIENT_SK) || '';
+  const gdClient = localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
   return `
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
     <div class="card">
@@ -898,7 +898,7 @@ function saveGDSettings() {
 }
 
 function gdAuth() {
-  const clientId = document.getElementById('gdClientId').value.trim() || localStorage.getItem(GD_CLIENT_SK);
+  const clientId = document.getElementById('gdClientId').value.trim() || localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
   if (!clientId) { alert('クライアントIDを入力してください'); return; }
   localStorage.setItem(GD_CLIENT_SK, clientId);
   const redirect = encodeURIComponent(location.href.split('?')[0].split('#')[0]);
