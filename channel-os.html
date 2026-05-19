@@ -151,6 +151,7 @@
   <h1>🎬 RBAI Channel OS</h1>
   <span id="headerSub">キャラクターを選択してください</span>
   <span id="saveIndicator" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">☁️ 保存済</span>
+  <button onclick="switchTab('settings')" style="margin-left:12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️ 設定</button>
 </header>
 
 <div class="layout">
@@ -480,8 +481,8 @@ function renderMain() {
     </div>
 
     <div class="tabs">
-      ${['plan','script','meta','scene','assets','schedule','settings'].map(t => {
-        const labels = {plan:'📋 企画',script:'📝 台本',meta:'🎯 投稿情報',scene:'🎨 シーン',assets:'🖼 素材',schedule:'📅 スケジュール',settings:'⚙️ 設定'};
+      ${['plan','script','meta','scene','assets','schedule'].map(t => {
+        const labels = {plan:'📋 企画',script:'📝 台本',meta:'🎯 投稿情報',scene:'🎨 シーン',assets:'🖼 素材',schedule:'📅 スケジュール'};
         return `<button class="tab ${currentTab===t?'active':''}" onclick="switchTab('${t}')">${labels[t]}</button>`;
       }).join('')}
     </div>
@@ -501,8 +502,24 @@ function renderMain() {
 
 function switchTab(tab) {
   currentTab = tab;
+  // 設定はヘッダーボタンから開く専用パネル
+  if (tab === 'settings') {
+    const main = document.getElementById('mainArea');
+    // キャラ未選択時は設定画面を直接表示
+    if (!currentCharId) {
+      main.innerHTML = renderSettingsPanel();
+      return;
+    }
+    // キャラ選択済みの場合は既存パネルを切り替え
+    ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
+      const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (el) el.classList.toggle('active', t === tab);
+    });
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    return;
+  }
   // タブボタンのactive切り替え
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール',settings:'設定'}[tab]||'')));
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール'}[tab]||'')));
   // パネルのactive切り替え
   ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
