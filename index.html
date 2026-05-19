@@ -207,6 +207,12 @@ function defaultData() {
       color: '#FF4500', channel_id: 'UC39C9TLzlPxvFv6Radzgbcw',
       ai_personality: '熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。視聴者を仲間と呼ぶ。',
       icon: '🦁', avatar_url: ''
+    }, {
+      id: 'luna', name: 'ルナ', species: '白狼',
+      theme: '美ボディ習慣・ヨガ・ピラティス', tone: '穏やか・継続重視・丁寧',
+      color: '#9b59b6', channel_id: '',
+      ai_personality: '穏やかで知的な白狼。忙しい人でも続けられる美ボディ習慣を優しく導く。共感力が高く視聴者に寄り添う。',
+      icon: '🐺', avatar_url: ''
     }],
     episodes: [], schedules: [], assets: []
   };
@@ -225,13 +231,19 @@ function loadData() {
 
 let data = loadData();
 
-// ガオルが存在しない場合は必ず追加
+// デフォルトキャラが存在しない場合は追加
 if (!data.characters || data.characters.length === 0) {
   data = defaultData();
   saveData(data);
-} else if (!data.characters.find(c => c.id === 'gaoru')) {
-  data.characters.unshift(defaultData().characters[0]);
-  saveData(data);
+} else {
+  let changed = false;
+  defaultData().characters.forEach(def => {
+    if (!data.characters.find(c => c.id === def.id)) {
+      data.characters.push(def);
+      changed = true;
+    }
+  });
+  if (changed) saveData(data);
 }
 let currentCharId = null;
 let currentTab    = 'plan';
