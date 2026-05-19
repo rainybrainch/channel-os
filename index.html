@@ -1128,7 +1128,7 @@ function renderSettingsPanel() {
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
     <div class="card">
       <div class="card-title">Claude API キー</div>
-      <input type="password" id="claudeApiKey" placeholder="sk-ant-..." value="${localStorage.getItem(API_KEY_SK)||''}">
+      <input type="text" id="claudeApiKey" placeholder="sk-ant-..." value="${localStorage.getItem(API_KEY_SK)||''}" autocomplete="off">
       <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="saveApiKey()">保存</button>
     </div>
 
@@ -1255,6 +1255,9 @@ function saveNewChar() {
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
+  // 設定パネルが開いていたら再描画してフォルダID欄を反映
+  const sp = document.getElementById('panelSettings');
+  if (sp) sp.outerHTML = renderSettingsPanel();
   selectChar(data.characters[data.characters.length-1].id);
 }
 
