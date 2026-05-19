@@ -526,6 +526,10 @@ function switchTab(tab) {
     if (el) el.classList.toggle('active', t === tab);
   });
   if (tab === 'assets') loadDriveAssets();
+  if (tab === 'script') {
+    const char = data.characters.find(c => c.id === currentCharId);
+    if (char) { const sp = document.getElementById('panelScript'); if (sp) sp.outerHTML = renderScriptPanel(char); }
+  }
 }
 
 // ════════════════════════════════════
