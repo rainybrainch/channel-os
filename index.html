@@ -275,11 +275,20 @@ function loadEpisode(id) {
   const ep = (data.episodes || []).find(e => e.id === id);
   if (!ep) return;
   currentEpisodeId = id;
-  selectedPlan   = ep.plan   || null;
+  selectedPlan    = ep.plan   || null;
   generatedScript = ep.script || '';
   generatedMeta   = ep.meta   || null;
-  currentTab = 'plan';
-  renderMain();
+  renderSidebar();
+  // 企画タブを再描画して内容を反映
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) return;
+  const planPanel = document.getElementById('panelPlan');
+  if (planPanel) planPanel.outerHTML = renderPlanPanel(char);
+  const scriptPanel = document.getElementById('panelScript');
+  if (scriptPanel) scriptPanel.outerHTML = renderScriptPanel(char);
+  const metaPanel = document.getElementById('panelMeta');
+  if (metaPanel) metaPanel.outerHTML = renderMetaPanel(char);
+  switchTab('plan');
 }
 
 function saveCurrentEpisode() {
@@ -475,7 +484,17 @@ function renderMain() {
   if (currentTab === 'assets') loadDriveAssets();
 }
 
-function switchTab(tab) { currentTab = tab; renderMain(); }
+function switchTab(tab) {
+  currentTab = tab;
+  // タブボタンのactive切り替え
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール',settings:'設定'}[tab]||'')));
+  // パネルのactive切り替え
+  ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
+    const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.classList.toggle('active', t === tab);
+  });
+  if (tab === 'assets') loadDriveAssets();
+}
 
 // ════════════════════════════════════
 //  Plan Panel
