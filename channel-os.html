@@ -576,14 +576,18 @@ function renderScriptPanel(char) {
     </div>
     ${generatedScript ? `
     <div class="card">
+      <div class="card-title">📋 動画情報</div>
+      <div style="background:var(--surface2);border-radius:6px;padding:12px 14px;font-size:.82rem;line-height:1.8;white-space:pre-wrap;">${escHtml(parseScript(generatedScript).info)}</div>
+    </div>
+    <div class="card">
       <div class="result-header">
-        <span class="result-label">生成された台本</span>
+        <span class="card-title" style="margin:0;">🎤 セリフ（コピーしてそのまま使用）</span>
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="copyText(generatedScript)">コピー</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyScriptLines()">全コピー</button>
           <button class="btn btn-primary btn-sm" onclick="switchTab('meta')">投稿情報を生成 →</button>
         </div>
       </div>
-      <div class="result-box">${escHtml(generatedScript)}</div>
+      <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:14px;font-size:.9rem;line-height:2;white-space:pre-wrap;font-family:'Noto Serif JP',serif;">${escHtml(parseScript(generatedScript).lines)}</div>
     </div>` : ''}
   </div>`;
 }
@@ -606,7 +610,9 @@ ${isShorts ? `【構成】
 短くテンポよく。テロップ映えする台詞を意識。` : `【構成】
 オープニング（30秒）→ 本編（2分）→ まとめ・CTA（30秒）`}
 
-${char.name}らしい口調で。ナレーションと映像指示（括弧書き）を分けて書いてください。`;
+以下のJSON形式のみで出力（他テキスト不要）:
+{"info":"動画テーマ・構成・ポイントの説明（2〜4行）","lines":"セリフのみ。キャラ名・括弧書き・映像指示は一切不要。話すセリフだけを改行区切りで書く。"}
+`;
   try {
     generatedScript = await callClaude(prompt);
     document.getElementById('scriptLoading').style.display = 'none';
@@ -1253,7 +1259,22 @@ async function callClaude(prompt) {
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function copyText(text) { navigator.clipboard.writeText(text).then(()=>alert('コピーしました')).catch(()=>alert('コピー失敗')); }
+function copyText(text) { navigator.clipboard.writeText(text).then(()=>showToast('コピーしました')).catch(()=>alert('コピー失敗')); }
+
+function parseScript(raw) {
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+    return { info: json.info || '', lines: json.lines || '' };
+  } catch(e) {
+    // JSON失敗時は全文をlinesとして表示
+    return { info: '', lines: raw };
+  }
+}
+
+function copyScriptLines() {
+  const lines = parseScript(generatedScript).lines;
+  navigator.clipboard.writeText(lines).then(() => showToast('セリフをコピーしました')).catch(() => alert('コピー失敗'));
+}
 function copyMeta() {
   if (!generatedMeta) return;
   copyText(`【タイトル】\n${generatedMeta.title}\n\n【概要欄】\n${generatedMeta.description}\n\n${generatedMeta.hashtags.join(' ')}\n\n【タグ】\n${generatedMeta.tags.join(', ')}\n\n【サムネイルアイデア】\n${generatedMeta.thumbnail_idea}\n\n【最適投稿時間】\n${generatedMeta.best_post_time}`);
