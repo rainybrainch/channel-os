@@ -960,14 +960,18 @@ async function generateScenePrompt(sceneIdx) {
   const apiKey = localStorage.getItem('channelos_claude_api_key');
   if (!apiKey) { showToast('設定タブでClaude APIキーを入力してください'); return; }
   showToast('AI生成中...');
-  const prompt = `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme}
+  const prompt = `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 シーン: ${scene.label}（${scene.time}）
 台詞: ${scene.lines.join('、')}
-企画: ${selectedPlan?.title||''}
 
-このシーンに合う背景・演出画像のプロンプトを日本語で1〜2文で書いてください。
-Midjourney/DALL-E向けの英語プロンプトも書いてください。
-JSON形式のみ: {"ja":"...","en":"..."}`;
+このシーンで${char.name}が取るべき「ポーズ・表情・感情」を英語の画像生成プロンプトで書いてください。
+条件:
+- キャラクターの動きと表情のみを描写（背景・場所は一切書かない）
+- 透過PNG用なので "transparent background, no background, isolated character" を必ず含める
+- anime illustration style を含める
+- 1文で完結（50〜80語程度）
+
+JSON形式のみ: {"ja":"このシーンのポーズ・表情を日本語1文で","en":"English prompt for image generation"}`;
   try {
     const text = await callClaude(prompt);
     const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
@@ -979,6 +983,29 @@ JSON形式のみ: {"ja":"...","en":"..."}`;
   } catch(e) { showToast('エラー: ' + e.message); }
 }
 
+function setCharRefImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!storyboardData[currentCharId]) storyboardData[currentCharId] = { scenes: [] };
+    storyboardData[currentCharId].charRefDataUrl = e.target.result;
+    saveStoryboard();
+    // 参照画像エリアだけ更新
+    const preview = document.getElementById('charRefPreview');
+    if (preview) preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+    showToast('✅ キャラ参照画像を設定しました');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearCharRefImage() {
+  if (storyboardData[currentCharId]) delete storyboardData[currentCharId].charRefDataUrl;
+  saveStoryboard();
+  const el = document.getElementById('panelScene');
+  if (el) el.outerHTML = renderScenePanel();
+}
+
 async function generateSceneImage(sceneIdx) {
   const openaiKey = localStorage.getItem('channelos_openai_api_key');
   if (!openaiKey) { showToast('設定タブで OpenAI API キーを入力してください'); return; }
@@ -987,35 +1014,74 @@ async function generateSceneImage(sceneIdx) {
   const char = data.characters.find(c => c.id === currentCharId);
 
   // プロンプトがなければ先に Claude で生成
-  if (!sb.scenes[sceneIdx].prompt) {
-    await generateScenePrompt(sceneIdx);
-  }
+  if (!sb.scenes[sceneIdx].prompt) await generateScenePrompt(sceneIdx);
   const scene = sb.scenes[sceneIdx];
-  const basePrompt = scene.prompt || `${char.name} ${char.species} ${scene.label}`;
-  const dallePrompt = `${basePrompt}, pure white background, isolated subject, clean anime illustration style, no text, no watermark, transparent-friendly`;
+  const basePrompt = scene.prompt || `${char.name} (${char.species}) ${scene.label} pose`;
 
   const btn = document.getElementById(`sbGenBtn${sceneIdx}`);
   if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+
   try {
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-      body: JSON.stringify({ model: 'dall-e-3', prompt: dallePrompt, n: 1, size: '1024x1024', quality: 'standard' })
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error?.message || 'DALL-E error ' + res.status);
-    const imageUrl = json.data[0].url;
-    // DALL-E URL は一時的（1時間）なのでそのまま保存し表示。必要なら手動でアップロード保存
+    let imageUrl;
+    if (sb.charRefDataUrl) {
+      // 参照画像あり → gpt-image-1 の edits エンドポイント（参照画像対応・透過PNG）
+      const blob = await (await fetch(sb.charRefDataUrl)).blob();
+      const pngBlob = await convertToPng(blob);
+      const fd = new FormData();
+      fd.append('model', 'gpt-image-1');
+      fd.append('image[]', pngBlob, 'character.png');
+      fd.append('prompt', `${basePrompt}. Transparent background, no background, isolated character only, full body or upper body, anime illustration style.`);
+      fd.append('n', '1');
+      fd.append('size', '1024x1024');
+      const res = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiKey}` },
+        body: fd
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || 'API error ' + res.status);
+      imageUrl = json.data[0].url || ('data:image/png;base64,' + json.data[0].b64_json);
+    } else {
+      // 参照画像なし → gpt-image-1 で透過生成
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-image-1',
+          prompt: `${char.name} (${char.species}), ${basePrompt}. Transparent background, no background at all, isolated character only, anime illustration style, no text.`,
+          n: 1, size: '1024x1024', output_format: 'png', background: 'transparent'
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || 'API error ' + res.status);
+      imageUrl = json.data[0].url || ('data:image/png;base64,' + json.data[0].b64_json);
+    }
     sb.scenes[sceneIdx].imageDataUrl = imageUrl;
     saveStoryboard();
     const el = document.getElementById('storyboardContainer');
     if (el) el.innerHTML = renderStoryboard();
-    showToast('✅ 画像生成完了（URLは約1時間で失効します）');
+    showToast('✅ 画像生成完了');
   } catch(e) {
     showToast('❌ ' + e.message);
     const el = document.getElementById('storyboardContainer');
     if (el) el.innerHTML = renderStoryboard();
   }
+}
+
+async function convertToPng(blob) {
+  // Canvas 経由で PNG に変換（JPEG など他形式の場合の対応）
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      c.getContext('2d').drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(resolve, 'image/png');
+    };
+    img.src = url;
+  });
 }
 
 // ════════════════════════════════════
@@ -1150,7 +1216,25 @@ function renderScenePanel() {
           <button class="btn btn-secondary btn-sm" onclick="initStoryboard('shorts')">ショートで生成</button>
         </div>
       </div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">台本を時間帯ごとに分割し、各シーンに画像とプロンプトを設定できます。</p>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">🎨 生成ボタンでキャラをポーズ違いで透過PNG生成。参照画像を送ることでキャラを再現できます。</p>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;">
+        <div id="charRefPreview" style="width:64px;height:64px;border-radius:8px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden;">
+          ${(()=>{ const d = storyboardData[currentCharId]; return d&&d.charRefDataUrl ? `<img src="${d.charRefDataUrl}" style="width:100%;height:100%;object-fit:cover;">` : '🐾'; })()}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;">キャラ参照画像</div>
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">この画像を元にポーズ違いを生成します。毎回送るか、一度設定すれば保持されます。</div>
+          <div style="display:flex;gap:6px;">
+            <label class="btn btn-primary btn-sm" style="cursor:pointer;">
+              📁 画像を選択
+              <input type="file" accept="image/*" style="display:none" onchange="setCharRefImage(this)">
+            </label>
+            ${(()=>{ const d = storyboardData[currentCharId]; return d&&d.charRefDataUrl ? `<button class="btn btn-secondary btn-sm" onclick="clearCharRefImage()">✕ 削除</button>` : ''; })()}
+          </div>
+        </div>
+      </div>
+
       <div class="storyboard-grid" id="storyboardContainer">${renderStoryboard()}</div>
     </div>
     <div class="card">
