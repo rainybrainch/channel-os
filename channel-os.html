@@ -656,26 +656,62 @@ function renderScriptPanel(char) {
   </div>`;
 }
 
+// 2026年ショート動画戦略フレームワーク（shorts-strategy-2026.md より抽出）
+const SHORTS_STRATEGY_2026 = `
+【2026年アルゴリズム最重要ルール】
+- YouTube Shorts: 視聴者満足度・視聴完了率(52%以上)・シェアが最優先
+- Instagram Reels: DM送信数がいいねの5倍評価。Raw感（粗削り・リアル）優遇
+- TikTok: オリジナリティ最重視。テロップキーワードがSEOに直結
+
+【TaTap式3層設計モデル（必須）】
+第1層 フック 0〜2秒: 2カット法則・結論先出し・ターゲット絞り込み
+第2層 リテンション 2〜45秒: 3秒1カット・テロップ二重化・中盤に再フック
+第3層 CTA 最後3〜5秒: DM送信・保存・コメントを自然に誘導。結論を少し残して余白を作る
+
+【5大フックパターン（冒頭2秒で必ず使う）】
+衝撃事実型:「〇〇を知らないのは損」疑問提起型:「なぜ〇〇は△△？」
+ビフォーアフター型: 完成形を先に見せる。意外性型: 予測不能な開幕。共感型:「あるある」
+
+【撮影・編集原則】
+- 無音・間を完全カット（ジェットカット）
+- テロップは5〜7文字以内・音なし視聴でも内容が伝わる
+- 過剰演出より粗削り・リアル感を優先
+`;
+
 async function generateScript() {
   const char = data.characters.find(c => c.id === currentCharId);
   const format = document.getElementById('scriptFormat').value;
   const note   = document.getElementById('scriptNote').value;
   const isShorts = format === 'shorts';
   document.getElementById('scriptLoading').style.display = 'flex';
-  const prompt = `あなたはYouTube台本ライターです。
-キャラクター: ${char.name}（${char.species}） トーン: ${char.tone}
-AI人格: ${char.ai_personality}
-企画: ${selectedPlan.title} — ${selectedPlan.description}
-動画形式: ${isShorts ? 'YouTubeショート（60秒以内・縦動画・テンポ速め）' : '横動画（約3分・標準的な構成）'}
-追加指示: ${note||'なし'}
 
-${isShorts ? `【構成】
-冒頭つかみ（5秒）→ 本編（40秒）→ オチ＆CTA（15秒）
-短くテンポよく。テロップ映えする台詞を意識。` : `【構成】
-オープニング（30秒）→ 本編（2分）→ まとめ・CTA（30秒）`}
+  const prompt = `あなたは2026年最新アルゴリズムに精通したYouTube台本ライターです。
+以下の戦略フレームワークを必ず適用して台本を作成してください。
+
+${SHORTS_STRATEGY_2026}
+
+【キャラクター】${char.name}（${char.species}）トーン: ${char.tone}
+AI人格: ${char.ai_personality}
+【企画】${selectedPlan.title} — ${selectedPlan.description}
+【動画形式】${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分）'}
+【追加指示】${note||'なし'}
+
+${isShorts ? `
+【ショート台本設計】
+0〜2秒: フック（2カット・結論先出し・5大フックパターンから選択）
+3〜10秒: 結論（1動画1メッセージ）
+11〜45秒: 理由・具体例（3秒1カット・テロップ対応・中盤再フック）
+46〜60秒: CTA（保存・DM・コメント誘導）
+` : `
+【横動画台本設計】
+0〜5秒: フック（2カット・視聴者を引き込む）
+6〜30秒: 結論・テーマ提示
+31〜150秒: 本編（理由・具体例・体験談）
+151〜180秒: まとめ・CTA
+`}
 
 以下のJSON形式のみで出力（他テキスト不要）:
-{"info":"動画テーマ・構成・ポイントの説明（2〜4行）","lines":"セリフのみ。キャラ名・括弧書き・映像指示は一切不要。話すセリフだけを改行区切りで書く。"}
+{"info":"動画テーマ・構成・採用したフックパターン・編集ポイントの説明（3〜5行）","lines":"セリフのみ。キャラ名・括弧書き・映像指示は一切不要。話すセリフだけを改行区切りで書く。テンポよく・間を作らず・テロップ映えする言葉で。"}
 `;
   try {
     generatedScript = await callClaude(prompt);
