@@ -296,65 +296,72 @@ function saveCurrentEpisode() {
   autoSaveToDrive();
 }
 
-// Drive自動保存（channelos-data.jsonとして保存）
-async function autoSaveToDrive() {
-  const token    = localStorage.getItem(GD_TOKEN_SK);
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
-  if (!token) return;
-  try {
-    // 既存ファイルを検索
-    const search = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='channelos-data.json'+and+'${folderId}'+in+parents&fields=files(id)`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const found = await search.json();
-    const content = JSON.stringify(data, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
+// ── Drive 共有DB（channelos-shared.json）──
+const SHARED_FILENAME = 'channelos-shared.json';
+let sharedFileId = null;
 
-    if (found.files && found.files.length > 0) {
-      // 上書き更新
-      const fileId = found.files[0].id;
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: blob
+async function driveRequest(url, options = {}) {
+  const token = localStorage.getItem(GD_TOKEN_SK);
+  if (!token) return null;
+  const res = await fetch(url, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+  });
+  if (res.status === 401) { localStorage.removeItem(GD_TOKEN_SK); showToast('Drive認証切れ。再度ログインしてください'); return null; }
+  return res;
+}
+
+async function findSharedFile() {
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const res = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=name='${SHARED_FILENAME}'+and+'${folderId}'+in+parents&fields=files(id)`);
+  if (!res) return null;
+  const json = await res.json();
+  return (json.files && json.files.length) ? json.files[0].id : null;
+}
+
+async function autoSaveToDrive() {
+  const token = localStorage.getItem(GD_TOKEN_SK);
+  if (!token) return;
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  try {
+    if (!sharedFileId) sharedFileId = await findSharedFile();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    if (sharedFileId) {
+      await driveRequest(`https://www.googleapis.com/upload/drive/v3/files/${sharedFileId}?uploadType=media`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: blob
       });
     } else {
-      // 新規作成
-      const meta = JSON.stringify({ name: 'channelos-data.json', parents: [folderId] });
+      const meta = JSON.stringify({ name: SHARED_FILENAME, parents: [folderId] });
       const form = new FormData();
       form.append('metadata', new Blob([meta], { type: 'application/json' }));
       form.append('file', blob);
-      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
-      });
+      const res = await driveRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body: form });
+      if (res) { const j = await res.json(); sharedFileId = j.id; }
     }
     showSaveIndicator();
   } catch(e) { /* 保存失敗は無視 */ }
 }
 
 async function loadFromDrive() {
-  const token    = localStorage.getItem(GD_TOKEN_SK);
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const token = localStorage.getItem(GD_TOKEN_SK);
   if (!token) return;
   try {
-    const search = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='channelos-data.json'+and+'${folderId}'+in+parents&fields=files(id)`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const found = await search.json();
-    if (!found.files || !found.files.length) return;
-    const fileId = found.files[0].id;
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    if (!sharedFileId) sharedFileId = await findSharedFile();
+    if (!sharedFileId) { await autoSaveToDrive(); return; }
+    const res = await driveRequest(`https://www.googleapis.com/drive/v3/files/${sharedFileId}?alt=media`);
+    if (!res) return;
     const remote = await res.json();
-    // キャラクターはローカルを優先、episodesはマージ
-    const localChars = data.characters || [];
-    data.episodes = remote.episodes || [];
-    // ローカルにキャラがあればそちらを使う
-    if (localChars.length > 0) data.characters = localChars;
-    else if (remote.characters) data.characters = remote.characters;
+    if (!remote || !remote.characters) return;
+    // Driveのデータを正とする（全員で共有）
+    data = remote;
+    // デフォルトキャラが抜けていたら補完
+    defaultData().characters.forEach(def => {
+      if (!data.characters.find(c => c.id === def.id)) data.characters.push(def);
+    });
     saveData(data);
     renderSidebar();
     if (currentCharId) renderMain();
-    showToast('Driveから動画データを読み込みました');
+    showToast('☁️ Driveからデータを同期しました');
   } catch(e) { /* 失敗は無視 */ }
 }
 
