@@ -371,9 +371,16 @@ async function loadFromDrive() {
     if (!remote || !remote.characters) return;
     // Driveのデータを正とする（全員で共有）
     data = remote;
-    // デフォルトキャラが抜けていたら補完
+    // デフォルトキャラが抜けていたら補完・フィールドも補完
     defaultData().characters.forEach(def => {
-      if (!data.characters.find(c => c.id === def.id)) data.characters.push(def);
+      const existing = data.characters.find(c => c.id === def.id);
+      if (!existing) {
+        data.characters.push(def);
+      } else {
+        ['drive_folder_id','channel_id','ai_personality','icon','color','species','theme','tone'].forEach(k => {
+          if (!existing[k] && def[k]) existing[k] = def[k];
+        });
+      }
     });
     saveData(data);
     renderSidebar();
@@ -972,6 +979,7 @@ function renderAssetsPanel() {
 
 function getCharFolderId() {
   const char = data.characters.find(c => c.id === currentCharId);
+  console.log('[Drive folder] char:', char?.name, 'folder:', char?.drive_folder_id);
   return (char && char.drive_folder_id) || localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
 }
 
