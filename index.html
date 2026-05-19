@@ -220,17 +220,19 @@ function loadData() {
   } catch { return defaultData(); }
 }
 
-// キャラが空のlocalStorageは強制リセット
-(function() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && (!saved.characters || saved.characters.length === 0)) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch(e) { localStorage.removeItem(STORAGE_KEY); }
-})();
+// 旧キーを削除
+['channelos_data', 'channelos_data_v1'].forEach(k => localStorage.removeItem(k));
 
-let data          = loadData();
+let data = loadData();
+
+// ガオルが存在しない場合は必ず追加
+if (!data.characters || data.characters.length === 0) {
+  data = defaultData();
+  saveData(data);
+} else if (!data.characters.find(c => c.id === 'gaoru')) {
+  data.characters.unshift(defaultData().characters[0]);
+  saveData(data);
+}
 let currentCharId = null;
 let currentTab    = 'plan';
 let selectedPlan  = null;
