@@ -915,12 +915,7 @@ function renderStoryboard() {
       </div>
       <div class="sb-text-col">
         <div class="sb-script-lines">${escHtml(scene.lines.join('\n'))}</div>
-        <div class="sb-prompt-row">
-          <input type="text" class="sb-prompt-input" placeholder="画像プロンプト（空欄でAI自動生成）" value="${escHtml(scene.prompt)}" oninput="updateScenePrompt(${i}, this.value)" id="sbPromptInput${i}">
-          <button class="btn btn-secondary btn-sm" onclick="generateScenePrompt(${i})" title="Claude でプロンプトを生成">AI</button>
-          <button class="btn btn-secondary btn-sm" onclick="copyScenePrompt(${i})" title="プロンプトをコピー">📋</button>
-        </div>
-        ${scene.prompt ? `<div style="font-size:.7rem;color:var(--text-muted);padding:4px 2px;word-break:break-all;line-height:1.5;">${escHtml(scene.prompt)}</div>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="copySceneLines(${i})" style="margin-top:6px;align-self:flex-start;">📋 台詞をコピー</button>
       </div>
     </div>
   </div>`).join('');
@@ -1018,10 +1013,8 @@ async function generateSceneImage(sceneIdx) {
   if (!sb) return;
   const char = data.characters.find(c => c.id === currentCharId);
 
-  // プロンプトがなければ先に Claude で生成
-  if (!sb.scenes[sceneIdx].prompt) await generateScenePrompt(sceneIdx);
   const scene = sb.scenes[sceneIdx];
-  const basePrompt = scene.prompt || `${char.name} (${char.species}) ${scene.label} pose`;
+  const basePrompt = `${char.name}(${char.species}), scene: ${scene.label}, dialogue: ${scene.lines.join(' ')}`;
 
   const btn = document.getElementById(`sbGenBtn${sceneIdx}`);
   if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
@@ -1898,12 +1891,10 @@ function openGemForScene(sceneIdx) {
   setTimeout(() => window.open(char.gem_url, '_blank'), 600);
 }
 
-function copyScenePrompt(sceneIdx) {
+function copySceneLines(sceneIdx) {
   const sb = storyboardData[currentCharId];
   if (!sb || !sb.scenes[sceneIdx]) return;
-  const prompt = sb.scenes[sceneIdx].prompt;
-  if (!prompt) { showToast('プロンプトがありません。AIボタンで生成してください'); return; }
-  copyText(prompt);
+  copyText(sb.scenes[sceneIdx].lines.join('\n'));
 }
 
 function parseScript(raw) {
