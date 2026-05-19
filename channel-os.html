@@ -201,6 +201,7 @@
     <div class="form-row col"><label>YouTubeチャンネルID（任意）</label><input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxx"></div>
     <div class="form-row col"><label>Google DriveフォルダID（任意）</label><input type="text" id="newCharFolderId" placeholder="1ABCxyz...（DriveのフォルダURLの末尾）"></div>
     <div class="form-row col"><label>VOICEVOX 話者ID（任意・デフォルト: 3=ずんだもん）</label><input type="number" id="newCharVoicevox" placeholder="3" min="0" value="3"></div>
+    <div class="form-row col"><label>画像生成 GPT URL（任意）</label><input type="text" id="newCharGptUrl" placeholder="https://chatgpt.com/g/g-..."></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addCharModal')">キャンセル</button>
       <button class="btn btn-primary" id="modalSaveBtn" onclick="saveNewChar()">追加</button>
@@ -902,7 +903,8 @@ function renderStoryboard() {
         <div class="sb-image-preview" id="sbPreview${i}">
           ${scene.imageDataUrl ? `<img src="${scene.imageDataUrl}" alt="scene${i}">` : '🖼'}
         </div>
-        <button class="btn btn-primary btn-sm" id="sbGenBtn${i}" onclick="generateSceneImage(${i})" style="width:100%;">🎨 生成</button>
+        <button class="btn btn-primary btn-sm" id="sbGenBtn${i}" onclick="generateSceneImage(${i})" style="width:100%;">🎨 DALL-E生成</button>
+        <button class="btn btn-secondary btn-sm" onclick="openGptForScene(${i})" style="width:100%;" ${!data.characters.find(c=>c.id===currentCharId)?.gpt_url?'disabled title="キャラ設定でGPT URLを設定してください"':''}>💬 GPTで生成</button>
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;text-align:center;width:100%;">
           📁 アップロード
           <input type="file" accept="image/*" style="display:none" onchange="handleSceneImage(${i}, this)">
@@ -1751,6 +1753,7 @@ function openAddCharModal() {
   document.getElementById('modalSaveBtn').onclick = saveNewChar;
   ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality','newCharFolderId'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('newCharVoicevox').value = '3';
+  document.getElementById('newCharGptUrl').value = '';
   document.getElementById('newCharColor').value = '#c9a84c';
   openModal('addCharModal');
 }
@@ -1769,6 +1772,7 @@ function openEditChar(id) {
   document.getElementById('newCharPersonality').value = char.ai_personality || '';
   document.getElementById('newCharFolderId').value    = char.drive_folder_id || '';
   document.getElementById('newCharVoicevox').value    = char.voicevox_speaker ?? 3;
+  document.getElementById('newCharGptUrl').value      = char.gpt_url || '';
   openModal('addCharModal');
 }
 
@@ -1786,7 +1790,8 @@ function saveNewChar() {
     ai_personality:document.getElementById('newCharPersonality').value.trim(),
     icon: icons[Math.floor(Math.random()*icons.length)], avatar_url: '',
     drive_folder_id: document.getElementById('newCharFolderId').value.trim(),
-    voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || 3
+    voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || 3,
+    gpt_url: document.getElementById('newCharGptUrl').value.trim()
   });
   saveData(data);
   closeModal('addCharModal');
@@ -1808,6 +1813,7 @@ function updateChar() {
   char.ai_personality   = document.getElementById('newCharPersonality').value.trim();
   char.drive_folder_id  = document.getElementById('newCharFolderId').value.trim();
   char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || 3;
+  char.gpt_url          = document.getElementById('newCharGptUrl').value.trim();
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
@@ -1862,6 +1868,19 @@ function copyPromptResult() {
   const el = document.getElementById('promptResultText');
   if (el) copyText(el.textContent);
 }
+function openGptForScene(sceneIdx) {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char?.gpt_url) { showToast('キャラクター設定で GPT URL を設定してください'); return; }
+  const sb = storyboardData[currentCharId];
+  const scene = sb?.scenes[sceneIdx];
+  if (!scene) return;
+  // 台詞をクリップボードにコピーしてから GPT を開く
+  const text = scene.lines.join('\n');
+  copyText(text);
+  showToast('📋 台詞をコピーしました → GPTに貼り付けてください');
+  setTimeout(() => window.open(char.gpt_url, '_blank'), 600);
+}
+
 function copyScenePrompt(sceneIdx) {
   const sb = storyboardData[currentCharId];
   if (!sb || !sb.scenes[sceneIdx]) return;
