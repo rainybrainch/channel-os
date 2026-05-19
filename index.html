@@ -370,9 +370,15 @@ async function loadFromDrive() {
     if (!res) return;
     const remote = await res.json();
     if (!remote || !remote.characters) return;
-    // Driveのデータを正とする（全員で共有）
+    // キャラはDriveを正とする。episodesはローカルとマージ（IDベース）
+    const localEpisodes = data.episodes || [];
     data = remote;
-    // デフォルトキャラが抜けていたら補完・フィールドも補完
+    data.episodes = data.episodes || [];
+    // ローカルにあってDriveにないエピソードを追加（ローカル作業が消えないように）
+    localEpisodes.forEach(local => {
+      if (!data.episodes.find(e => e.id === local.id)) data.episodes.push(local);
+    });
+    // デフォルトキャラフィールド補完
     defaultData().characters.forEach(def => {
       const existing = data.characters.find(c => c.id === def.id);
       if (!existing) {
@@ -434,7 +440,7 @@ function renderSidebar() {
   const epListEl = document.getElementById('episodeList');
   if (!epListEl || !currentCharId) return;
   const eps = getEpisodes();
-  const statusLabel = { draft:'下書き', done:'完成', scheduled:'予約済' };
+  const statusLabel = { draft:'📝 下書き', shooting:'🎥 撮影中', editing:'✂️ 編集中', done:'✅ 完成', posted:'🚀 投稿済' };
   epListEl.innerHTML = `
     <button class="add-char-btn" style="margin:8px 12px;width:calc(100% - 24px);" onclick="newEpisode()">＋ 新しい動画</button>
     ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
@@ -448,8 +454,13 @@ function renderSidebar() {
 function selectChar(id) {
   currentCharId = id; selectedPlan = null; generatedScript = ''; generatedMeta = null; currentEpisodeId = null;
   document.getElementById('epSidebarTitle').style.display = 'block';
+  // 最後に開いていたエピソードを復元
+  const eps = (data.episodes || []).filter(e => e.charId === id);
+  if (eps.length > 0) {
+    const last = eps.slice().sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).find(e => e.id);
+    if (last) { currentEpisodeId = last.id; selectedPlan = last.plan||null; generatedScript = last.script||''; generatedMeta = last.meta||null; }
+  }
   renderSidebar(); renderMain();
-  // Drive からデータ読み込み
   loadFromDrive();
 }
 
@@ -700,10 +711,23 @@ function renderMetaPanel(char) {
 async function generateMeta() {
   const char = data.characters.find(c => c.id === currentCharId);
   document.getElementById('metaLoading').style.display = 'flex';
-  const prompt = `以下の台本を元にYouTube投稿情報を生成してください。キャラクター: ${char.name}（${char.theme}）
-台本（抜粋）: ${generatedScript.slice(0,800)}...
-以下のJSONのみ出力:
-{"title":"","title_alt":"","description":"","tags":[],"hashtags":[],"thumbnail_idea":"","best_post_time":""}`;
+  const prompt = `以下の台本を元にYouTube投稿情報と画像生成プロンプトを生成してください。
+キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
+台本（抜粋）: ${generatedScript.slice(0,800)}
+
+以下のJSONのみ出力（他テキスト不要）:
+{
+  "title": "YouTubeタイトル（40字以内・数字や感情語を含む）",
+  "title_alt": "代替タイトル案",
+  "description": "概要欄（3〜5段落。冒頭1行でフック、チャンネル説明、ハッシュタグ末尾）",
+  "tags": ["タグ1","タグ2","タグ3","タグ4","タグ5"],
+  "hashtags": ["#ハッシュタグ1","#ハッシュタグ2","#ハッシュタグ3"],
+  "best_post_time": "最適投稿日時（例: 土曜18時）",
+  "thumb_horizontal": "横サムネイル用画像生成プロンプト（英語・16:9・高コントラスト・タイトル文字映え・Midjourney形式 --ar 16:9）",
+  "thumb_shorts": "縦サムネイル用画像生成プロンプト（英語・9:16・スマホ全画面・インパクト重視・Midjourney形式 --ar 9:16）",
+  "thumb_text_horizontal": "横サムネイルに重ねるテキスト案（20字以内・インパクト重視）",
+  "thumb_text_shorts": "縦サムネイルに重ねるテキスト案（15字以内・縦読みOK）"
+}`;
   try {
     const text = await callClaude(prompt);
     generatedMeta = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
@@ -717,21 +741,68 @@ async function generateMeta() {
 }
 
 function renderMetaResult(meta) {
+  const copyBtn = (text, label) => `<button class="btn btn-secondary btn-sm" onclick="copyText(${JSON.stringify(text)})">📋 ${label}</button>`;
   return `
   <div class="card">
-    <div class="result-header"><span class="result-label">投稿情報</span><button class="btn btn-secondary btn-sm" onclick="copyMeta()">全コピー</button></div>
+    <div class="result-header"><span class="result-label">📝 タイトル・概要欄</span>${copyBtn(meta.title+'\n\n'+meta.description+'\n\n'+(meta.hashtags||[]).join(' '),'全コピー')}</div>
     <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px;">
-      <div><label>タイトル（推奨）</label>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;">${escHtml(meta.title)}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">代替案: ${escHtml(meta.title_alt)}</div></div>
-      <div><label>概要欄</label>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;">${escHtml(meta.description)}</div></div>
-      <div><label>タグ</label><div style="display:flex;flex-wrap:wrap;gap:6px;">${meta.tags.map(t=>`<span class="badge">${t}</span>`).join('')}</div></div>
-      <div><label>ハッシュタグ</label><div style="font-size:.88rem;color:var(--char-color);">${meta.hashtags.join(' ')}</div></div>
-      <div style="font-size:.8rem;display:flex;gap:16px;">
-        <span><span style="color:var(--text-muted);">サムネ案: </span>${escHtml(meta.thumbnail_idea)}</span>
-        <span><span style="color:var(--text-muted);">最適投稿: </span>${escHtml(meta.best_post_time)}</span>
+      <div>
+        <label>タイトル（推奨）</label>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
+          <span>${escHtml(meta.title)}</span>${copyBtn(meta.title,'コピー')}
+        </div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">代替案: ${escHtml(meta.title_alt)}</div>
       </div>
+      <div>
+        <label>概要欄</label>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;">${escHtml(meta.description)}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;">${copyBtn(meta.description,'概要欄コピー')} ${copyBtn((meta.hashtags||[]).join(' '),'ハッシュタグコピー')}</div>
+      </div>
+      <div><label>タグ</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div></div>
+      <div style="font-size:.82rem;color:var(--char-color);">${(meta.hashtags||[]).join(' ')}</div>
+      <div style="font-size:.8rem;color:var(--text-muted);">最適投稿: ${escHtml(meta.best_post_time||'')}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🖼 サムネイル画像生成プロンプト</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="margin:0;">📺 横サムネイル（16:9）</label>
+          ${copyBtn(meta.thumb_horizontal||'','プロンプトコピー')}
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:.82rem;font-family:monospace;line-height:1.6;white-space:pre-wrap;">${escHtml(meta.thumb_horizontal||'')}</div>
+        <div style="margin-top:6px;font-size:.78rem;color:var(--text-muted);">重ねるテキスト案: <strong style="color:var(--text);">${escHtml(meta.thumb_text_horizontal||'')}</strong></div>
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="margin:0;">📱 縦サムネイル・ショート（9:16）</label>
+          ${copyBtn(meta.thumb_shorts||'','プロンプトコピー')}
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:.82rem;font-family:monospace;line-height:1.6;white-space:pre-wrap;">${escHtml(meta.thumb_shorts||'')}</div>
+        <div style="margin-top:6px;font-size:.78rem;color:var(--text-muted);">重ねるテキスト案: <strong style="color:var(--text);">${escHtml(meta.thumb_text_shorts||'')}</strong></div>
+      </div>
+
+      <div style="font-size:.75rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;">
+        💡 プロンプトをコピーして Midjourney / ChatGPT / Stable Diffusion に貼り付けてください
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="card-title" style="margin:0;">📊 進捗ステータス</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+      ${['draft','shooting','editing','done','posted'].map(s => {
+        const labels = {draft:'📝 下書き',shooting:'🎥 撮影中',editing:'✂️ 編集中',done:'✅ 完成',posted:'🚀 投稿済'};
+        const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+        const active = ep && ep.status === s;
+        return `<button class="btn btn-sm ${active?'btn-primary':'btn-secondary'}" onclick="setEpisodeStatus('${s}')">${labels[s]}</button>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -1345,7 +1416,22 @@ function copyScriptLines() {
 }
 function copyMeta() {
   if (!generatedMeta) return;
-  copyText(`【タイトル】\n${generatedMeta.title}\n\n【概要欄】\n${generatedMeta.description}\n\n${generatedMeta.hashtags.join(' ')}\n\n【タグ】\n${generatedMeta.tags.join(', ')}\n\n【サムネイルアイデア】\n${generatedMeta.thumbnail_idea}\n\n【最適投稿時間】\n${generatedMeta.best_post_time}`);
+  copyText(`【タイトル】\n${generatedMeta.title}\n\n【概要欄】\n${generatedMeta.description}\n\n${(generatedMeta.hashtags||[]).join(' ')}\n\n【タグ】\n${(generatedMeta.tags||[]).join(', ')}\n\n【最適投稿時間】\n${generatedMeta.best_post_time}`);
+}
+
+function setEpisodeStatus(status) {
+  const ep = (data.episodes||[]).find(e => e.id === currentEpisodeId);
+  if (!ep) return;
+  ep.status = status;
+  ep.updatedAt = new Date().toISOString();
+  saveData(data);
+  autoSaveToDrive();
+  renderSidebar();
+  // ステータスボタンを再描画
+  const mp = document.getElementById('panelMeta');
+  if (mp) mp.outerHTML = renderMetaPanel(data.characters.find(c=>c.id===currentCharId));
+  switchTab('meta');
+  showToast('ステータスを更新しました');
 }
 function exportData() {
   const a = document.createElement('a');
