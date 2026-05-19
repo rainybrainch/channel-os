@@ -150,12 +150,15 @@
 <header>
   <h1>🎬 RBAI Channel OS</h1>
   <span id="headerSub">キャラクターを選択してください</span>
+  <span id="saveIndicator" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">☁️ 保存済</span>
 </header>
 
 <div class="layout">
   <aside>
     <div class="sidebar-title">キャラクター</div>
     <div id="charList"></div>
+    <div class="sidebar-title" id="epSidebarTitle" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:14px;">動画プロジェクト</div>
+    <div id="episodeList"></div>
     <button class="add-char-btn" onclick="openAddCharModal()">＋ キャラ追加</button>
   </aside>
   <main id="mainArea">
@@ -221,6 +224,124 @@ let generatedScript = '';
 let generatedMeta   = null;
 let editingCharId   = null;
 
+// ── 動画プロジェクト管理 ──
+let currentEpisodeId = null;
+
+function getEpisodes() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) return [];
+  return (data.episodes || []).filter(e => e.charId === currentCharId);
+}
+
+function newEpisode() {
+  const id = 'ep_' + Date.now();
+  const ep = { id, charId: currentCharId, title: '新しい動画', createdAt: new Date().toISOString(),
+    plan: null, script: '', meta: null, status: 'draft' };
+  data.episodes = data.episodes || [];
+  data.episodes.push(ep);
+  saveData(data);
+  loadEpisode(id);
+}
+
+function loadEpisode(id) {
+  const ep = (data.episodes || []).find(e => e.id === id);
+  if (!ep) return;
+  currentEpisodeId = id;
+  selectedPlan   = ep.plan   || null;
+  generatedScript = ep.script || '';
+  generatedMeta   = ep.meta   || null;
+  currentTab = 'plan';
+  renderMain();
+}
+
+function saveCurrentEpisode() {
+  if (!currentEpisodeId) return;
+  const ep = (data.episodes || []).find(e => e.id === currentEpisodeId);
+  if (!ep) return;
+  ep.plan   = selectedPlan;
+  ep.script = generatedScript;
+  ep.meta   = generatedMeta;
+  ep.updatedAt = new Date().toISOString();
+  if (selectedPlan) ep.title = selectedPlan.title;
+  saveData(data);
+  // Drive自動保存
+  autoSaveToDrive();
+}
+
+// Drive自動保存（channelos-data.jsonとして保存）
+async function autoSaveToDrive() {
+  const token    = localStorage.getItem(GD_TOKEN_SK);
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  if (!token) return;
+  try {
+    // 既存ファイルを検索
+    const search = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='channelos-data.json'+and+'${folderId}'+in+parents&fields=files(id)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const found = await search.json();
+    const content = JSON.stringify(data, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+
+    if (found.files && found.files.length > 0) {
+      // 上書き更新
+      const fileId = found.files[0].id;
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: blob
+      });
+    } else {
+      // 新規作成
+      const meta = JSON.stringify({ name: 'channelos-data.json', parents: [folderId] });
+      const form = new FormData();
+      form.append('metadata', new Blob([meta], { type: 'application/json' }));
+      form.append('file', blob);
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+      });
+    }
+    showSaveIndicator();
+  } catch(e) { /* 保存失敗は無視 */ }
+}
+
+async function loadFromDrive() {
+  const token    = localStorage.getItem(GD_TOKEN_SK);
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  if (!token) return;
+  try {
+    const search = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='channelos-data.json'+and+'${folderId}'+in+parents&fields=files(id)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const found = await search.json();
+    if (!found.files || !found.files.length) return;
+    const fileId = found.files[0].id;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const remote = await res.json();
+    // ローカルとマージ（remoteを優先）
+    data = remote;
+    saveData(data);
+    renderSidebar();
+    if (currentCharId) renderMain();
+    showToast('Driveからデータを読み込みました');
+  } catch(e) { /* 失敗は無視 */ }
+}
+
+function showSaveIndicator() {
+  let el = document.getElementById('saveIndicator');
+  if (!el) return;
+  el.textContent = '☁️ 保存済';
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;z-index:9999;';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
 // Scene state
 let sceneFormat   = 'horizontal'; // 'horizontal' | 'shorts'
 let sceneBg       = null;   // { url, name }
@@ -248,11 +369,28 @@ function renderSidebar() {
       </div>
       <div><div class="char-name">${c.name}</div><div class="char-theme">${c.theme}</div></div>
     </div>`).join('');
+
+  // 動画プロジェクト一覧
+  const epListEl = document.getElementById('episodeList');
+  if (!epListEl || !currentCharId) return;
+  const eps = getEpisodes();
+  const statusLabel = { draft:'下書き', done:'完成', scheduled:'予約済' };
+  epListEl.innerHTML = `
+    <button class="add-char-btn" style="margin:8px 12px;width:calc(100% - 24px);" onclick="newEpisode()">＋ 新しい動画</button>
+    ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
+    ${eps.slice().reverse().map(ep => `
+    <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;">
+      <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${escHtml(ep.title)}</div>
+      <div style="font-size:.68rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'} · ${(ep.updatedAt||ep.createdAt||'').slice(0,10)}</div>
+    </div>`).join('')}`;
 }
 
 function selectChar(id) {
-  currentCharId = id; selectedPlan = null; generatedScript = ''; generatedMeta = null;
+  currentCharId = id; selectedPlan = null; generatedScript = ''; generatedMeta = null; currentEpisodeId = null;
+  document.getElementById('epSidebarTitle').style.display = 'block';
   renderSidebar(); renderMain();
+  // Drive からデータ読み込み
+  loadFromDrive();
 }
 
 // ════════════════════════════════════
@@ -361,6 +499,7 @@ function selectPlan(i, plan) {
   selectedPlan = plan;
   document.querySelectorAll('.plan-card').forEach((el,j) => el.classList.toggle('selected', i===j));
   document.getElementById('planSelected').style.display = 'block';
+  saveCurrentEpisode();
 }
 
 // ════════════════════════════════════
@@ -417,6 +556,7 @@ ${char.name}らしい口調で。ナレーションと映像指示（括弧書�
   try {
     generatedScript = await callClaude(prompt);
     document.getElementById('scriptLoading').style.display = 'none';
+    saveCurrentEpisode();
     switchTab('script');
   } catch(e) {
     document.getElementById('scriptLoading').style.display = 'none';
@@ -451,6 +591,7 @@ async function generateMeta() {
     const text = await callClaude(prompt);
     generatedMeta = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
     document.getElementById('metaLoading').style.display = 'none';
+    saveCurrentEpisode();
     document.getElementById('metaResultArea').innerHTML = renderMetaResult(generatedMeta);
   } catch(e) {
     document.getElementById('metaLoading').style.display = 'none';
