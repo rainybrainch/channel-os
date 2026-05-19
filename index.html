@@ -206,13 +206,13 @@ function defaultData() {
       theme: '筋トレ・フィットネス', tone: '熱血・ポジティブ・体育会系',
       color: '#FF4500', channel_id: 'UC39C9TLzlPxvFv6Radzgbcw',
       ai_personality: '熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。視聴者を仲間と呼ぶ。',
-      icon: '🦁', avatar_url: ''
+      icon: '🦁', avatar_url: '', drive_folder_id: '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x'
     }, {
       id: 'luna', name: 'ルナ', species: '白狼',
       theme: '美ボディ習慣・ヨガ・ピラティス', tone: '穏やか・継続重視・丁寧',
       color: '#9b59b6', channel_id: '',
       ai_personality: '穏やかで知的な白狼。忙しい人でも続けられる美ボディ習慣を優しく導く。共感力が高く視聴者に寄り添う。',
-      icon: '🐺', avatar_url: ''
+      icon: '🐺', avatar_url: '', drive_folder_id: '1KExNqveFrILj5B9x12_mHRKL-fqI434l'
     }],
     episodes: [], schedules: [], assets: []
   };
@@ -954,7 +954,7 @@ function renderAssetsPanel() {
     </div>
     <div class="card">
       <div class="result-header">
-        <span class="card-title" style="margin:0;">共有素材ライブラリ</span>
+        <span class="card-title" style="margin:0;">素材ライブラリ <span style="color:var(--char-color);font-size:.85em;">${data.characters.find(c=>c.id===currentCharId)?.name||''}専用</span></span>
         <button class="btn btn-secondary btn-sm" onclick="loadDriveAssets()">🔄 更新</button>
       </div>
       <div id="assetGrid" class="asset-grid" style="margin-top:12px;">
@@ -964,9 +964,14 @@ function renderAssetsPanel() {
   </div>`;
 }
 
+function getCharFolderId() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  return (char && char.drive_folder_id) || localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+}
+
 async function loadDriveAssets() {
   const token    = localStorage.getItem(GD_TOKEN_SK);
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const folderId = getCharFolderId();
   const grid = document.getElementById('assetGrid');
   if (!grid) return;
   if (!token) { grid.innerHTML = `<p style="font-size:.8rem;color:var(--text-muted);">設定タブでGoogle Drive認証を行ってください</p>`; return; }
@@ -1029,7 +1034,7 @@ function handleDrop(e) {
 
 async function uploadFiles(files) {
   const token    = localStorage.getItem(GD_TOKEN_SK);
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const folderId = getCharFolderId();
   if (!token) { showToast('設定タブでGoogle Drive認証を行ってください'); switchTab('settings'); return; }
   const prog = document.getElementById('uploadProgress');
   const msg  = document.getElementById('uploadMsg');
@@ -1137,8 +1142,12 @@ function renderSettingsPanel() {
         <input type="text" id="gdClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${gdClient}">
       </div>
       <div class="form-row col" style="margin-bottom:10px;">
-        <label>共有フォルダID（DriveのフォルダURLの末尾）</label>
-        <input type="text" id="gdFolderId" placeholder="1ABCxyz..." value="${gdFolder}">
+        <label>キャラクター別フォルダID（DriveのフォルダURLの末尾）</label>
+        ${data.characters.map(c => `
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+          <span style="min-width:60px;font-size:.82rem;color:var(--char-color);">${escHtml(c.icon||'')} ${escHtml(c.name)}</span>
+          <input type="text" id="gdFolder_${c.id}" placeholder="1ABCxyz..." value="${escHtml(c.drive_folder_id||'')}" style="flex:1;">
+        </div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn-secondary btn-sm" onclick="saveGDSettings()">設定を保存</button>
@@ -1165,7 +1174,11 @@ function saveApiKey() {
 
 function saveGDSettings() {
   localStorage.setItem(GD_CLIENT_SK, document.getElementById('gdClientId').value.trim());
-  localStorage.setItem(GD_FOLDER_SK, document.getElementById('gdFolderId').value.trim());
+  data.characters.forEach(c => {
+    const el = document.getElementById(`gdFolder_${c.id}`);
+    if (el) c.drive_folder_id = el.value.trim();
+  });
+  saveData(data);
   showToast('設定を保存しました');
 }
 
