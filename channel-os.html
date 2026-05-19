@@ -1155,14 +1155,6 @@ function renderSettingsPanel() {
         <label>Google OAuth クライアントID</label>
         <input type="text" id="gdClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${gdClient}">
       </div>
-      <div class="form-row col" style="margin-bottom:10px;">
-        <label>キャラクター別フォルダID（DriveのフォルダURLの末尾）</label>
-        ${data.characters.map(c => `
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-          <span style="min-width:60px;font-size:.82rem;color:var(--char-color);">${escHtml(c.icon||'')} ${escHtml(c.name)}</span>
-          <input type="text" id="gdFolder_${c.id}" placeholder="1ABCxyz..." value="${escHtml(c.drive_folder_id||'')}" style="flex:1;">
-        </div>`).join('')}
-      </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn-secondary btn-sm" onclick="saveGDSettings()">設定を保存</button>
         <button class="btn btn-primary btn-sm" onclick="gdAuth()">Google アカウントで認証</button>
@@ -1188,11 +1180,6 @@ function saveApiKey() {
 
 function saveGDSettings() {
   localStorage.setItem(GD_CLIENT_SK, document.getElementById('gdClientId').value.trim());
-  data.characters.forEach(c => {
-    const el = document.getElementById(`gdFolder_${c.id}`);
-    if (el) c.drive_folder_id = el.value.trim();
-  });
-  saveData(data);
   showToast('設定を保存しました');
 }
 
