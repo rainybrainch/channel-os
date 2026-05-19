@@ -916,10 +916,12 @@ async function loadDriveAssets() {
     if (res.status === 401) { localStorage.removeItem(GD_TOKEN_SK); grid.innerHTML = `<p style="font-size:.8rem;color:#e55;">認証切れです。再度ログインしてください</p>`; return; }
     const json = await res.json();
     driveAssets = (json.files || []).map(f => ({
-      id: f.id, name: f.name, mimeType: f.mimeType, blobUrl: null
+      id: f.id, name: f.name, mimeType: f.mimeType,
+      thumbUrl: f.thumbnailLink ? f.thumbnailLink.replace('=s220','=s400') : null,
+      blobUrl: null
     }));
     renderAssetGrid();
-    // サムネをBlobURLで非同期ロード（CORS回避）
+    // フル画像はBlobURLで非同期ロード
     driveAssets.forEach((a, i) => loadDriveThumb(a, i, token));
   } catch(e) {
     grid.innerHTML = `<p style="font-size:.8rem;color:#e55;">エラー: ${e.message}</p>`;
@@ -946,7 +948,9 @@ function renderAssetGrid() {
   grid.innerHTML = driveAssets.map((a, i) => `
     <div class="asset-card" onclick="useAssetInScene(${i})">
       <div class="asset-thumb">
-        <img id="asset-img-${i}" src="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">
+        ${a.thumbUrl
+          ? `<img src="${a.thumbUrl}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">`
+          : `<img id="asset-img-${i}" src="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">`}
       </div>
       <div class="asset-name">${escHtml(a.name)}</div>
       <button class="asset-use-btn" onclick="event.stopPropagation();useAssetInScene(${i})">使う</button>
