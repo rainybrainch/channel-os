@@ -1111,7 +1111,7 @@ function gdAuth() {
   if (!clientId) { alert('クライアントIDを入力してください'); return; }
   localStorage.setItem(GD_CLIENT_SK, clientId);
   const redirect = encodeURIComponent('https://rainybrainch.github.io/channel-os/');
-  const scope    = encodeURIComponent('https://www.googleapis.com/auth/drive.file');
+  const scope    = encodeURIComponent('https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file');
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=token&scope=${scope}&prompt=consent`;
   window.location.href = url;
 }
