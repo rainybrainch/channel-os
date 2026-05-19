@@ -239,8 +239,13 @@ if (!data.characters || data.characters.length === 0) {
 } else {
   let changed = false;
   defaultData().characters.forEach(def => {
-    if (!data.characters.find(c => c.id === def.id)) {
+    const existing = data.characters.find(c => c.id === def.id);
+    if (!existing) {
       data.characters.push(def);
+      changed = true;
+    } else if (!existing.drive_folder_id && def.drive_folder_id) {
+      // drive_folder_id が未設定なら補完
+      existing.drive_folder_id = def.drive_folder_id;
       changed = true;
     }
   });
