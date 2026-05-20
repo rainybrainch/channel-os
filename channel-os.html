@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RBAI Channel OS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --accent: #c9a84c;
@@ -219,6 +220,7 @@ const API_KEY_SK    = 'channelos_claude_api_key';
 const GD_TOKEN_SK   = 'channelos_gd_token';
 const GD_CLIENT_SK  = 'channelos_gd_client_id';
 const GD_FOLDER_SK  = 'channelos_gd_folder_id';
+const YT_TOKEN_SK   = 'channelos_yt_token';
 
 function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
 function defaultData() {
@@ -524,8 +526,8 @@ function renderMain() {
     </div>
 
     <div class="tabs">
-      ${['plan','script','meta','scene','assets','schedule'].map(t => {
-        const labels = {plan:'📋 企画',script:'📝 台本',meta:'🎯 投稿情報',scene:'🎨 シーン',assets:'🖼 素材',schedule:'📅 スケジュール'};
+      ${['plan','script','meta','scene','assets','schedule','publish'].map(t => {
+        const labels = {plan:'📋 企画',script:'📝 台本',meta:'🎯 投稿情報',scene:'🎨 シーン',assets:'🖼 素材',schedule:'📅 スケジュール',publish:'📦 投稿'};
         return `<button class="tab ${currentTab===t?'active':''}" onclick="switchTab('${t}')">${labels[t]}</button>`;
       }).join('')}
     </div>
@@ -536,6 +538,7 @@ function renderMain() {
     ${renderScenePanel()}
     ${renderAssetsPanel()}
     ${renderSchedulePanel()}
+    ${renderPublishPanel()}
     ${renderSettingsPanel()}
   `;
 
@@ -554,7 +557,7 @@ function switchTab(tab) {
     } else {
       const el = document.getElementById('panelSettings');
       if (el) el.outerHTML = renderSettingsPanel();
-      ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
+      ['plan','script','meta','scene','assets','schedule','publish','settings'].forEach(t => {
         const p = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
         if (p) p.classList.toggle('active', t === 'settings');
       });
@@ -577,10 +580,10 @@ function switchTab(tab) {
 
   // タブボタンactive
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active',
-    b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール'}[tab]||'__none__')
+    b.textContent.includes({plan:'企画',script:'台本',meta:'投稿情報',scene:'シーン',assets:'素材',schedule:'スケジュール',publish:'投稿'}[tab]||'__none__')
   ));
   // パネルactive
-  ['plan','script','meta','scene','assets','schedule','settings'].forEach(t => {
+  ['plan','script','meta','scene','assets','schedule','publish','settings'].forEach(t => {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
     if (el) el.classList.toggle('active', t === tab);
   });
@@ -1216,6 +1219,7 @@ function renderScenePanel() {
         <div style="display:flex;gap:6px;">
           <button class="btn btn-secondary btn-sm" onclick="initStoryboard('horizontal')">横動画で生成</button>
           <button class="btn btn-secondary btn-sm" onclick="initStoryboard('shorts')">ショートで生成</button>
+          <button class="btn btn-primary btn-sm" onclick="downloadMaterialPack()" title="音声・画像・台本・FFmpegスクリプトをZIPでDL">📦 素材パックDL</button>
         </div>
       </div>
       <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">🎨 生成ボタンでキャラをポーズ違いで透過PNG生成。参照画像を送ることでキャラを再現できます。</p>
@@ -1694,6 +1698,19 @@ function renderSettingsPanel() {
     </div>
 
     <div class="card">
+      <div class="card-title">YouTube 連携</div>
+      <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;margin-bottom:10px;">
+        📦 投稿タブで動画タイトル・説明・タグ・サムネイルを YouTube に直接適用するために使います。<br>
+        Google Cloud Console で YouTube Data API v3 を有効にし、同じ OAuth クライアント ID を使います。
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="ytAuth()">YouTube アカウントで認証</button>
+        <span style="font-size:.78rem;color:var(--text-muted);">${!!localStorage.getItem(YT_TOKEN_SK) ? '✅ 認証済み' : '未認証'}</span>
+      </div>
+      ${localStorage.getItem(YT_TOKEN_SK) ? `<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="ytLogout()">YouTubeログアウト</button>` : ''}
+    </div>
+
+    <div class="card">
       <div class="card-title">データ管理</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary btn-sm" onclick="exportData()">エクスポート</button>
@@ -1730,12 +1747,267 @@ function gdAuth() {
 
 function gdLogout() { localStorage.removeItem(GD_TOKEN_SK); switchTab('settings'); }
 
+function ytAuth() {
+  const clientId = localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
+  if (!clientId) { showToast('設定タブでGoogle OAuth クライアントIDを入力してください'); return; }
+  const redirect = encodeURIComponent('https://rainybrainch.github.io/channel-os/');
+  const scope    = encodeURIComponent('https://www.googleapis.com/auth/youtube');
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=token&scope=${scope}&prompt=consent&state=youtube`;
+  window.location.href = url;
+}
+function ytLogout() { localStorage.removeItem(YT_TOKEN_SK); switchTab('settings'); }
+
+// ════════════════════════════════════
+//  Publish Panel
+// ════════════════════════════════════
+function renderPublishPanel() {
+  const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
+  const meta = ep?.generatedMeta || {};
+  const hasPlan   = !!(ep?.theme || ep?.plan);
+  const hasScript = !!(ep?.script);
+  const hasMeta   = !!(meta.title);
+  const ytToken   = !!localStorage.getItem(YT_TOKEN_SK);
+  const thumbUrl  = ep?.thumbnailDataUrl || '';
+
+  const checkItem = (ok, label) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:1.1rem">${ok ? '✅' : '⬜'}</span>
+      <span style="font-size:.85rem;color:${ok?'var(--text)':'var(--text-muted)'}">${label}</span>
+    </div>`;
+
+  return `
+  <div class="panel ${currentTab==='publish'?'active':''}" id="panelPublish">
+    <!-- チェックリスト -->
+    <div class="card">
+      <div class="card-title">📋 投稿前チェックリスト</div>
+      ${checkItem(hasPlan,   '企画・テーマ設定済み')}
+      ${checkItem(hasScript, '台本生成済み')}
+      ${checkItem(hasMeta,   '投稿情報（タイトル・説明文・タグ）生成済み')}
+      ${checkItem(ytToken,   'YouTube 認証済み')}
+      ${!ytToken ? `<div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="ytAuth()">YouTube 認証</button></div>` : ''}
+    </div>
+
+    <!-- サムネイル生成 -->
+    <div class="card">
+      <div class="card-title">🖼 サムネイル生成</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn btn-primary btn-sm" onclick="buildThumbnailForPublish('horizontal')">横型 1280×720 生成</button>
+        <button class="btn btn-primary btn-sm" onclick="buildThumbnailForPublish('shorts')">縦型 720×1280 生成</button>
+      </div>
+      ${thumbUrl ? `
+        <img src="${thumbUrl}" style="max-width:100%;border-radius:8px;margin-bottom:8px;" id="publishThumbPreview">
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="downloadThumbnail()">💾 ダウンロード</button>
+        </div>` : `<p style="font-size:.78rem;color:var(--text-muted);">まだサムネイルがありません。上のボタンで生成してください。</p>`}
+    </div>
+
+    <!-- 投稿情報コピー -->
+    <div class="card">
+      <div class="card-title">📝 投稿情報</div>
+      ${meta.title ? `
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;color:var(--text-muted);">タイトル</label>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+            <input type="text" value="${(meta.title||'').replace(/"/g,'&quot;')}" readonly style="flex:1;font-size:.85rem;">
+            <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${(meta.title||'').replace(/'/g,"\\'")}');showToast('コピーしました')">コピー</button>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;color:var(--text-muted);">説明文</label>
+          <textarea readonly rows="4" style="font-size:.78rem;margin-top:4px;">${meta.description||''}</textarea>
+          <button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="copyText(${JSON.stringify(meta.description||'')})">コピー</button>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;color:var(--text-muted);">タグ（カンマ区切り）</label>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+            <input type="text" value="${((meta.tags||[]).join(', ')).replace(/"/g,'&quot;')}" readonly style="flex:1;font-size:.82rem;">
+            <button class="btn btn-secondary btn-sm" onclick="copyText('${((meta.tags||[]).join(', ')).replace(/'/g,"\\'")}')">コピー</button>
+          </div>
+        </div>
+      ` : `<p style="font-size:.78rem;color:var(--text-muted);">「🎯 投稿情報」タブで投稿情報を生成してください。</p>`}
+    </div>
+
+    <!-- YouTube Studio 直接適用 -->
+    <div class="card">
+      <div class="card-title">📺 YouTube に直接適用</div>
+      <p style="font-size:.78rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px;">
+        動画をアップロード後、動画 ID を入力して「適用」すると<br>
+        タイトル・説明・タグ・サムネイルが自動で設定されます。
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <input type="text" id="ytVideoId" placeholder="動画ID（例: dQw4w9WgXcQ）" style="flex:1;">
+        <button class="btn btn-primary btn-sm" onclick="applyMetaToYouTube()">適用</button>
+      </div>
+      <a href="https://studio.youtube.com" target="_blank" class="btn btn-secondary btn-sm">YouTube Studio を開く</a>
+    </div>
+  </div>`;
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('コピーしました'));
+}
+
+async function buildThumbnailForPublish(orientation) {
+  const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
+  if (!ep) { showToast('エピソードを選択してください'); return; }
+  const meta = ep.generatedMeta || {};
+  const openaiKey = localStorage.getItem('channelos_openai_api_key');
+  if (!openaiKey) { showToast('設定タブでOpenAI APIキーを入力してください'); return; }
+
+  const isShorts = orientation === 'shorts';
+  const W = isShorts ? 720 : 1280;
+  const H = isShorts ? 1280 : 720;
+  const promptText = isShorts
+    ? (meta.thumb_shorts || `YouTube Shorts thumbnail for: ${meta.title||ep.theme||'動画'}`)
+    : (meta.thumb_horizontal || `YouTube thumbnail for: ${meta.title||ep.theme||'動画'}`);
+  const overlayText = isShorts
+    ? (meta.thumb_text_shorts || meta.title || '')
+    : (meta.thumb_text_horizontal || meta.title || '');
+
+  showToast('🎨 DALL-E でサムネイル生成中...');
+  try {
+    const resp = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+      body: JSON.stringify({ model: 'dall-e-3', prompt: promptText, n: 1, size: isShorts ? '1024x1792' : '1792x1024', response_format: 'b64_json' })
+    });
+    if (!resp.ok) throw new Error(`DALL-E error: ${resp.status}`);
+    const json = await resp.json();
+    const b64 = json.data[0].b64_json;
+    const imgDataUrl = `data:image/png;base64,${b64}`;
+
+    // Canvas合成
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgDataUrl; });
+    ctx.drawImage(img, 0, 0, W, H);
+
+    // テキストオーバーレイ
+    if (overlayText) {
+      const fontSize = isShorts ? 72 : 60;
+      ctx.font = `bold ${fontSize}px 'Noto Sans JP', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#ffffff';
+      const lines = wrapText(ctx, overlayText, W - 80);
+      const lineH = fontSize * 1.3;
+      const totalH = lines.length * lineH;
+      let y = isShorts ? H * 0.75 : H * 0.8;
+      lines.forEach(line => { ctx.fillText(line, W / 2, y); y += lineH; });
+    }
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    // Save to episode
+    const d = loadData();
+    const epIdx = d.episodes.findIndex(e => e.id === currentEpisodeId);
+    if (epIdx >= 0) { d.episodes[epIdx].thumbnailDataUrl = dataUrl; saveData(d); }
+    switchTab('publish');
+    showToast('✅ サムネイル生成完了');
+  } catch (e) {
+    showToast('❌ サムネイル生成失敗: ' + e.message);
+  }
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split('');
+  const lines = [];
+  let line = '';
+  for (const ch of words) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function downloadThumbnail() {
+  const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
+  if (!ep?.thumbnailDataUrl) { showToast('サムネイルがありません'); return; }
+  const a = document.createElement('a');
+  a.href = ep.thumbnailDataUrl;
+  a.download = `thumbnail_${ep.id}.jpg`;
+  a.click();
+}
+
+async function applyMetaToYouTube() {
+  const ytToken = localStorage.getItem(YT_TOKEN_SK);
+  if (!ytToken) { showToast('YouTube認証が必要です'); ytAuth(); return; }
+  const videoId = document.getElementById('ytVideoId')?.value?.trim();
+  if (!videoId) { showToast('動画IDを入力してください'); return; }
+  const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
+  if (!ep) { showToast('エピソードを選択してください'); return; }
+  const meta = ep.generatedMeta || {};
+  if (!meta.title) { showToast('投稿情報を生成してください'); return; }
+
+  showToast('📤 YouTube に適用中...');
+  try {
+    // 1. videos.update
+    const updateResp = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ytToken}` },
+      body: JSON.stringify({
+        id: videoId,
+        snippet: {
+          title: meta.title,
+          description: meta.description || '',
+          tags: meta.tags || [],
+          categoryId: '22'
+        }
+      })
+    });
+    if (!updateResp.ok) {
+      const err = await updateResp.json();
+      throw new Error(err.error?.message || `videos.update failed (${updateResp.status})`);
+    }
+
+    // 2. thumbnails.set
+    if (ep.thumbnailDataUrl) {
+      const blob = await (await fetch(ep.thumbnailDataUrl)).blob();
+      const thumbResp = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${videoId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/jpeg', 'Authorization': `Bearer ${ytToken}` },
+        body: blob
+      });
+      if (!thumbResp.ok) {
+        const err = await thumbResp.json();
+        showToast('⚠️ サムネ適用失敗: ' + (err.error?.message || thumbResp.status));
+      } else {
+        showToast('✅ タイトル・説明・サムネイルを適用しました');
+        return;
+      }
+    }
+    showToast('✅ タイトル・説明・タグを適用しました（サムネイル未設定）');
+  } catch (e) {
+    showToast('❌ 適用失敗: ' + e.message);
+  }
+}
+
 // OAuth token from URL hash (redirect back from Google)
 (function() {
   const hash = location.hash;
   if (hash.includes('access_token=')) {
-    const token = new URLSearchParams(hash.slice(1)).get('access_token');
-    if (token) { localStorage.setItem(GD_TOKEN_SK, token); history.replaceState(null,'',location.pathname); showToast('☁️ Google Drive認証完了'); }
+    const params = new URLSearchParams(hash.slice(1));
+    const token  = params.get('access_token');
+    const state  = params.get('state');
+    if (token) {
+      if (state === 'youtube') {
+        localStorage.setItem(YT_TOKEN_SK, token);
+        history.replaceState(null,'',location.pathname);
+        showToast('📺 YouTube認証完了');
+      } else {
+        localStorage.setItem(GD_TOKEN_SK, token);
+        history.replaceState(null,'',location.pathname);
+        showToast('☁️ Google Drive認証完了');
+      }
+    }
   }
 })();
 
@@ -1895,6 +2167,210 @@ function copySceneLines(sceneIdx) {
   const sb = storyboardData[currentCharId];
   if (!sb || !sb.scenes[sceneIdx]) return;
   copyText(sb.scenes[sceneIdx].lines.join('\n'));
+}
+
+// ════════════════════════════════════
+//  素材パックDL (JSZip)
+// ════════════════════════════════════
+async function downloadMaterialPack() {
+  const sb = storyboardData[currentCharId];
+  if (!sb || !sb.scenes || !sb.scenes.length) { showToast('先に絵コンテを生成してください'); return; }
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (typeof JSZip === 'undefined') { showToast('JSZipが読み込まれていません。ページをリロードしてください'); return; }
+
+  showToast('📦 ZIPを作成中...');
+  const zip = new JSZip();
+  const charName = char?.name || 'character';
+  const format = sb.format || 'shorts';
+  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const folderName = `${charName}_${dateStr}`;
+  const folder = zip.folder(folderName);
+
+  // 1. 台本テキスト (script.txt)
+  const scriptLines = sb.scenes.map((s, i) =>
+    `=== シーン${i+1}: ${s.label} (${s.time}) ===\n${s.lines.join('\n')}`
+  ).join('\n\n');
+  folder.file('script.txt', scriptLines);
+
+  // 2. シーン画像 (scene_01.png, scene_02.png ...)
+  let imageCount = 0;
+  for (let i = 0; i < sb.scenes.length; i++) {
+    const scene = sb.scenes[i];
+    if (scene.imageDataUrl && scene.imageDataUrl.startsWith('data:')) {
+      const base64 = scene.imageDataUrl.split(',')[1];
+      const ext = scene.imageDataUrl.includes('image/png') ? 'png' : 'jpg';
+      folder.file(`scene_${String(i+1).padStart(2,'0')}.${ext}`, base64, { base64: true });
+      imageCount++;
+    }
+  }
+
+  // 3. キャラ参照画像 (char_ref.png)
+  if (sb.charRefDataUrl && sb.charRefDataUrl.startsWith('data:')) {
+    const base64 = sb.charRefDataUrl.split(',')[1];
+    folder.file('char_ref.png', base64, { base64: true });
+  }
+
+  // 4. compile_video.py (FFmpegスクリプト)
+  const pyScript = generateFFmpegScript(format, sb.scenes.length, charName);
+  folder.file('compile_video.py', pyScript);
+
+  // 5. README.txt
+  const readme = `RBAI Channel OS - 素材パック
+キャラクター: ${charName}
+フォーマット: ${format === 'shorts' ? 'ショート（縦9:16 / 50秒）' : '横動画（16:9 / 180秒）'}
+生成日: ${new Date().toLocaleDateString('ja-JP')}
+シーン数: ${sb.scenes.length}
+画像数: ${imageCount}
+
+【使い方】
+1. VOICEVOXで音声を生成（ChannelOSの「音声」タブ → WAVをDL）
+2. audio.wav をこのフォルダに配置
+3. Python で compile_video.py を実行:
+   pip install ffmpeg-python pillow
+   python compile_video.py
+4. output.mp4 が生成されます
+
+【YouTube投稿】
+- ChannelOSの「メタ」タブでタイトル・概要欄・タグを生成
+- 最適投稿時間も確認してください
+`;
+  folder.file('README.txt', readme);
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${folderName}_materials.zip`;
+  a.click();
+  showToast(`✅ ZIPをDLしました（シーン${sb.scenes.length}個 / 画像${imageCount}枚）`);
+}
+
+function generateFFmpegScript(format, sceneCount, charName) {
+  const isShorts = format === 'shorts';
+  const totalDuration = isShorts ? 50 : 180;
+  const width = isShorts ? 1080 : 1920;
+  const height = isShorts ? 1920 : 1080;
+
+  // シーンの秒数配分
+  let sceneDurations;
+  if (isShorts) {
+    // ショート: フック2s / 結論8s / 理由例×n / CTA最後5s
+    const middle = sceneCount - 2;
+    const midDur = Math.floor((50 - 2 - 8 - 5) / Math.max(middle, 1));
+    sceneDurations = [2, 8, ...Array(middle).fill(midDur), 5];
+  } else {
+    // 横動画: フック15s / 課題提起30s / 解決策÷n / 行動喚起30s
+    const middle = sceneCount - 3;
+    const midDur = Math.floor((180 - 15 - 30 - 30) / Math.max(middle, 1));
+    sceneDurations = [15, 30, ...Array(middle).fill(midDur), 30];
+  }
+  // 合計秒数をtotalDurationに合わせて最後を調整
+  const sumDur = sceneDurations.reduce((a, b) => a + b, 0);
+  if (sceneDurations.length > 0) sceneDurations[sceneDurations.length - 1] += totalDuration - sumDur;
+
+  return `#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# RBAI Channel OS - 素材コンパイルスクリプト
+# キャラクター: ${charName}
+# フォーマット: ${isShorts ? 'ショート（9:16 / 50秒）' : '横動画（16:9 / 180秒）'}
+#
+# 必要: pip install ffmpeg-python pillow
+# FFmpegも必要: https://ffmpeg.org/download.html
+#
+# 使い方: python compile_video.py
+#   → output.mp4 が生成されます
+
+import os
+import subprocess
+import glob
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
+AUDIO_FILE = SCRIPT_DIR / "audio.wav"
+OUTPUT_FILE = SCRIPT_DIR / "output.mp4"
+WIDTH = ${width}
+HEIGHT = ${height}
+FPS = 30
+CHAR_NAME = "${charName}"
+
+# シーンファイルとその表示秒数（手動で調整可）
+SCENE_DURATIONS = ${JSON.stringify(sceneDurations)}
+
+def find_scenes():
+    scenes = sorted(glob.glob(str(SCRIPT_DIR / "scene_*.png")) +
+                    glob.glob(str(SCRIPT_DIR / "scene_*.jpg")))
+    return scenes
+
+def compile_video():
+    scenes = find_scenes()
+    if not scenes:
+        print("ERROR: scene_XX.png/jpg が見つかりません")
+        return
+
+    print(f"シーン数: {len(scenes)}")
+    for i, s in enumerate(scenes):
+        print(f"  {i+1}: {Path(s).name}")
+
+    durations = SCENE_DURATIONS[:len(scenes)]
+    while len(durations) < len(scenes):
+        durations.append(3)
+
+    # 各シーンを指定秒数の動画に変換（背景黒 + キャラ画像センタリング）
+    temp_clips = []
+    for i, (scene_path, dur) in enumerate(zip(scenes, durations)):
+        temp_out = str(SCRIPT_DIR / f"_tmp_{i:02d}.mp4")
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-t", str(dur), "-i", scene_path,
+            "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
+                   f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2:black",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-r", str(FPS),
+            temp_out
+        ]
+        print(f"[{i+1}/{len(scenes)}] {Path(scene_path).name} → {dur}秒")
+        subprocess.run(cmd, check=True, capture_output=True)
+        temp_clips.append(temp_out)
+
+    # シーンを結合
+    concat_list = str(SCRIPT_DIR / "_concat.txt")
+    with open(concat_list, "w") as f:
+        for clip in temp_clips:
+            f.write(f"file '{clip}'\\n")
+
+    merged = str(SCRIPT_DIR / "_merged.mp4")
+    cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
+           "-c", "copy", merged]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    # 音声合成
+    if AUDIO_FILE.exists():
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", merged, "-i", str(AUDIO_FILE),
+            "-map", "0:v", "-map", "1:a",
+            "-c:v", "copy", "-c:a", "aac",
+            "-shortest",
+            str(OUTPUT_FILE)
+        ]
+        print("音声を合成中...")
+        subprocess.run(cmd, check=True, capture_output=True)
+    else:
+        print("WARNING: audio.wav が見つかりません。映像のみ出力します")
+        import shutil
+        shutil.copy(merged, str(OUTPUT_FILE))
+
+    # 一時ファイルを削除
+    for f in temp_clips + [concat_list, merged]:
+        try: os.remove(f)
+        except: pass
+
+    print(f"\\n✅ 完成: {OUTPUT_FILE}")
+    print(f"   解像度: {WIDTH}x{HEIGHT}")
+    print(f"   合計時間: {sum(durations)}秒")
+
+if __name__ == "__main__":
+    compile_video()
+`;
 }
 
 function parseScript(raw) {
