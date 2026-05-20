@@ -1810,6 +1810,19 @@ function renderSettingsPanel() {
 
     <!-- ⑤ データ管理 -->
     <div class="card">
+      <div class="card-title">YouTube 連携</div>
+      <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;margin-bottom:10px;">
+        📦 投稿タブで動画タイトル・説明・タグ・サムネイルを YouTube に直接適用するために使います。<br>
+        Google Cloud Console で YouTube Data API v3 を有効にし、同じ OAuth クライアント ID を使います。
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="ytAuth()">YouTube アカウントで認証</button>
+        <span style="font-size:.78rem;color:var(--text-muted);">${!!localStorage.getItem(YT_TOKEN_SK) ? '✅ 認証済み' : '未認証'}</span>
+      </div>
+      ${localStorage.getItem(YT_TOKEN_SK) ? `<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="ytLogout()">YouTubeログアウト</button>` : ''}
+    </div>
+
+    <div class="card">
       <div class="card-title">データ管理</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary btn-sm" onclick="exportData()">エクスポート</button>
