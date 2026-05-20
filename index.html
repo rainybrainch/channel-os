@@ -221,11 +221,11 @@ const GD_TOKEN_SK   = 'channelos_gd_token';
 const GD_CLIENT_SK  = 'channelos_gd_client_id';
 const GD_FOLDER_SK  = 'channelos_gd_folder_id';
 const YT_TOKEN_SK   = 'channelos_yt_token';
-const SA_JSON_SK    = 'channelos_sa_json';       // サービスアカウントJSON
-const SA_TOKEN_SK   = 'channelos_sa_token';      // SA発行アクセストークン
-const SA_EXPIRY_SK  = 'channelos_sa_expiry';     // SA トークン有効期限
-const GIST_ID_SK    = 'channelos_gist_id';       // プライベートGist ID
-const GIST_PAT_SK   = 'channelos_gist_pat';      // GitHub PAT（読み取り専用）
+const SA_JSON_SK    = 'channelos_sa_json';
+const SA_TOKEN_SK   = 'channelos_sa_token';
+const SA_EXPIRY_SK  = 'channelos_sa_expiry';
+const GIST_ID_SK    = 'channelos_gist_id';
+const GIST_PAT_SK   = 'channelos_gist_pat';
 
 function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
 function defaultData() {
@@ -347,64 +347,33 @@ function saveCurrentEpisode() {
 //  サービスアカウント認証（期限切れなし）
 // ════════════════════════════════════
 async function getGDToken() {
-  // サービスアカウントが設定されている場合はSAトークンを使う
   const saJson = localStorage.getItem(SA_JSON_SK);
   if (saJson) {
     const now = Date.now();
     const expiry = parseInt(localStorage.getItem(SA_EXPIRY_SK) || '0');
-    // 有効期限5分前まで既存トークンを使い回す
-    if (expiry - now > 5 * 60 * 1000) {
-      return localStorage.getItem(SA_TOKEN_SK);
-    }
-    // 期限切れ or 未取得 → JWT発行して新しいトークンを取得
-    try {
-      const token = await fetchSAToken(JSON.parse(saJson));
-      return token;
-    } catch(e) {
-      showToast('SA認証エラー: ' + e.message);
-      return null;
-    }
+    if (expiry - now > 5 * 60 * 1000) return localStorage.getItem(SA_TOKEN_SK);
+    try { return await fetchSAToken(JSON.parse(saJson)); } catch(e) { showToast('SA認証エラー: ' + e.message); return null; }
   }
-  // フォールバック: 旧OAuth暗黙フロートークン
   return localStorage.getItem(GD_TOKEN_SK);
 }
 
 async function fetchSAToken(sa) {
   const now = Math.floor(Date.now() / 1000);
+  const b64 = s => btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
   const header = { alg: 'RS256', typ: 'JWT' };
-  const claim = {
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/drive',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  };
-  const b64 = s => btoa(unescape(encodeURIComponent(JSON.stringify(s))))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const claim  = { iss: sa.client_email, scope: 'https://www.googleapis.com/auth/drive', aud: 'https://oauth2.googleapis.com/token', exp: now+3600, iat: now };
   const sigInput = `${b64(header)}.${b64(claim)}`;
-
-  // PEM → CryptoKey
   const pem = sa.private_key.replace(/-----[^\n]+-----/g,'').replace(/\s/g,'');
   const der = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    'pkcs8', der.buffer,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false, ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5', key,
-    new TextEncoder().encode(sigInput)
-  );
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const key = await crypto.subtle.importKey('pkcs8', der.buffer, { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(sigInput));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
   const jwt = `${sigInput}.${sigB64}`;
-
   const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
   });
-  if (!res.ok) throw new Error('SA token fetch failed: ' + res.status);
+  if (!res.ok) throw new Error('SA token failed: ' + res.status);
   const json = await res.json();
   localStorage.setItem(SA_TOKEN_SK, json.access_token);
   localStorage.setItem(SA_EXPIRY_SK, String(Date.now() + json.expires_in * 1000));
@@ -412,37 +381,31 @@ async function fetchSAToken(sa) {
 }
 
 // ════════════════════════════════════
-//  Gist設定読み込み（APIキー一元管理）
+//  Gist APIキー一元管理
 // ════════════════════════════════════
 async function loadGistConfig() {
   const gistId = localStorage.getItem(GIST_ID_SK);
   const pat    = localStorage.getItem(GIST_PAT_SK);
-  if (!gistId || !pat) return;
+  if (!gistId || !pat) { showToast('設定タブでGist IDとPATを入力してください'); return; }
   try {
     const res = await fetch(`https://api.github.com/gists/${gistId}`, {
       headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' }
     });
     if (!res.ok) { showToast('Gist読み込み失敗: ' + res.status); return; }
-    const json = await res.json();
-    const file = json.files['channelos-keys.json'];
-    if (!file) { showToast('Gist内に channelos-keys.json が見つかりません'); return; }
+    const file = (await res.json()).files['channelos-keys.json'];
+    if (!file) { showToast('channelos-keys.json が見つかりません'); return; }
     const keys = JSON.parse(file.content);
     if (keys.claude)  localStorage.setItem(API_KEY_SK, keys.claude);
     if (keys.openai)  localStorage.setItem('channelos_openai_api_key', keys.openai);
     showToast('✅ Gistからキーを読み込みました');
-  } catch(e) {
-    showToast('Gist読み込みエラー: ' + e.message);
-  }
+  } catch(e) { showToast('Gistエラー: ' + e.message); }
 }
 
 async function saveGistConfig() {
   const gistId = localStorage.getItem(GIST_ID_SK);
   const pat    = localStorage.getItem(GIST_PAT_SK);
   if (!gistId || !pat) { showToast('GistIDとPATを先に設定してください'); return; }
-  const keys = {
-    claude: localStorage.getItem(API_KEY_SK) || '',
-    openai: localStorage.getItem('channelos_openai_api_key') || ''
-  };
+  const keys = { claude: localStorage.getItem(API_KEY_SK)||'', openai: localStorage.getItem('channelos_openai_api_key')||'' };
   try {
     const res = await fetch(`https://api.github.com/gists/${gistId}`, {
       method: 'PATCH',
@@ -451,9 +414,7 @@ async function saveGistConfig() {
     });
     if (!res.ok) throw new Error(res.status);
     showToast('✅ GistにAPIキーを保存しました（チーム共有）');
-  } catch(e) {
-    showToast('Gist保存エラー: ' + e.message);
-  }
+  } catch(e) { showToast('Gist保存エラー: ' + e.message); }
 }
 
 // ── Drive 共有DB（channelos-shared.json）──
@@ -463,16 +424,8 @@ let sharedFileId = null;
 async function driveRequest(url, options = {}) {
   const token = await getGDToken();
   if (!token) { showToast('Drive未認証。設定タブでサービスアカウントを設定してください'); return null; }
-  const res = await fetch(url, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
-  });
-  if (res.status === 401) {
-    // SAトークンの場合は強制更新
-    localStorage.removeItem(SA_EXPIRY_SK);
-    showToast('Drive認証エラー。再試行してください');
-    return null;
-  }
+  const res = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.headers||{}) } });
+  if (res.status === 401) { localStorage.removeItem(SA_EXPIRY_SK); showToast('Drive認証エラー。再試行してください'); return null; }
   return res;
 }
 
@@ -1779,66 +1732,61 @@ JSONのみ出力: [{"date":"YYYY-MM-DD","episode":1,"format":"horizontal|shorts"
 //  Settings Panel
 // ════════════════════════════════════
 function renderSettingsPanel() {
-  const hasSA     = !!localStorage.getItem(SA_JSON_SK);
-  const saInfo    = hasSA ? JSON.parse(localStorage.getItem(SA_JSON_SK)).client_email : '';
-  const hasGist   = !!(localStorage.getItem(GIST_ID_SK) && localStorage.getItem(GIST_PAT_SK));
-  const gdClient  = localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
+  const hasSA    = !!localStorage.getItem(SA_JSON_SK);
+  const saEmail  = hasSA ? (() => { try { return JSON.parse(localStorage.getItem(SA_JSON_SK)).client_email; } catch(e) { return ''; } })() : '';
+  const hasGist  = !!(localStorage.getItem(GIST_ID_SK) && localStorage.getItem(GIST_PAT_SK));
+  const gdClient = localStorage.getItem(GD_CLIENT_SK) || '420800714761-ui9g88fgbrocu4a1nim1m3mv908s0gos.apps.googleusercontent.com';
   return `
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
 
-    <!-- ① Gist APIキー一元管理 -->
+    <!-- ① Gist APIキー一元管理（最優先） -->
     <div class="card" style="border-color:var(--char-color);">
       <div class="card-title">🔑 APIキー一元管理（チーム共有）</div>
       <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;margin-bottom:12px;">
         プライベートGistにAPIキーを保存してチームで共有します。<br>
-        <strong style="color:var(--text);">初回手順：</strong><br>
-        ① <a href="https://gist.github.com/" target="_blank" style="color:var(--char-color);">gist.github.com</a> でプライベートGistを新規作成<br>
+        ① <a href="https://gist.github.com/" target="_blank" style="color:var(--char-color);">gist.github.com</a> でプライベートGistを作成<br>
         ② ファイル名: <code style="background:var(--surface2);padding:1px 6px;border-radius:3px;">channelos-keys.json</code><br>
-        ③ 内容: <code style="background:var(--surface2);padding:1px 6px;border-radius:3px;">{"claude":"sk-ant-...","openai":"sk-..."}</code><br>
-        ④ GistのURLから ID（英数字部分）をコピー<br>
-        ⑤ <a href="https://github.com/settings/tokens" target="_blank" style="color:var(--char-color);">GitHub PAT</a>（Gist読み取り権限）を発行
+        ③ 内容例: <code style="background:var(--surface2);padding:1px 6px;border-radius:3px;">{"claude":"sk-ant-...","openai":"sk-..."}</code><br>
+        ④ <a href="https://github.com/settings/tokens" target="_blank" style="color:var(--char-color);">GitHub PAT</a>（Gist権限）を発行してメンバーと共有
       </p>
       <div class="form-row col" style="gap:8px;">
-        <div><label>Gist ID</label><input type="text" id="gistId" placeholder="b90942bcc77eb8bf6c987f0ed983e344" value="${localStorage.getItem(GIST_ID_SK)||''}"></div>
-        <div><label>GitHub PAT（Gist読み取り用）</label><input type="password" id="gistPat" placeholder="ghp_..." value="${localStorage.getItem(GIST_PAT_SK)||''}"></div>
+        <div><label>Gist ID</label><input type="text" id="gistId" placeholder="b90942bcc77eb8bf6..." value="${localStorage.getItem(GIST_ID_SK)||''}"></div>
+        <div><label>GitHub PAT</label><input type="password" id="gistPat" placeholder="ghp_..." value="${localStorage.getItem(GIST_PAT_SK)||''}"></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="btn btn-secondary btn-sm" onclick="saveGistSettings()">設定を保存</button>
+        <button class="btn btn-secondary btn-sm" onclick="saveGistSettings()">設定保存</button>
         <button class="btn btn-primary btn-sm" onclick="loadGistConfig()">📥 Gistから読み込む</button>
-        <button class="btn btn-secondary btn-sm" onclick="saveGistConfig()">📤 Gistに保存する</button>
-        <span style="font-size:.75rem;color:var(--text-muted);align-self:center;">${hasGist ? '✅ Gist設定済' : '未設定'}</span>
+        <button class="btn btn-secondary btn-sm" onclick="saveGistConfig()">📤 Gistに保存</button>
+        <span style="font-size:.75rem;color:${hasGist?'#4a8':'var(--text-muted)'};align-self:center;">${hasGist ? '✅ 設定済' : '未設定'}</span>
       </div>
     </div>
 
-    <!-- ② Claude / OpenAI 個別設定（Gistと併用可） -->
+    <!-- ② APIキー個別入力 -->
     <div class="card">
       <div class="card-title">Claude API キー</div>
-      <input type="text" id="claudeApiKey" placeholder="sk-ant-..." value="${localStorage.getItem(API_KEY_SK)||''}" autocomplete="off">
+      <input type="password" id="claudeApiKey" placeholder="sk-ant-..." value="${localStorage.getItem(API_KEY_SK)||''}" autocomplete="off">
       <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="saveApiKey()">保存</button>
     </div>
 
     <div class="card">
       <div class="card-title">OpenAI API キー（DALL-E 画像生成用）</div>
-      <input type="text" id="openaiApiKey" placeholder="sk-..." value="${localStorage.getItem('channelos_openai_api_key')||''}" autocomplete="off">
+      <input type="password" id="openaiApiKey" placeholder="sk-..." value="${localStorage.getItem('channelos_openai_api_key')||''}" autocomplete="off">
       <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="saveOpenAIKey()">保存</button>
     </div>
 
     <!-- ③ Google Drive サービスアカウント -->
     <div class="card" style="${hasSA ? 'border-color:#4a8;' : ''}">
-      <div class="card-title">☁️ Google Drive（サービスアカウント）</div>
+      <div class="card-title">☁️ Google Drive（サービスアカウント・認証切れなし）</div>
       <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;margin-bottom:12px;">
-        認証切れが起きない恒久認証方式です。<br>
-        <strong style="color:var(--text);">初回手順：</strong><br>
-        ① <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--char-color);">Google Cloud Console</a> → 「IAM と管理」→「サービスアカウント」<br>
-        ② 新規作成 → ロール「編集者」付与<br>
-        ③ 「鍵を追加」→ JSON形式でDL<br>
-        ④ DriveフォルダをSAのメールアドレスと共有（編集者権限）<br>
-        ⑤ JSONファイルの中身をここに貼り付け
+        ① <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--char-color);">Google Cloud Console</a> → IAMと管理 → サービスアカウント → 新規作成<br>
+        ② ロール「編集者」を付与 → 鍵を追加（JSON形式でDL）<br>
+        ③ DriveフォルダをSAメールアドレスと共有（編集者権限）<br>
+        ④ JSONファイルの中身をそのまま貼り付け
       </p>
-      ${hasSA ? `<div style="font-size:.78rem;color:#4a8;margin-bottom:10px;">✅ 設定済: ${escHtml(saInfo)}</div>` : ''}
-      <label style="margin-bottom:4px;display:block;">サービスアカウントJSON（貼り付け）</label>
-      <textarea id="saJsonInput" placeholder='{"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n...","client_email":"..."}' style="min-height:100px;font-size:.72rem;font-family:monospace;"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      ${hasSA ? `<div style="font-size:.78rem;color:#4a8;margin-bottom:10px;">✅ 設定済: ${escHtml(saEmail)}</div>` : ''}
+      <label style="margin-bottom:4px;display:block;">サービスアカウントJSON</label>
+      <textarea id="saJsonInput" rows="4" placeholder='{"type":"service_account","client_email":"...@....iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\n..."}' style="font-size:.72rem;font-family:monospace;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-primary btn-sm" onclick="saveSAJson()">保存して認証テスト</button>
         ${hasSA ? `<button class="btn btn-secondary btn-sm" onclick="clearSAJson()">削除</button>` : ''}
       </div>
@@ -1846,19 +1794,16 @@ function renderSettingsPanel() {
 
     <!-- ④ YouTube 連携 -->
     <div class="card">
-      <div class="card-title">YouTube 連携</div>
-      <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;margin-bottom:10px;">
-        投稿タブで動画タイトル・説明・タグを YouTube に直接適用するために使います。<br>
-        Google Cloud Console で YouTube Data API v3 を有効にし、OAuthクライアントIDを設定してください。
-      </p>
+      <div class="card-title">YouTube 連携（OAuth）</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">投稿タブで YouTube に直接投稿するために使います。Google Cloud Console で YouTube Data API v3 を有効にしてください。</p>
       <div class="form-row col" style="margin-bottom:10px;">
-        <label>Google OAuth クライアントID（YouTube用）</label>
+        <label>Google OAuth クライアントID</label>
         <input type="text" id="gdClientId" placeholder="xxxxx.apps.googleusercontent.com" value="${gdClient}">
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="saveGDSettings()">ClientID保存</button>
         <button class="btn btn-primary btn-sm" onclick="ytAuth()">YouTube 認証</button>
-        <span style="font-size:.78rem;color:var(--text-muted);">${!!localStorage.getItem(YT_TOKEN_SK) ? '✅ 認証済み' : '未認証'}</span>
+        <span style="font-size:.78rem;color:${!!localStorage.getItem(YT_TOKEN_SK)?'#4a8':'var(--text-muted)'};">${!!localStorage.getItem(YT_TOKEN_SK) ? '✅ 認証済み' : '未認証'}</span>
       </div>
       ${localStorage.getItem(YT_TOKEN_SK) ? `<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="ytLogout()">ログアウト</button>` : ''}
     </div>
@@ -1878,26 +1823,22 @@ function saveApiKey() {
   localStorage.setItem(API_KEY_SK, document.getElementById('claudeApiKey').value.trim());
   showToast('APIキーを保存しました');
 }
-
 function saveOpenAIKey() {
   localStorage.setItem('channelos_openai_api_key', document.getElementById('openaiApiKey').value.trim());
   showToast('OpenAI APIキーを保存しました');
 }
-
 function saveGDSettings() {
   localStorage.setItem(GD_CLIENT_SK, document.getElementById('gdClientId').value.trim());
   showToast('設定を保存しました');
 }
-
 function saveGistSettings() {
   localStorage.setItem(GIST_ID_SK, document.getElementById('gistId').value.trim());
   localStorage.setItem(GIST_PAT_SK, document.getElementById('gistPat').value.trim());
   showToast('Gist設定を保存しました');
 }
-
 async function saveSAJson() {
   const raw = document.getElementById('saJsonInput').value.trim();
-  if (!raw) { showToast('JSONを入力してください'); return; }
+  if (!raw) { showToast('JSONを貼り付けてください'); return; }
   let sa;
   try { sa = JSON.parse(raw); } catch(e) { showToast('JSON形式が正しくありません'); return; }
   if (!sa.client_email || !sa.private_key) { showToast('client_email と private_key が必要です'); return; }
@@ -1905,22 +1846,15 @@ async function saveSAJson() {
   localStorage.removeItem(SA_EXPIRY_SK);
   showToast('認証テスト中...');
   try {
-    const token = await fetchSAToken(sa);
-    if (token) {
-      showToast('✅ サービスアカウント認証成功！認証切れなし設定が完了しました');
-      const sp = document.getElementById('panelSettings');
-      if (sp) sp.outerHTML = renderSettingsPanel();
-    }
-  } catch(e) {
-    showToast('認証失敗: ' + e.message);
-  }
+    await fetchSAToken(sa);
+    showToast('✅ SA認証成功！認証切れなし設定が完了しました');
+    const sp = document.getElementById('panelSettings');
+    if (sp) sp.outerHTML = renderSettingsPanel();
+  } catch(e) { showToast('認証失敗: ' + e.message); }
 }
-
 function clearSAJson() {
-  localStorage.removeItem(SA_JSON_SK);
-  localStorage.removeItem(SA_TOKEN_SK);
-  localStorage.removeItem(SA_EXPIRY_SK);
-  showToast('サービスアカウントを削除しました');
+  localStorage.removeItem(SA_JSON_SK); localStorage.removeItem(SA_TOKEN_SK); localStorage.removeItem(SA_EXPIRY_SK);
+  showToast('SAを削除しました');
   const sp = document.getElementById('panelSettings');
   if (sp) sp.outerHTML = renderSettingsPanel();
 }
@@ -2463,50 +2397,32 @@ function generateFFmpegScript(format, sceneCount, charName) {
 # キャラクター: ${charName}
 # フォーマット: ${isShorts ? 'ショート（9:16 / 50秒）' : '横動画（16:9 / 180秒）'}
 #
-# 必要: pip install imageio-ffmpeg pillow
-# （FFmpegの別途インストール不要）
+# 必要: pip install ffmpeg-python pillow
+# FFmpegも必要: https://ffmpeg.org/download.html
 #
 # 使い方: python compile_video.py
 #   → output.mp4 が生成されます
 
 import os
-import glob
-import wave
-import struct
-import imageio_ffmpeg
 import subprocess
+import glob
 from pathlib import Path
-from PIL import Image
 
-SCRIPT_DIR  = Path(__file__).parent
-AUDIO_FILE  = SCRIPT_DIR / "audio.wav"
+SCRIPT_DIR = Path(__file__).parent
+AUDIO_FILE = SCRIPT_DIR / "audio.wav"
 OUTPUT_FILE = SCRIPT_DIR / "output.mp4"
-WIDTH  = ${width}
+WIDTH = ${width}
 HEIGHT = ${height}
-FPS    = 30
+FPS = 30
 CHAR_NAME = "${charName}"
 
 # シーンファイルとその表示秒数（手動で調整可）
 SCENE_DURATIONS = ${JSON.stringify(sceneDurations)}
 
-FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
-
 def find_scenes():
-    scenes = sorted(
-        glob.glob(str(SCRIPT_DIR / "scene_*.png")) +
-        glob.glob(str(SCRIPT_DIR / "scene_*.jpg"))
-    )
+    scenes = sorted(glob.glob(str(SCRIPT_DIR / "scene_*.png")) +
+                    glob.glob(str(SCRIPT_DIR / "scene_*.jpg")))
     return scenes
-
-def prepare_image(path, out_path):
-    """画像をWxH黒背景にセンタリングして保存"""
-    img = Image.open(path).convert("RGBA")
-    bg  = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
-    img.thumbnail((WIDTH, HEIGHT), Image.LANCZOS)
-    x = (WIDTH  - img.width)  // 2
-    y = (HEIGHT - img.height) // 2
-    bg.paste(img, (x, y), img)
-    bg.convert("RGB").save(out_path, "PNG")
 
 def compile_video():
     scenes = find_scenes()
@@ -2515,59 +2431,66 @@ def compile_video():
         return
 
     print(f"シーン数: {len(scenes)}")
+    for i, s in enumerate(scenes):
+        print(f"  {i+1}: {Path(s).name}")
+
     durations = SCENE_DURATIONS[:len(scenes)]
     while len(durations) < len(scenes):
         durations.append(3)
 
+    # 各シーンを指定秒数の動画に変換（背景黒 + キャラ画像センタリング）
     temp_clips = []
     for i, (scene_path, dur) in enumerate(zip(scenes, durations)):
-        prepared = str(SCRIPT_DIR / f"_prep_{i:02d}.png")
         temp_out = str(SCRIPT_DIR / f"_tmp_{i:02d}.mp4")
-        print(f"[{i+1}/{len(scenes)}] {Path(scene_path).name} → {dur}秒")
-        prepare_image(scene_path, prepared)
         cmd = [
-            FFMPEG, "-y", "-loop", "1", "-t", str(dur), "-i", prepared,
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(FPS),
-            "-vf", f"scale={WIDTH}:{HEIGHT}", temp_out
+            "ffmpeg", "-y",
+            "-loop", "1", "-t", str(dur), "-i", scene_path,
+            "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
+                   f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2:black",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-r", str(FPS),
+            temp_out
         ]
+        print(f"[{i+1}/{len(scenes)}] {Path(scene_path).name} → {dur}秒")
         subprocess.run(cmd, check=True, capture_output=True)
-        temp_clips.append((temp_out, prepared))
+        temp_clips.append(temp_out)
 
-    # シーン結合
+    # シーンを結合
     concat_list = str(SCRIPT_DIR / "_concat.txt")
     with open(concat_list, "w") as f:
-        for clip, _ in temp_clips:
+        for clip in temp_clips:
             f.write(f"file '{clip}'\\n")
 
     merged = str(SCRIPT_DIR / "_merged.mp4")
-    subprocess.run([FFMPEG, "-y", "-f", "concat", "-safe", "0",
-                    "-i", concat_list, "-c", "copy", merged],
-                   check=True, capture_output=True)
+    cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
+           "-c", "copy", merged]
+    subprocess.run(cmd, check=True, capture_output=True)
 
     # 音声合成
     if AUDIO_FILE.exists():
-        subprocess.run([
-            FFMPEG, "-y", "-i", merged, "-i", str(AUDIO_FILE),
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", merged, "-i", str(AUDIO_FILE),
             "-map", "0:v", "-map", "1:a",
-            "-c:v", "copy", "-c:a", "aac", "-shortest", str(OUTPUT_FILE)
-        ], check=True, capture_output=True)
-        print("音声を合成しました")
+            "-c:v", "copy", "-c:a", "aac",
+            "-shortest",
+            str(OUTPUT_FILE)
+        ]
+        print("音声を合成中...")
+        subprocess.run(cmd, check=True, capture_output=True)
     else:
+        print("WARNING: audio.wav が見つかりません。映像のみ出力します")
         import shutil
         shutil.copy(merged, str(OUTPUT_FILE))
-        print("WARNING: audio.wav なし → 映像のみ出力")
 
     # 一時ファイルを削除
-    for clip, prep in temp_clips:
-        for f in [clip, prep]:
-            try: os.remove(f)
-            except: pass
-    for f in [concat_list, merged]:
+    for f in temp_clips + [concat_list, merged]:
         try: os.remove(f)
         except: pass
 
     print(f"\\n✅ 完成: {OUTPUT_FILE}")
-    print(f"   解像度: {WIDTH}x{HEIGHT} / {sum(durations)}秒 / {FPS}fps")
+    print(f"   解像度: {WIDTH}x{HEIGHT}")
+    print(f"   合計時間: {sum(durations)}秒")
 
 if __name__ == "__main__":
     compile_video()
