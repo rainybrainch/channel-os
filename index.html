@@ -3665,12 +3665,12 @@ function renderPlanCards(plans, selIdx) {
 //  Create Panel（作成タブ）
 // ════════════════════════════════════
 function renderCreatePanel(char) {
-  const _savedFormat  = localStorage.getItem('channelos_last_format') || 'shorts';
-  const _savedPattern = localStorage.getItem('channelos_last_pattern') || 'explanation';
-  const _savedTheme   = localStorage.getItem('channelos_last_theme') || '';
-  const _savedNote    = localStorage.getItem('channelos_last_note') || '';
-  const _savedDetail  = localStorage.getItem('channelos_last_detail') || '';
   const _epInput      = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  const _savedFormat  = _epInput?.inputFormat  || localStorage.getItem('channelos_last_format')  || 'shorts';
+  const _savedPattern = _epInput?.inputPattern || localStorage.getItem('channelos_last_pattern') || 'explanation';
+  const _savedTheme   = _epInput?.inputTheme   || _epInput?.theme || localStorage.getItem('channelos_last_theme') || '';
+  const _savedNote    = _epInput?.inputNote    || localStorage.getItem('channelos_last_note')    || '';
+  const _savedDetail  = _epInput?.inputDetail  || localStorage.getItem('channelos_last_detail')  || '';
   const generatedPlans = _epInput?.generatedPlans || [];
   const selectedPlan   = _epInput?.plan || null;
 
