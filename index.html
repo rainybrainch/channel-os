@@ -6490,11 +6490,10 @@ async function generateWeeklyPlan() {
   if (loadEl)  { loadEl.style.display = 'flex'; }
   if (resultEl) resultEl.innerHTML = '';
 
-  // 明日から count 日分を生成
+  // 今日から count 日分を生成
   const today = new Date(); today.setHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const dates = Array.from({length: count}, (_, i) => {
-    const d = new Date(tomorrow); d.setDate(tomorrow.getDate() + i);
+    const d = new Date(today); d.setDate(today.getDate() + i);
     return d.toISOString().slice(0,10);
   });
 
