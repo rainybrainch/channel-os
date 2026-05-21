@@ -229,8 +229,7 @@
   <span id="headerSub">キャラクターを選択してください</span>
   <span id="syncStatusBadge" style="font-size:.75rem;color:#aaa;cursor:pointer;" onclick="syncFromDrive()" title="クリックでDriveから最新データ取得">💾</span>
   <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
-  <button id="simpleModeBtn" onclick="toggleSimpleMode()" style="margin-left:auto;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;font-weight:700;flex-shrink:0;">シンプル</button>
-  <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
+  <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
   <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（画面内常時表示 / 別窓で最前面表示も可）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
   <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
 </header>
@@ -847,7 +846,7 @@ let generatedScript = '';
 let storyboardData = {};
 let generatedMeta   = null;
 let editingCharId   = null;
-let simpleMode = localStorage.getItem('channelos_simple_mode') !== 'false'; // デフォルトON
+let simpleMode = false; // 廃止（常に全タブ表示）
 
 // ── 動画プロジェクト管理 ──
 let currentEpisodeId = localStorage.getItem('channelos_last_episode') || null;
@@ -2373,7 +2372,7 @@ function renderSidebar() {
   epListEl.innerHTML = `
     <div style="display:flex;gap:4px;padding:6px 10px;">
       <button class="add-char-btn" style="flex:1;margin:0;" onclick="newEpisode()">＋ 新しい動画</button>
-      ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showBulkDeleteEp()" title="まとめて削除">🗑</button>` : ''}
+      ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showEpManageModal()" title="プロジェクト管理・削除">📋</button>` : ''}
     </div>
     ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
     ${eps.slice().reverse().map(ep => {
@@ -2386,7 +2385,7 @@ function renderSidebar() {
     <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px 8px 14px;position:relative;">
       <div style="display:flex;align-items:center;width:100%;gap:4px;">
         <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;" ondblclick="event.stopPropagation();renameEpisode('${ep.id}',this)" title="ダブルクリックで名前変更">${escHtml(ep.title)}</div>
-        <button onclick="event.stopPropagation();deleteEpisode('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="削除" onmouseover="this.style.opacity=1;this.style.color='#e55'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✕</button>
+        <button onclick="event.stopPropagation();showEpEditModal('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="編集・削除" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✏️</button>
       </div>
       <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
         <span style="font-size:.65rem;color:${col};">●</span>
@@ -2428,6 +2427,86 @@ function deleteEpisode(id) {
   saveData(data);
   renderSidebar();
   if (currentEpisodeId === null) renderMain();
+}
+
+function showEpEditModal(id) {
+  const ep = (data.episodes || []).find(e => e.id === id);
+  if (!ep) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'epEditOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:340px;max-width:95vw;display:flex;flex-direction:column;gap:14px;">
+      <h3 style="font-size:1rem;color:var(--accent);">✏️ プロジェクト編集</h3>
+      <div>
+        <label style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:6px;">タイトル</label>
+        <input id="epEditTitle" type="text" value="${escHtml(ep.title)}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:.88rem;">
+      </div>
+      <div>
+        <label style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:6px;">ステータス</label>
+        <select id="epEditStatus" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:.88rem;">
+          <option value="draft" ${ep.status==='draft'?'selected':''}>📝 下書き</option>
+          <option value="shooting" ${ep.status==='shooting'?'selected':''}>🎥 撮影中</option>
+          <option value="editing" ${ep.status==='editing'?'selected':''}>✂️ 編集中</option>
+          <option value="done" ${ep.status==='done'?'selected':''}>✅ 完成</option>
+          <option value="posted" ${ep.status==='posted'?'selected':''}>🌎 投稿済</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">
+        <button class="btn btn-secondary btn-sm" style="color:#e55;border-color:#e55;" onclick="_epEditDelete('${id}')">🗑 削除</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('epEditOverlay').remove()">キャンセル</button>
+          <button class="btn btn-sm" onclick="_epEditSave('${id}')">保存</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _epEditSave(id) {
+  const ep = (data.episodes || []).find(e => e.id === id);
+  if (!ep) return;
+  ep.title = document.getElementById('epEditTitle').value.trim() || ep.title;
+  ep.status = document.getElementById('epEditStatus').value;
+  ep.updatedAt = new Date().toISOString();
+  saveData(data);
+  document.getElementById('epEditOverlay')?.remove();
+  renderSidebar();
+  showToast('✅ 保存しました');
+}
+
+function _epEditDelete(id) {
+  const ep = (data.episodes || []).find(e => e.id === id);
+  if (!ep) return;
+  if (!confirm(`「${ep.title}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+  document.getElementById('epEditOverlay')?.remove();
+  deleteEpisode(id);
+}
+
+function showEpManageModal() {
+  const eps = getEpisodes();
+  if (!eps.length) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'bulkDeleteOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:360px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:12px;">
+      <h3 style="font-size:1rem;color:var(--accent);">📋 プロジェクト管理</h3>
+      <p style="font-size:.75rem;color:var(--text-muted);">削除したいプロジェクトにチェックを入れて「選択を削除」を押してください。</p>
+      <div style="overflow-y:auto;max-height:300px;border:1px solid var(--border);border-radius:8px;">
+        ${eps.slice().reverse().map(ep => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);">
+            <input type="checkbox" class="bulkDelCheck" data-id="${ep.id}" style="accent-color:#e55;width:16px;height:16px;">
+            <span style="font-size:.84rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(ep.title)}</span>
+            <span style="font-size:.65rem;color:var(--text-muted);">${(ep.updatedAt||ep.createdAt||'').slice(5,10)}</span>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="document.getElementById('bulkDeleteOverlay').remove()">閉じる</button>
+        <button class="btn" style="background:#e55;color:#fff;" onclick="_execBulkDelete()">選択を削除</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
 }
 
 function showBulkDeleteEp() {
@@ -3171,10 +3250,13 @@ async function generatePlan() {
   document.getElementById('planLoading').style.display = 'flex';
   document.getElementById('planResults').innerHTML = '';
   aiStart('企画を生成中...');
+  const pastEps = (data.episodes || []).filter(e => e.charId === currentCharId && e.id !== currentEpisodeId && e.title && e.title !== '新しい動画').slice(-10);
+  const pastTitles = pastEps.map(e => `- ${e.title}${e.selectedPlan?.description ? '（'+e.selectedPlan.description.slice(0,30)+'…）' : ''}`).join('\n');
+  const dupWarning = pastTitles ? `\n\n【過去の動画（重複禁止）】\n${pastTitles}\n上記と内容・タイトルが被らない新しい切り口を必ず選ぶこと。` : '';
   const prompt = `あなたはYouTubeチャンネルの企画プロデューサーです。
 キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 AI人格: ${char.ai_personality}
-テーマキーワード: ${theme}
+テーマキーワード: ${theme}${dupWarning}
 
 以下のJSON形式のみ出力（他テキスト不要）:
 [{"label":"案A（王道）","title":"","description":"","hook":""},{"label":"案B（連携）","title":"","description":"","hook":""},{"label":"案C（枠超え）","title":"","description":"","hook":""}]`;
@@ -6667,7 +6749,7 @@ function renderPublishPanel() {
 
     ${currentEpisodeId ? `
     <div style="margin-top:8px;padding:12px 0;border-top:1px solid var(--border);text-align:center;">
-      <button class="btn btn-secondary btn-sm" style="color:#e55;border-color:#e55;" onclick="deleteEpisode(currentEpisodeId)">🗑 このプロジェクトを削除</button>
+      <button class="btn btn-secondary btn-sm" style="color:var(--text-muted);" onclick="showEpEditModal(currentEpisodeId)">✏️ このプロジェクトを編集・削除</button>
     </div>` : ''}
   </div>`;
 }
