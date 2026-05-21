@@ -2808,13 +2808,27 @@ function renderPlanPanel(char) {
   return `
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div class="card-title" style="margin:0;">🎬 動画を作る</div>
         ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
       </div>
 
+      <!-- 制作モード切替 -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface2);border-radius:8px;padding:4px;">
+        <button id="modeBtn_video" onclick="setPlanMode('video')"
+          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern!=='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern!=='radio'?'#0d0d0d':'var(--text-muted)'};">
+          📺 通常動画
+        </button>
+        <button id="modeBtn_radio" onclick="setPlanMode('radio')"
+          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern==='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern==='radio'?'#0d0d0d':'var(--text-muted)'};">
+          🎙 ラジオ
+        </button>
+      </div>
+
+      <!-- 通常動画フロー -->
+      <div id="planVideoMode" style="display:${_savedPattern!=='radio'?'block':'none'};">
       <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 1 ── 動画タイプを選ぶ</label>
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 1 ── フォーマットを選ぶ</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <label id="formatCard_horizontal" onclick="selectFormat('horizontal')" style="cursor:pointer;border:2px solid ${_savedFormat==='horizontal'?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:10px;padding:16px 14px;background:${_savedFormat==='horizontal'?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;gap:4px;">
             <span style="font-size:1.3rem;">📺</span>
@@ -2844,7 +2858,6 @@ function renderPlanPanel(char) {
             {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・レビュー'},
             {id:'howto',       icon:'📋', label:'How-To',  desc:'手順・やり方'},
             {id:'secret',      icon:'🤫', label:'本音暴露', desc:'裏側・告白'},
-            {id:'radio',       icon:'📻', label:'ラジオ',  desc:'収録・トーク整理'},
           ].map(p => `<div onclick="selectPattern('${p.id}')" id="patternCard_${p.id}"
             style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:8px 6px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'var(--surface2)'};text-align:center;transition:all .15s;">
             <div style="font-size:1.3rem;margin-bottom:2px;">${p.icon}</div>
@@ -2877,14 +2890,7 @@ function renderPlanPanel(char) {
           <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;">💡 選択したキャラの声・個性が台本と音声生成に自動で反映されます</div>
         </div>
 
-        <!-- ラジオパターン: 文字起こしエリア -->
-        <div id="radioPatternBox" style="display:${_savedPattern==='radio'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid #4a9edd55;border-radius:8px;padding:12px 14px;">
-          <div style="font-size:.78rem;color:#4a9edd;font-weight:700;margin-bottom:8px;">📻 ラジオ・収録メモを整理</div>
-          <textarea id="planRadioTranscriptInline" placeholder="収録した内容・文字起こしをそのまま貼り付けてください。&#10;AIが台本・絵コンテに整理します。" style="width:100%;min-height:120px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
-          <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編 など）" style="width:100%;margin-top:8px;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">💡「🚀 一括生成」を押すと文字起こしを元にAIが台本・投稿情報を自動作成します</div>
-        </div>
-      </div>
+      </div><!-- /STEP2 pattern -->
 
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -2924,6 +2930,29 @@ function renderPlanPanel(char) {
           <div id="allStep3" style="color:var(--text-muted);">⬜ [3/3] 完了</div>
         </div>
       </div>
+      </div><!-- /planVideoMode -->
+
+      <!-- ラジオモード -->
+      <div id="planRadioMode" style="display:${_savedPattern==='radio'?'block':'none'};">
+        <div style="background:var(--surface2);border:1px solid #4a9edd55;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:12px;">STEP 1 ── 収録メモ・文字起こしを貼り付け</div>
+          <textarea id="planRadioTranscriptInline" placeholder="収録した内容・話したこと・文字起こしをそのまま貼り付けてください。&#10;AIが台本・概要欄・タイトルに整理します。"
+            style="width:100%;min-height:140px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+          <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編・シリーズ名 など）"
+            style="width:100%;margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+        </div>
+        <div style="background:var(--surface2);border:1px solid #4a9edd33;border-radius:10px;padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:10px;">STEP 2 ── 音声ファイルを追加（任意）</div>
+          <button class="btn btn-secondary btn-sm" onclick="openModal('radioRecordModal')" style="display:flex;align-items:center;gap:8px;font-size:.82rem;">
+            🎤 録音・音声ファイルをアップロード
+          </button>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">録音データは投稿タブで音声トラックとして使用できます</div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateRadio()">
+          🎙 ラジオ台本・投稿情報を生成
+        </button>
+        <div id="radioGenProgress" style="display:none;margin-top:14px;font-size:.84rem;color:var(--text-muted);">⬜ Gemini がラジオ台本を生成中...</div>
+      </div><!-- /planRadioMode -->
     </div>
     <div id="planResults" class="plan-grid">${generatedPlans.length ? renderPlanCards(generatedPlans, generatedPlans.indexOf(selectedPlan)) : ''}</div>
     <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};">
@@ -9948,6 +9977,73 @@ function importData() {
 function handleOAuthCallback(e) { /* handled via location.hash above */ }
 
 // ── ログインゲート ──
+function setPlanMode(mode) {
+  const isRadio = mode === 'radio';
+  document.getElementById('planVideoMode').style.display = isRadio ? 'none' : 'block';
+  document.getElementById('planRadioMode').style.display = isRadio ? 'block' : 'none';
+  document.getElementById('modeBtn_video').style.background = isRadio ? 'transparent' : 'var(--char-color,#c9a84c)';
+  document.getElementById('modeBtn_video').style.color = isRadio ? 'var(--text-muted)' : '#0d0d0d';
+  document.getElementById('modeBtn_radio').style.background = isRadio ? 'var(--char-color,#c9a84c)' : 'transparent';
+  document.getElementById('modeBtn_radio').style.color = isRadio ? '#0d0d0d' : 'var(--text-muted)';
+  if (isRadio) {
+    document.getElementById('allGenPattern').value = 'radio';
+  } else {
+    const cur = document.getElementById('allGenPattern')?.value;
+    if (cur === 'radio') document.getElementById('allGenPattern').value = 'explanation';
+  }
+}
+
+async function generateRadio() {
+  const transcript = document.getElementById('planRadioTranscriptInline')?.value.trim();
+  const note = document.getElementById('planRadioNoteInline')?.value.trim();
+  if (!transcript) { showToast('収録メモ・文字起こしを入力してください'); return; }
+  const char = (data.characters||[]).find(c => c.id === currentCharId);
+  if (!char) { showToast('キャラクターを選択してください'); return; }
+  const apiKey = localStorage.getItem(GEMINI_KEY_SK);
+  if (!apiKey) { showToast('Gemini APIキーを設定してください'); return; }
+  const prog = document.getElementById('radioGenProgress');
+  if (prog) prog.style.display = 'block';
+  setGlobalAiSpinner(true, 'ラジオ台本生成中...');
+  try {
+    const prompt = `あなたはYouTubeチャンネルの制作AIです。
+キャラクター: ${char.name}（${char.species}）
+口調・個性: ${char.tone}
+テーマ: ${char.theme}
+${note ? `補足: ${note}` : ''}
+
+以下の収録メモ・文字起こしをもとに、YouTubeラジオ動画用の台本・投稿情報を生成してください。
+
+【収録メモ・文字起こし】
+${transcript}
+
+出力形式（JSON）:
+{
+  "title": "動画タイトル（35字以内）",
+  "description": "概要欄（400字以内）",
+  "script": "整理済み台本（話し言葉・自然な流れで）",
+  "tags": ["タグ1","タグ2","タグ3","タグ4","タグ5"]
+}`;
+    const res = await callGeminiAPI(prompt, apiKey);
+    const json = safeParseJSON(res);
+    if (!json) throw new Error('JSON解析失敗');
+    if (!currentEpisodeId) newEpisode();
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e => e.id === currentEpisodeId);
+    if (ep) {
+      if (json.title) ep.title = json.title;
+      if (json.description) ep.metaDescription = json.description;
+      if (json.script) ep.scriptBody = json.script;
+      if (json.tags) ep.metaTags = json.tags.join(', ');
+      ep.inputPattern = 'radio';
+      saveData(d);
+      renderSidebar();
+      showToast('✅ ラジオ台本・投稿情報を生成しました');
+      switchTab('script');
+    }
+  } catch(e) { showToast('❌ 生成失敗: ' + e.message); }
+  finally { setGlobalAiSpinner(false); if (prog) prog.style.display = 'none'; }
+}
+
 function _saveGateClientId() {
   const val = document.getElementById('loginGateClientId')?.value.trim();
   if (!val) return;
