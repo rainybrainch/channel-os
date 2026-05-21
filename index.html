@@ -396,8 +396,8 @@
 <div class="modal-overlay" id="addCharModal">
   <div class="modal" style="max-width:580px;max-height:92vh;overflow-y:auto;">
     <h2 id="modalTitle" style="margin-bottom:4px;">🎭 キャラクター設定</h2>
-    <!-- AIで一括入力 -->
-    <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--accent)44;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+    <!-- AIで一括入力（新規作成時のみ表示） -->
+    <div id="aiCharDescBlock" style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--accent)44;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
       <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px;">✨ <b>AIで一括入力</b>：どんなキャラか説明するだけで全フィールドを自動設定</div>
       <div style="display:flex;gap:6px;">
         <input type="text" id="aiCharDesc" placeholder="例: 20代の筋トレ系YouTuber、明るく元気、初心者向け筋トレ解説" style="flex:1;font-size:.85rem;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
@@ -8424,6 +8424,8 @@ function openAddCharModal() {
   const s = document.getElementById('aiCharGenStatus'); if (s) s.textContent = '';
   const improveBar = document.getElementById('aiImproveBar');
   if (improveBar) improveBar.style.display = 'none';
+  const descBlock = document.getElementById('aiCharDescBlock');
+  if (descBlock) descBlock.style.display = '';
   openModal('addCharModal');
 }
 
@@ -8485,6 +8487,8 @@ function openEditChar(id) {
   if (gtPitchEl) { gtPitchEl.value = char.google_tts_pitch || 0; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = gtPitchEl.value; }
   const improveBar = document.getElementById('aiImproveBar');
   if (improveBar) improveBar.style.display = 'flex';
+  const descBlock = document.getElementById('aiCharDescBlock');
+  if (descBlock) descBlock.style.display = 'none';
   _updateWizardStatus(id);
   openModal('addCharModal');
 }
