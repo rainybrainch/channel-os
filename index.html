@@ -817,6 +817,7 @@ function saveData(d) {
       const { avatar_url, ref_image, ...rest } = c;
       return rest;
     })};
+    slim._localTs = Date.now(); // ローカル保存タイムスタンプ（loadFromDriveの上書き防止用）
     const json = JSON.stringify(slim);
     localStorage.setItem(STORAGE_KEY, json);
     // 書き込み検証
@@ -1543,6 +1544,14 @@ async function loadFromDrive() {
     if (!res) { setSyncStatus('error', '読込失敗（認証切れ？）'); return; }
     const remote = await res.json();
     if (!remote || !remote.characters) { setSyncStatus('error', 'データ破損'); return; }
+    // ローカルが新しければ上書きしない（キャラ編集が消える問題の防止）
+    const localTs  = data._localTs || 0;
+    const remoteTs = remote._localTs || 0;
+    if (localTs > remoteTs) {
+      setSyncStatus('ok', 'ローカルが最新（Drive同期スキップ）');
+      console.log('[loadFromDrive] local newer, skip overwrite. local:', localTs, 'remote:', remoteTs);
+      return;
+    }
     const localEpisodes = data.episodes || [];
     data = remote;
     data.episodes = data.episodes || [];
