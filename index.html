@@ -3198,23 +3198,8 @@ async function suggestTheme() {
   area.innerHTML = '<span style="font-size:.78rem;color:var(--text-muted);">💡 提案を生成中...</span>';
   aiStart('テーマを提案中...');
 
-  const prompt = `YouTubeチャンネルのキャラクター情報をもとに、次の動画の企画テーマ・追加指示・詳細指示を5案提案してください。
-
-キャラクター: ${char.name}（${char.species}）
-チャンネルテーマ: ${char.theme}
-トーン・口調: ${char.tone}
-AI人格: ${char.ai_personality || 'なし'}
-動画形式: ${isShorts ? 'ショート（60秒）' : '横動画（3分）'}
-
-各案は視聴者の興味を引き、チャンネルのコンセプトに沿ったものにしてください。
-JSONのみ出力:
-[
-  {
-    "theme": "企画テーマ（20字以内）",
-    "note": "追加指示（例: データ重視、感情的に、など20字以内）",
-    "detail": "詳細指示（例: 新規視聴者向け。○○を冒頭に入れる。など40字以内）"
-  }
-]`;
+  const prompt = `キャラ:${char.name}(${char.theme}) トーン:${char.tone} 形式:${isShorts?'ショート':'横動画'}
+このチャンネルの次の動画テーマを5案提案。JSONのみ:[{"theme":"20字","note":"追加指示20字","detail":"詳細40字"}]`;
 
   try {
     const text = await callClaude(prompt);
@@ -3405,51 +3390,11 @@ async function generateAll() {
       ).join('\n') + `\n\n台本の"lines"フィールドでは必ず各セリフを「[${allCastChars.map(c=>c.name).join(']か[')}]: セリフ」の形式で出力すること。`
     : '';
 
-  const prompt = `あなたはYouTubeチャンネルの企画・台本・投稿最適化の専門家です。
-${isDialogue && guestChars.length > 0 ? `ホスト: ${char.name}（${char.species}）テーマ: ${char.theme}` : `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}\nAI人格: ${char.ai_personality}`}
-${castDesc}
-テーマキーワード: ${theme}
-動画形式: ${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分）'}
-コンテンツパターン: 【${patternInfo.label}】${patternInfo.guide}
-${_strat ? `\nキャラクター固有戦略（必ず遵守）:\n${_strat}\n` : ''}追加指示: ${note || 'なし'}
-詳細指示: ${detail || 'なし'}
-
-以下の戦略フレームワークで台本を作成すること:
-${strategy}
-
-以下のJSON形式のみで全て出力（他テキスト不要）:
-{
-  "plans": [
-    {"label":"案A（王道）","title":"","description":"","hook":""},
-    {"label":"案B（連携）","title":"","description":"","hook":""},
-    {"label":"案C（枠超え）","title":"","description":"","hook":""}
-  ],
-  "selected_index": 0,
-  "selection_reason": "選定理由（1行）",
-  "script": {
-    "info": "動画テーマ・構成・採用フックパターン・編集ポイント（3〜5行）",
-    "lines": "セリフのみ。キャラ名・括弧・映像指示は不要。話すセリフを改行区切りで。"
-  },
-  "meta": {
-    "title": "YouTubeタイトル（40字以内・視聴者が検索するキーワードを必ず含める）",
-    "title_alt": "代替タイトル案",
-    "description": "概要欄（3〜5段落。冒頭1行フック、チャンネル説明、ハッシュタグ末尾）",
-    "tags": ["月間検索数10万以上のビッグキーワード2〜3個","次に検索数の多いミドルキーワード2〜3個","動画内容に直結するロングテール2個","Shorts","shorts"],
-    "hashtags": ["#Shorts","#メガタグ1M以上を2個","#ビッグワード100k以上を3個","#ミドル10k以上を3個","#ニッチ2個"],
-    "hashtag_strategy": "このジャンルの戦略根拠: メガ2個で露出確保・ビッグ3個で適度な競合・ミドル3個で上位表示狙い・ニッチ2個でコア視聴者獲得。2〜3文で具体的に説明",
-    "best_post_time": "最適投稿日時",
-    "thumb_horizontal": "横サムネ画像プロンプト（英語・16:9・Gemini Imagen向け）",
-    "thumb_shorts": "縦サムネ画像プロンプト（英語・9:16・Gemini Imagen向け）",
-    "thumb_text_horizontal": "横サムネ重ねテキスト（20字以内）",
-    "thumb_text_shorts": "縦サムネ重ねテキスト（15字以内）"
-  },
-  "distribute": {
-    "x_tweet": "X投稿文（260字以内・動画タイトル＋視聴者の心を動かす一文＋YouTube URLはプレースホルダー[YT_URL]＋主要ハッシュタグ3個。キャラの口調で）",
-    "note_post": "Note投稿文（300〜500字。「今回の動画はこういう意図です」という添え書きスタイル。キャラの一人称で、なぜこの動画を作ったか・視聴者に届けたいこと・動画URL誘導[YT_URL]を自然に含める。ハッシュタグ3個で締める）",
-    "ig_caption": "Instagramキャプション（200〜300字・絵文字入り・動画の核心を一言で表すフック→内容紹介→プロフィールリンクへ誘導→ハッシュタグ5個）",
-    "first_comment": "ファーストコメント（150字以内・キャラ口調・視聴者を煽る選択肢2〜3個・絵文字あり）"
-  }
-}`;
+  const prompt = `${isDialogue && guestChars.length > 0 ? `ホスト:${char.name}(${char.species})テーマ:${char.theme}` : `キャラ:${char.name}(${char.species})テーマ:${char.theme} トーン:${char.tone} 個性:${char.ai_personality}`}
+${castDesc}形式:${isShorts?'ショート60秒':'横動画3分'} パターン:${patternInfo.label}(${patternInfo.guide}) テーマ:${theme}${_strat?` 戦略:${_strat}`:''}${note?' 追加:'+note:''}${detail?' 詳細:'+detail:''}
+戦略:${strategy}
+JSONのみ出力:
+{"plans":[{"label":"案A","title":"","description":"","hook":""},{"label":"案B","title":"","description":"","hook":""},{"label":"案C","title":"","description":"","hook":""}],"selected_index":0,"selection_reason":"","script":{"info":"構成メモ","lines":"セリフ改行区切り（キャラ名・括弧不要）"},"meta":{"title":"タイトル40字","title_alt":"代替","description":"概要欄3段落","tags":["ビッグKW","ミドルKW","ロングテール","Shorts","shorts"],"hashtags":["#Shorts","#メガ","#ビッグ","#ミドル","#ニッチ"],"hashtag_strategy":"戦略1文","best_post_time":"投稿日時","thumb_horizontal":"英語16:9プロンプト","thumb_shorts":"英語9:16プロンプト","thumb_text_horizontal":"横テキスト20字","thumb_text_shorts":"縦テキスト15字"},"distribute":{"x_tweet":"X文260字[YT_URL]","note_post":"Note文400字[YT_URL]","ig_caption":"IG200字","first_comment":"コメ150字"}}`;
 
   try {
     const text = await callClaude(prompt);
@@ -3919,53 +3864,9 @@ function renderScriptPanel(char) {
 }
 
 // 2026年横動画（3分）戦略フレームワーク（horizontal-strategy-2026.md より抽出）
-const HORIZONTAL_STRATEGY_2026 = `
-【KPI目標】CTR 4〜6%以上 / 視聴完了率55%以上 / 平均視聴割合45%以上
+const HORIZONTAL_STRATEGY_2026 = `横動画180秒/750〜850字。構成:0-15秒=常識破壊フック(挨拶なし)→15-45秒=痛み提起→45-150秒=PREP解決策(90秒でコメントCTA1回)→150-180秒=1フレーズ締め(「ありがとう」禁止)。口語・感情タグ・数字必須。フック:常識破壊/衝撃統計/ビフォーアフター/疑問提起/共感の5種から選択。`;
 
-【180秒タイムライン（750〜850文字）】
-0〜15秒（70字）: フック ── 常識破壊・衝撃の事実。挨拶・ロゴ一切なし
-15〜45秒（150字）: 課題提起 ── 視聴者の痛みを言語化。放置した場合の最悪シナリオ
-45〜150秒（500字）: 解決策（PREP法）── Point→Reason→Example→Point。90秒地点でコメントCTA1回のみ
-150〜180秒（80字）: 行動喚起 ── 結論を1フレーズで締める。「ありがとうございました」禁止
-
-【3大心理フレームワーク】
-①生産的違和感: 冒頭で常識を逆説的に否定 → 脳が「解決したい」と視聴継続
-②リテンションアンカー: エンディングの「認識変容」を先に決め、全解説をその証明として設計
-③PAS×PREP: Problem（痛み）→Agitation（危機感）→Solution の流れ + Point→Reason→Example→Point
-
-【台本執筆ルール（必須）】
-- 口語表現必須:「実は…」「マジで」「〜なんです」「驚きですよね」
-- 感情タグ挿入:（驚く）（少し声を落として）（笑）（汗）
-- 30秒ごとにパターン・インタラプト: Bロール・画角チェンジ・図解・テロップ強調
-- 数字・データを根拠に:「〇〇%」「〇〇人に1人」など具体値を必ず入れる
-- エンディング禁止ワード:「いかがでしたでしょうか」「ご視聴ありがとう」
-
-【5大フックパターン（0〜15秒で必ず1つ使う）】
-常識破壊型:「実は○○は逆効果です」/ 衝撃統計型:「○○の90%が損してます」
-ビフォーアフター型: 結果を先に見せて「なぜ？」/ 疑問提起型:「なぜ○○なのに△△？」/ 共感型:「○○で悩んでいる人、これ見て」
-`;
-
-// 2026年ショート動画戦略フレームワーク（shorts-strategy-2026.md より抽出）
-const SHORTS_STRATEGY_2026 = `
-【2026年アルゴリズム最重要ルール】
-- YouTube Shorts: 視聴者満足度・視聴完了率(52%以上)・シェアが最優先
-- Instagram Reels: DM送信数がいいねの5倍評価。Raw感（粗削り・リアル）優遇
-- TikTok: オリジナリティ最重視。テロップキーワードがSEOに直結
-
-【TaTap式3層設計モデル（必須）】
-第1層 フック 0〜2秒: 2カット法則・結論先出し・ターゲット絞り込み
-第2層 リテンション 2〜45秒: 3秒1カット・テロップ二重化・中盤に再フック
-第3層 CTA 最後3〜5秒: DM送信・保存・コメントを自然に誘導。結論を少し残して余白を作る
-
-【5大フックパターン（冒頭2秒で必ず使う）】
-衝撃事実型:「〇〇を知らないのは損」疑問提起型:「なぜ〇〇は△△？」
-ビフォーアフター型: 完成形を先に見せる。意外性型: 予測不能な開幕。共感型:「あるある」
-
-【撮影・編集原則】
-- 無音・間を完全カット（ジェットカット）
-- テロップは5〜7文字以内・音なし視聴でも内容が伝わる
-- 過剰演出より粗削り・リアル感を優先
-`;
+const SHORTS_STRATEGY_2026 = `ショート60秒。構成:0-2秒=結論先出しフック→2-45秒=3秒1カット+中盤再フック→最後5秒=保存/コメントCTA。テロップ5-7字以内。ジェットカット。フック:衝撃事実/疑問提起/ビフォーアフター/意外性/共感の5種から選択。`;
 
 async function generateScript() {
   const char = data.characters.find(c => c.id === currentCharId);
@@ -3976,34 +3877,10 @@ async function generateScript() {
   aiStart('台本を生成中...');
 
   const strategy = isShorts ? SHORTS_STRATEGY_2026 : HORIZONTAL_STRATEGY_2026;
-  const prompt = `あなたは2026年最新アルゴリズムに精通したYouTube台本ライターです。
-以下の戦略フレームワークを必ず適用して台本を作成してください。
-
-${strategy}
-
-【キャラクター】${char.name}（${char.species}）トーン: ${char.tone}
-AI人格: ${char.ai_personality}
-【企画】${selectedPlan.title} — ${selectedPlan.description}
-【動画形式】${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分・750〜850文字）'}
-【追加指示】${note||'なし'}
-
-${isShorts ? `
-【ショート台本設計】
-0〜2秒: フック（2カット・結論先出し・5大フックパターンから選択）
-3〜10秒: 結論（1動画1メッセージ）
-11〜45秒: 理由・具体例（3秒1カット・テロップ対応・中盤再フック）
-46〜60秒: CTA（保存・DM・コメント誘導）
-` : `
-【横動画台本設計（180秒・750〜850文字厳守）】
-0〜15秒: フック（常識破壊 or 衝撃統計 or 疑問提起。挨拶なし）
-15〜45秒: 課題提起（視聴者の痛み＋放置した場合の最悪シナリオ）
-45〜150秒: 解決策（PREP法。90秒地点でコメントCTAを1回だけ入れる）
-150〜180秒: 行動喚起（結論を1フレーズで。「ありがとう」「いかがでしたか」禁止）
-`}
-
-以下のJSON形式のみで出力（他テキスト不要）:
-{"info":"動画テーマ・構成・採用したフックパターン・編集ポイントの説明（3〜5行）","lines":"セリフのみ。キャラ名・括弧書き・映像指示は一切不要。話すセリフだけを改行区切りで書く。テンポよく・間を作らず・テロップ映えする言葉で。"}
-`;
+  const prompt = `キャラ:${char.name}(${char.species}) トーン:${char.tone} 個性:${char.ai_personality}
+企画:${selectedPlan.title}—${selectedPlan.description} 形式:${isShorts?'ショート60秒':'横動画3分750〜850字'}${note?' 追加:'+note:''}
+戦略:${strategy}
+JSONのみ:{"info":"構成メモ3行","lines":"セリフのみ改行区切り（キャラ名・括弧・映像指示不要）"}`;
   try {
     generatedScript = await callClaude(prompt);
     aiEnd('script');
@@ -4957,24 +4834,9 @@ async function generateMeta() {
   document.getElementById('metaLoading').style.display = 'flex';
   aiStart('概要欄を生成中...');
   const voiceCredit = char.voicevox_name ? `声: ${char.voicevox_name} / VOICEVOX` : '';
-  const prompt = `以下の台本を元にYouTube投稿情報と画像生成プロンプトを生成してください。
-キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}${voiceCredit ? `\n音声: ${voiceCredit}` : ''}
-台本（抜粋）: ${generatedScript.slice(0,800)}
-
-以下のJSONのみ出力（他テキスト不要）:
-{
-  "title": "YouTubeタイトル（40字以内・数字や感情語を含む）",
-  "title_alt": "代替タイトル案",
-  "description": "概要欄（3〜5段落。冒頭1行でフック、チャンネル説明、ハッシュタグ末尾）",
-  "tags": ["月間検索数10万以上のビッグキーワード2〜3個","次に検索数の多いミドルキーワード","動画内容に直結するロングテール","Shorts","shorts"],
-  "hashtags": ["#Shorts","#メガタグ1M以上を2個","#ビッグワード100k以上を3個","#ミドル10k以上を3個","#ニッチ2個"],
-  "hashtag_strategy": "このジャンルの戦略根拠を2〜3文で具体的に説明",
-  "best_post_time": "最適投稿日時（例: 土曜18時）",
-  "thumb_horizontal": "横サムネイル用画像生成プロンプト（英語・16:9・高コントラスト・タイトル文字映え・Midjourney形式 --ar 16:9）",
-  "thumb_shorts": "縦サムネイル用画像生成プロンプト（英語・9:16・スマホ全画面・インパクト重視・Midjourney形式 --ar 9:16）",
-  "thumb_text_horizontal": "横サムネイルに重ねるテキスト案（20字以内・インパクト重視）",
-  "thumb_text_shorts": "縦サムネイルに重ねるテキスト案（15字以内・縦読みOK）"
-}`;
+  const prompt = `キャラ:${char.name}(${char.species}) テーマ:${char.theme} トーン:${char.tone}
+台本:${generatedScript.slice(0,600)}
+JSONのみ:{"title":"タイトル40字","title_alt":"代替","description":"概要欄3段落(冒頭フック・説明・ハッシュタグ末尾)","tags":["ビッグKW","ミドルKW","ロングテール","Shorts","shorts"],"hashtags":["#Shorts","#メガ","#ビッグ","#ミドル","#ニッチ"],"hashtag_strategy":"戦略1文","best_post_time":"","thumb_horizontal":"英語16:9プロンプト","thumb_shorts":"英語9:16プロンプト","thumb_text_horizontal":"20字","thumb_text_shorts":"15字"}`;
   try {
     const text = await callClaude(prompt);
     generatedMeta = safeParseJSON(text, {});
