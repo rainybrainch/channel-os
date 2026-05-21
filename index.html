@@ -2895,6 +2895,16 @@ function renderPlanPanel(char) {
 
     <!-- ══ 今週の予定モード ══ -->
     <div id="planModeWeek" style="display:${planMode==='week'?'flex':'none'};flex-direction:column;gap:12px;">
+
+      <!-- PDCA 分析カード -->
+      <div class="card" style="border:1px solid #a84cdd55;background:linear-gradient(135deg,rgba(168,76,221,.05),transparent);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:.88rem;color:#a84cdd;">📊 PDCA 改善サイクル</div>
+          <span style="font-size:.68rem;color:var(--text-muted);">過去の実績 → 次週プランに反映</span>
+        </div>
+        ${renderPdcaAnalysisCard(currentCharId)}
+      </div>
+
       <div class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="font-weight:700;font-size:.9rem;color:#4a9edd;">今週の投稿予定</div>
@@ -2903,10 +2913,12 @@ function renderPlanPanel(char) {
         ${calEntries.length ? calEntries.map(e => {
           const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
           const fmtIcon = e.format==='shorts'?'📱':'📺';
-          const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'}[ep?.inputPattern||'']||'';
+          const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'}[ep?.inputPattern||e.pattern||'']||'';
           const isToday = e.date === today.toISOString().slice(0,10);
           const isPast  = e.date < today.toISOString().slice(0,10);
-          return `<div style="border:2px solid ${isToday?'var(--char-color,#c9a84c)':isPast?'var(--border)':'var(--border)33'};border-radius:10px;padding:12px 14px;background:${isToday?'rgba(201,168,76,.08)':'var(--surface2)'};opacity:${isPast&&e.posted?'.5':'1'};">
+          const perf = e.perf;
+          const sentIcon = perf?.sentiment==='good'?'👍':perf?.sentiment==='bad'?'👎':'😐';
+          return `<div style="border:2px solid ${isToday?'var(--char-color,#c9a84c)':isPast?'var(--border)':'var(--border)33'};border-radius:10px;padding:12px 14px;background:${isToday?'rgba(201,168,76,.08)':'var(--surface2)'};opacity:${isPast&&e.posted&&!perf?'.5':'1'};">
             <div style="display:flex;align-items:center;gap:10px;">
               <div style="text-align:center;min-width:36px;">
                 <div style="font-size:.65rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
@@ -2915,10 +2927,12 @@ function renderPlanPanel(char) {
               <div style="flex:1;min-width:0;">
                 <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:2px;">${fmtIcon} ${patLabel} ${e.time?'／ '+e.time:''}</div>
                 <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(e.title||e.theme||'タイトル未設定')}</div>
+                ${perf ? `<div style="font-size:.7rem;color:var(--text-muted);margin-top:3px;">${sentIcon} ${perf.views?perf.views.toLocaleString()+'回':''} ${perf.notes?'・'+escHtml(perf.notes.slice(0,24)):''}</div>` : ''}
               </div>
               <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
                 ${e.posted ? '<span style="font-size:.68rem;color:#4caf50;">✅投稿済</span>' : isToday ? '<span style="font-size:.68rem;color:var(--char-color,#c9a84c);font-weight:700;">今日！</span>' : ''}
                 ${ep && !e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId}')">🎬 作る</button>` : ''}
+                ${isPast ? `<button class="btn btn-sm" style="font-size:.66rem;padding:3px 8px;background:${perf?'rgba(76,175,80,.2)':'var(--surface2)'};color:${perf?'#4caf50':'var(--text-muted)'};" onclick="openPdcaModal('${e.date}','${e.charId}',${JSON.stringify(e.title||e.theme||'')})">${perf?'📊 編集':'📊 実績'}</button>` : ''}
               </div>
             </div>
           </div>`;
@@ -6032,6 +6046,128 @@ function saveCalendar(entries) {
   localStorage.setItem(CAL_KEY, JSON.stringify(entries));
 }
 
+/* ════════ PDCA 実績記録 ════════ */
+let _pdcaTarget = null; // { date, charId }
+
+function openPdcaModal(date, charId, title) {
+  _pdcaTarget = { date, charId };
+  const cal = loadCalendar();
+  const entry = cal.find(e => e.date === date && e.charId === charId);
+  const p = entry?.perf || {};
+
+  let modal = document.getElementById('pdcaModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'pdcaModal';
+    document.body.appendChild(modal);
+  }
+  modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;padding:22px 20px;width:min(340px,94vw);max-height:88vh;overflow-y:auto;">
+      <div style="font-weight:700;font-size:.95rem;margin-bottom:6px;">📊 実績を記録</div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:16px;line-height:1.4;">${escHtml(date)} ／ ${escHtml(title)}</div>
+
+      <label style="font-size:.76rem;color:var(--text-muted);display:block;margin-bottom:4px;">再生数</label>
+      <input id="pdcaViews" type="number" min="0" value="${p.views||''}" placeholder="0"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.9rem;margin-bottom:12px;">
+
+      <label style="font-size:.76rem;color:var(--text-muted);display:block;margin-bottom:6px;">コメント反応</label>
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        ${['good','neutral','bad'].map(s => {
+          const label = s==='good'?'👍 好評':s==='neutral'?'😐 普通':'👎 不評';
+          const sel = (p.sentiment||'neutral') === s;
+          return `<button onclick="document.querySelectorAll('.pdcaSentBtn').forEach(b=>b.style.background='var(--surface2)');this.style.background='var(--char-color,#c9a84c)';document.getElementById('pdcaSentValue').value='${s}'"
+            class="pdcaSentBtn btn btn-sm" style="flex:1;font-size:.75rem;background:${sel?'var(--char-color,#c9a84c)':'var(--surface2)'};">${label}</button>`;
+        }).join('')}
+      </div>
+      <input type="hidden" id="pdcaSentValue" value="${p.sentiment||'neutral'}">
+
+      <label style="font-size:.76rem;color:var(--text-muted);display:block;margin-bottom:4px;">メモ（任意）</label>
+      <textarea id="pdcaNotes" rows="2" placeholder="伸びた理由・次への教訓など"
+        style="width:100%;padding:8px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.82rem;resize:vertical;margin-bottom:14px;">${p.notes||''}</textarea>
+
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;font-size:.86rem;font-weight:700;" onclick="savePdcaPerformance()">✅ 保存</button>
+        <button class="btn btn-secondary" style="font-size:.86rem;" onclick="closePdcaModal()">キャンセル</button>
+      </div>
+    </div>`;
+}
+
+function closePdcaModal() {
+  const m = document.getElementById('pdcaModal');
+  if (m) m.style.display = 'none';
+  _pdcaTarget = null;
+}
+
+function savePdcaPerformance() {
+  if (!_pdcaTarget) return;
+  const views    = parseInt(document.getElementById('pdcaViews')?.value) || 0;
+  const sentiment= document.getElementById('pdcaSentValue')?.value || 'neutral';
+  const notes    = document.getElementById('pdcaNotes')?.value.trim() || '';
+  const cal = loadCalendar();
+  const entry = cal.find(e => e.date === _pdcaTarget.date && e.charId === _pdcaTarget.charId);
+  if (entry) { entry.perf = { views, sentiment, notes, recordedAt: new Date().toISOString() }; saveCalendar(cal); }
+  showToast('✅ 実績を保存しました');
+  closePdcaModal();
+  renderMain();
+}
+
+function getPdcaAnalysis(charId) {
+  const cal = loadCalendar();
+  const withPerf = cal.filter(e => e.charId === charId && e.perf && (e.perf.views > 0 || e.perf.sentiment));
+  if (!withPerf.length) return null;
+  withPerf.sort((a,b) => (b.perf.views||0) - (a.perf.views||0));
+  const top    = withPerf[0];
+  const bottom = withPerf[withPerf.length - 1];
+  const avgViews = Math.round(withPerf.reduce((s,e) => s + (e.perf.views||0), 0) / withPerf.length);
+  const goodCount    = withPerf.filter(e => e.perf.sentiment === 'good').length;
+  const badCount     = withPerf.filter(e => e.perf.sentiment === 'bad').length;
+  // パターン別平均再生数
+  const patternMap = {};
+  withPerf.forEach(e => {
+    const p = e.pattern || 'unknown';
+    if (!patternMap[p]) patternMap[p] = { sum: 0, cnt: 0 };
+    patternMap[p].sum += (e.perf.views || 0);
+    patternMap[p].cnt++;
+  });
+  const bestPattern = Object.entries(patternMap).sort((a,b) => (b[1].sum/b[1].cnt) - (a[1].sum/a[1].cnt))[0];
+  return { top, bottom, avgViews, goodCount, badCount, total: withPerf.length, bestPattern };
+}
+
+function renderPdcaAnalysisCard(charId) {
+  const a = getPdcaAnalysis(charId);
+  if (!a) return `<div style="font-size:.8rem;color:var(--text-muted);text-align:center;padding:8px 0;">📊 実績データがまだありません。過去の動画に実績を入力するとPDCA分析が表示されます。</div>`;
+  const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'};
+  const sentIcon = s => s==='good'?'👍':s==='bad'?'👎':'😐';
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">平均再生数</div>
+        <div style="font-size:1.05rem;font-weight:700;color:#4a9edd;">${a.avgViews.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">好評率</div>
+        <div style="font-size:1.05rem;font-weight:700;color:#4caf50;">${a.total ? Math.round(a.goodCount/a.total*100) : 0}%</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">最強パターン</div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--char-color,#c9a84c);">${a.bestPattern ? patLabel[a.bestPattern[0]]||a.bestPattern[0] : '−'}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="font-size:.74rem;background:rgba(76,175,80,.1);border-radius:6px;padding:7px 10px;">
+        🏆 <strong>再生数TOP</strong>：${escHtml(a.top.title||a.top.theme||'−')}
+        <span style="color:var(--text-muted);margin-left:6px;">${(a.top.perf.views||0).toLocaleString()}回 ${sentIcon(a.top.perf.sentiment)}</span>
+        ${a.top.perf.notes ? '<div style="font-size:.7rem;color:var(--text-muted);margin-top:2px;">💬 '+escHtml(a.top.perf.notes)+'</div>' : ''}
+      </div>
+      ${a.total > 1 ? `<div style="font-size:.74rem;background:rgba(229,57,53,.07);border-radius:6px;padding:7px 10px;">
+        📉 <strong>要改善</strong>：${escHtml(a.bottom.title||a.bottom.theme||'−')}
+        <span style="color:var(--text-muted);margin-left:6px;">${(a.bottom.perf.views||0).toLocaleString()}回 ${sentIcon(a.bottom.perf.sentiment)}</span>
+        ${a.bottom.perf.notes ? '<div style="font-size:.7rem;color:var(--text-muted);margin-top:2px;">💬 '+escHtml(a.bottom.perf.notes)+'</div>' : ''}
+      </div>` : ''}
+    </div>`;
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calGrid');
   const title = document.getElementById('calTitle');
@@ -6374,6 +6510,22 @@ async function generateWeeklyPlan() {
     ? `【今週すでに登録済みの日（この日を避ける）】: ${alreadyScheduled.join(', ')}`
     : '';
 
+  // PDCA 実績データ
+  const pdcaEntries = cal.filter(e => e.charId === char.id && e.perf && (e.perf.views > 0 || e.perf.sentiment));
+  pdcaEntries.sort((a,b) => (b.perf.views||0) - (a.perf.views||0));
+  const pdcaTopText = pdcaEntries.length
+    ? '【実績データ（PDCA）】\n' +
+      pdcaEntries.slice(0, 10).map(e => {
+        const s = e.perf.sentiment === 'good' ? '好評' : e.perf.sentiment === 'bad' ? '不評' : '普通';
+        const note = e.perf.notes ? ` ／ 備考:${e.perf.notes}` : '';
+        return `・${e.title||e.theme||'−'}（再生${(e.perf.views||0).toLocaleString()}回・${s}・パターン:${e.pattern||'−'}）${note}`;
+      }).join('\n') +
+      '\n【PDCA 指示】\n' +
+      (pdcaEntries.length ? `再生数TOP: ${pdcaEntries[0].title||pdcaEntries[0].theme}（パターン:${pdcaEntries[0].pattern}）→ 類似パターンを今週も取り入れる\n` : '') +
+      (pdcaEntries.length > 1 ? `低パフォーマンス: ${pdcaEntries[pdcaEntries.length-1].title||pdcaEntries[pdcaEntries.length-1].theme}（パターン:${pdcaEntries[pdcaEntries.length-1].pattern}）→ 改善策を reason に明記する\n` : '') +
+      '不評・低再生のパターンは繰り返さず、好評パターンを軸に展開する'
+    : '';
+
   const prompt = `あなたはYouTubeチャンネルの長期戦略コンサルタントです。
 キャラクター「${char.name}」（テーマ:${char.theme}、口調:${char.tone||'未設定'}、個性:${char.ai_personality||'未設定'}）の今週の投稿プランを${count}本提案してください。
 
@@ -6385,6 +6537,8 @@ ${request ? '【今週の要望】' + request : ''}
 ${pastEpsText}
 
 ${pastCalText}
+
+${pdcaTopText}
 
 【戦略的要件（必ず守ること）】
 1. 過去動画と同じタイトル・テーマ・パターンを繰り返さない
