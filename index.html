@@ -817,13 +817,23 @@ function saveData(d) {
       const { avatar_url, ref_image, ...rest } = c;
       return rest;
     })};
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+    const json = JSON.stringify(slim);
+    localStorage.setItem(STORAGE_KEY, json);
+    // 書き込み検証
+    const verify = localStorage.getItem(STORAGE_KEY);
+    if (!verify) {
+      console.error('[saveData] 書き込み後にデータが見つかりません');
+      showToast('❌ 保存失敗（localStorageに書けませんでした）');
+      return;
+    }
+    console.log('[saveData] OK chars:', slim.characters?.length, 'size:', json.length, 'bytes');
     scheduleDriveSync(d);
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
-      showToast('⚠️ ストレージ容量不足。不要なデータを削除してください。');
+      showToast('⚠️ ストレージ容量不足。設定タブのデータ管理でエクスポート後にリセットしてください。');
     } else {
       console.error('saveData error:', e);
+      showToast('❌ 保存エラー: ' + e.message);
     }
   }
 }
@@ -4409,7 +4419,7 @@ async function selectDriveAsset(fileId, fileName) {
         // シーン画像に適用（圧縮してから保存）
         const sb = storyboardData[sbKey()];
         if (sb && _drivePickerTargetScene >= 0) {
-          compressImage(dataUrl).then(compressed => {
+          compressImageDataUrl(dataUrl).then(compressed => {
             sb.scenes[_drivePickerTargetScene].imageDataUrl = compressed;
             saveStoryboard();
             const el = document.getElementById('storyboardContainer');
@@ -4426,7 +4436,7 @@ async function selectDriveAsset(fileId, fileName) {
   }
 }
 
-function compressImage(dataUrl, maxPx = 960, quality = 0.82) {
+function compressImageDataUrl(dataUrl, maxPx = 960, quality = 0.82) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -4446,7 +4456,7 @@ function handleSceneImage(sceneIdx, input) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async e => {
-    const dataUrl = await compressImage(e.target.result);
+    const dataUrl = await compressImageDataUrl(e.target.result);
     const sb = storyboardData[sbKey()];
     if (!sb) return;
     sb.scenes[sceneIdx].imageDataUrl = dataUrl;
@@ -4748,7 +4758,7 @@ async function generateSceneImage(sceneIdx) {
       : imageProvider === 'stability'
       ? await generateStabilityImage(prompt, isShorts ? '9:16' : '16:9')
       : await generateGeminiImage(prompt, refImage);
-    const dataUrl = await compressImage(rawDataUrl, 640, 0.7);
+    const dataUrl = await compressImageDataUrl(rawDataUrl, 640, 0.7);
 
     // Drive優先保存
     const folderId = char?.drive_folder_id || '';
@@ -6611,7 +6621,7 @@ function renderDistributePanel() {
       ${clItem(!!cl.commentPosted, 'STEP 7', '💬 ファーストコメント投稿',
         cl.commentPosted ? 'コメント投稿済み' : 'STEP 3の自動取得時に連動して自動投稿されます。または手動でここから投稿。',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="firstCommentText" style="min-height:70px;font-size:.82rem;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+          <textarea id="firstCommentTextPost" style="min-height:70px;font-size:.82rem;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="postFirstComment().then(()=>_markChecklist('commentPosted'))">💬 投稿する</button>
             <button class="btn btn-secondary btn-sm" onclick="generateFirstComment()">✨ AIで再生成</button>
@@ -7769,10 +7779,6 @@ function renderPostPanel() {
       <button class="btn btn-secondary btn-sm" style="color:var(--text-muted);" onclick="showEpEditModal(currentEpisodeId)">✏️ このプロジェクトを編集・削除</button>
     </div>` : ''}
   </div>`;
-}
-
-function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => showToast('コピーしました'));
 }
 
 async function buildThumbnailForPublish(orientation) {
@@ -9105,6 +9111,7 @@ function updateChar() {
   const newRef = document.getElementById('newCharRefImage').value;
   if (newRef) { saveCharRefImg(char.id, newRef); char.ref_image = newRef; }
   saveData(data);
+  showToast('✅ キャラクター設定を保存しました');
   closeModal('addCharModal');
   renderSidebar();
   renderMain();
