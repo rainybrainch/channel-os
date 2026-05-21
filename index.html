@@ -6,6 +6,7 @@
 <title>Channel OS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root {
     --accent: #c9a84c;
@@ -244,7 +245,7 @@
         ③ 作成されたクライアントIDをコピーして下に貼り付け
         <div style="display:flex;gap:6px;margin-top:8px;">
           <input type="text" id="loginGateClientId" placeholder="420800714761-....apps.googleusercontent.com"
-            value="${localStorage.getItem('channelos_gd_client_id')||''}"
+            id="loginGateClientId"
             style="flex:1;padding:6px 8px;font-size:.74rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);">
           <button onclick="_saveGateClientId()" style="padding:6px 10px;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;">保存</button>
         </div>
@@ -6945,14 +6946,37 @@ async function getYtTokenAsync(charId) {
   } catch { return null; }
 }
 
-async function gdAuth() {
-  const clientId = (_getClientId());
-  const { verifier, challenge } = await _pkcePair();
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('pkce_type', 'drive');
-  const scope = encodeURIComponent('https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file');
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT)}&response_type=code&scope=${scope}&code_challenge=${challenge}&code_challenge_method=S256&access_type=offline&prompt=consent`;
-  window.location.href = url;
+function gdAuth() {
+  if (!window.google?.accounts?.oauth2) {
+    showToast('Google認証ライブラリ読み込み中... 2秒後に再試行してください');
+    setTimeout(gdAuth, 2000);
+    return;
+  }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: _getClientId(),
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+    hint: 'rainybrain.ch@gmail.com',
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) {
+        const msg = tokenResponse.error_description || tokenResponse.error;
+        const errEl = document.getElementById('loginGateError');
+        if (errEl) { errEl.textContent = '認証失敗: ' + msg; errEl.style.display = 'block'; }
+        showToast('❌ 認証失敗: ' + msg);
+        return;
+      }
+      const expiry = Date.now() + (tokenResponse.expires_in || 3600) * 1000;
+      localStorage.setItem(GD_TOKEN_SK, tokenResponse.access_token);
+      localStorage.setItem(GD_EXPIRY_SK, String(expiry));
+      localStorage.removeItem(GD_REFRESH_SK);
+      showToast('✅ Google Drive認証完了');
+      _hideLoginGate();
+      autoLoadTeamConfig(tokenResponse.access_token);
+      startDrivePoll();
+      const sp = document.getElementById('panelSettings');
+      if (sp) sp.outerHTML = renderSettingsPanel();
+    }
+  });
+  client.requestAccessToken({ prompt: '' });
 }
 
 function gdLogout() {
@@ -7002,16 +7026,34 @@ async function showYtChannelInfo(charId) {
   el.innerHTML = `${icon}<span style="font-size:.7rem;color:var(--text-muted);">${label}</span>${reauth}`;
 }
 
-async function ytAuth(charId) {
+function ytAuth(charId) {
   const id = charId || currentCharId;
   if (!id) { showToast('キャラクターを選択してください'); return; }
-  const clientId = _getClientId();
-  const { verifier, challenge } = await _pkcePair();
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('pkce_type', 'youtube_' + id);
-  const scope = encodeURIComponent('https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/youtubepartner email profile');
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT)}&response_type=code&scope=${scope}&code_challenge=${challenge}&code_challenge_method=S256&access_type=offline&prompt=consent&state=youtube_${id}`;
-  window.location.href = url;
+  if (!window.google?.accounts?.oauth2) {
+    showToast('Google認証ライブラリ読み込み中... 2秒後に再試行してください');
+    setTimeout(() => ytAuth(charId), 2000);
+    return;
+  }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: _getClientId(),
+    scope: 'https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/youtubepartner email profile',
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) {
+        showToast('❌ YouTube認証失敗: ' + (tokenResponse.error_description || tokenResponse.error));
+        return;
+      }
+      const expiry = Date.now() + (tokenResponse.expires_in || 3600) * 1000;
+      localStorage.setItem(`${YT_TOKEN_SK}_${id}`, tokenResponse.access_token);
+      localStorage.setItem(YT_EXPIRY_PFX + id, String(expiry));
+      localStorage.removeItem(YT_REFRESH_PFX + id);
+      const char = (loadData().characters||[]).find(c => c.id === id);
+      showToast(`📺 ${char?.name||'キャラ'} のYouTube認証完了`);
+      _updateWizardStatus(id);
+      const sp = document.getElementById('panelSettings');
+      if (sp) sp.outerHTML = renderSettingsPanel();
+    }
+  });
+  client.requestAccessToken({ prompt: 'consent' });
 }
 async function _saveThumbToEp(field, dataUrl) {
   if (!currentEpisodeId) return;
@@ -9975,9 +10017,12 @@ function _hideLoginGate() {
   if (gate) gate.style.display = 'none';
 }
 function _checkLoginGate() {
-  const hasToken   = !!localStorage.getItem(GD_TOKEN_SK);
-  const hasRefresh = !!localStorage.getItem(GD_REFRESH_SK);
-  if (!hasToken && !hasRefresh) {
+  const token   = localStorage.getItem(GD_TOKEN_SK);
+  const expiry  = parseInt(localStorage.getItem(GD_EXPIRY_SK) || '0');
+  const refresh = localStorage.getItem(GD_REFRESH_SK);
+  const valid   = token && (refresh || Date.now() < expiry - 60000);
+  if (!valid) {
+    if (token && !refresh) localStorage.removeItem(GD_TOKEN_SK); // 期限切れをクリア
     _showLoginGate();
     return false;
   }
@@ -9988,6 +10033,11 @@ function _checkLoginGate() {
 // ── 起動 ──
 loadStoryboard();
 renderSidebar();
+// ログインゲートのクライアントID入力欄に保存済み値をセット
+(function() {
+  const el = document.getElementById('loginGateClientId');
+  if (el) el.value = localStorage.getItem('channelos_gd_client_id') || '';
+})();
 _checkLoginGate();
 loadFromDrive();
 </script>
