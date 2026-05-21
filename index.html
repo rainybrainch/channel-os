@@ -611,6 +611,43 @@
       </div>
     </details>
 
+    <!-- ═══ BLOCK 6: 字幕スタイル（折りたたみ） ═══ -->
+    <details style="margin-bottom:16px;">
+      <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;padding:8px 0;">🎬 字幕スタイル（SRT / ASS）</summary>
+      <div style="padding:8px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label style="font-size:.74rem;">フォントサイズ</label>
+          <select id="newCharCapFontSize" style="margin-top:4px;">
+            ${['18','20','24','28','32','40'].map(s=>`<option value="${s}">${s}px</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:.74rem;">テキスト色</label>
+          <input type="color" id="newCharCapTextColor" value="#ffffff" style="height:36px;width:100%;cursor:pointer;margin-top:4px;"></div>
+        <div><label style="font-size:.74rem;">背景</label>
+          <select id="newCharCapBgStyle" style="margin-top:4px;">
+            <option value="none">なし</option>
+            <option value="semi" selected>半透明黒</option>
+            <option value="solid">不透明黒</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">アニメーション</label>
+          <select id="newCharCapAnimation" style="margin-top:4px;">
+            <option value="none">なし</option>
+            <option value="fade" selected>フェードイン</option>
+            <option value="slide">スライドアップ</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">表示位置</label>
+          <select id="newCharCapPosition" style="margin-top:4px;">
+            <option value="bottom" selected>下部</option>
+            <option value="center">中央下</option>
+            <option value="top">上部</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">フォント</label>
+          <select id="newCharCapFont" style="margin-top:4px;">
+            <option value="Noto Sans JP" selected>Noto Sans JP</option>
+            <option value="M PLUS 1p">M PLUS 1p</option>
+            <option value="Arial">Arial</option>
+          </select></div>
+      </div>
+    </details>
+
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addCharModal')">キャンセル</button>
       <button class="btn btn-primary" id="modalSaveBtn" onclick="saveNewChar()">保存</button>
@@ -2746,7 +2783,7 @@ function renderMain() {
         const allTabs = ['plan','create','script','meta','scene','assets','post','distribute','comments'];
         // シンプルモード: 3タブのみ（plan=計画 / create=作成 / distribute=配信）
         const simpleTabs = ['plan','create','distribute'];
-        const labels = {plan:'📋 計画',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
+        const labels = {plan:'📋 計画',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🎬 字幕',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
         const tabs = simpleMode ? simpleTabs : allTabs;
         return tabs.map(t => {
           const badge = _getTabBadge(t);
@@ -2839,7 +2876,7 @@ function switchTab(tab) {
     }
   } else if (char) {
     const renders = {
-      plan:       () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); setTimeout(showStrategyHint, 0); },
+      plan:       () => { const el = document.getElementById('panelPlan'); if (el) el.outerHTML = renderPlanPanel(char); setTimeout(()=>{ showStrategyHint(); _restoreWeeklyPlanResult(); }, 0); },
       script:     () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
       meta:       () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
       assets:     () => { loadDriveAssets(); },
@@ -2948,7 +2985,7 @@ function renderPlanPanel(char) {
               </div>
               <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
                 ${e.posted ? '<span style="font-size:.68rem;color:#4caf50;">✅投稿済</span>' : isToday ? '<span style="font-size:.68rem;color:var(--char-color,#c9a84c);font-weight:700;">今日！</span>' : ''}
-                ${ep && !e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId}')">🎬 作る</button>` : ''}
+                ${!e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}')">🎬 作る</button>` : ''}
                 ${isPast ? `<button class="btn btn-sm" style="font-size:.66rem;padding:3px 8px;background:${perf?'rgba(76,175,80,.2)':'var(--surface2)'};color:${perf?'#4caf50':'var(--text-muted)'};" onclick="openPdcaModal('${e.date}','${e.charId}',${JSON.stringify(e.title||e.theme||'')})">${perf?'📊 編集':'📊 実績'}</button>` : ''}
               </div>
             </div>
@@ -3648,7 +3685,7 @@ function renderCreatePanel(char) {
           const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           const todayStr = _ld(new Date());
           const isToday = e.date === todayStr;
-          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId}')"
+          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}')"
             style="cursor:pointer;padding:10px 12px;border-radius:8px;border:2px solid ${isActive?'#27ae60':isToday?'#27ae6066':'var(--border)'};background:${isActive?'rgba(39,174,96,.12)':'var(--surface2)'};display:flex;align-items:center;gap:10px;">
             <div style="text-align:center;min-width:32px;">
               <div style="font-size:.62rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
@@ -5441,8 +5478,51 @@ function renderAssetsPanel() {
     const sb = storyboardData[ep.charId + '_' + ep.id];
     if (sb?.scenes) pastImageCount += sb.scenes.filter(s => s.imageDataUrl && !s.imageDataUrl.startsWith('drive:')).length;
   }
+  const cs = char?.caption_style || {};
+  const _cso = (v, d) => v || d;
   return `
   <div class="panel ${currentTab==='assets'?'active':''}" id="panelAssets">
+
+    <!-- 字幕スタイル設定 -->
+    <div class="card" style="border-color:#4a9edd44;">
+      <div class="card-title">🎬 字幕スタイル（${char?.name||''}専用）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div><label style="font-size:.74rem;">フォントサイズ</label>
+          <select id="capFontSize" style="margin-top:4px;" onchange="updateCapPreview()">
+            ${['18','20','24','28','32','40'].map(s=>`<option value="${s}" ${_cso(cs.fontSize,'24')===s?'selected':''}>${s}px</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:.74rem;">テキスト色</label>
+          <input type="color" id="capTextColor" value="${_cso(cs.textColor,'#ffffff')}" style="height:36px;width:100%;cursor:pointer;margin-top:4px;" oninput="updateCapPreview()"></div>
+        <div><label style="font-size:.74rem;">背景</label>
+          <select id="capBgStyle" style="margin-top:4px;" onchange="updateCapPreview()">
+            <option value="none" ${_cso(cs.bgStyle,'semi')==='none'?'selected':''}>なし</option>
+            <option value="semi" ${_cso(cs.bgStyle,'semi')==='semi'?'selected':''}>半透明黒</option>
+            <option value="solid" ${_cso(cs.bgStyle,'semi')==='solid'?'selected':''}>不透明黒</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">アニメーション</label>
+          <select id="capAnimation" style="margin-top:4px;">
+            <option value="none" ${_cso(cs.animation,'fade')==='none'?'selected':''}>なし</option>
+            <option value="fade" ${_cso(cs.animation,'fade')==='fade'?'selected':''}>フェードイン</option>
+            <option value="slide" ${_cso(cs.animation,'fade')==='slide'?'selected':''}>スライドアップ</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">表示位置</label>
+          <select id="capPosition" style="margin-top:4px;" onchange="updateCapPreview()">
+            <option value="bottom" ${_cso(cs.position,'bottom')==='bottom'?'selected':''}>下部</option>
+            <option value="center" ${_cso(cs.position,'bottom')==='center'?'selected':''}>中央下</option>
+            <option value="top" ${_cso(cs.position,'bottom')==='top'?'selected':''}>上部</option>
+          </select></div>
+        <div><label style="font-size:.74rem;">フォント</label>
+          <select id="capFont" style="margin-top:4px;" onchange="updateCapPreview()">
+            <option value="Noto Sans JP" ${_cso(cs.font,'Noto Sans JP')==='Noto Sans JP'?'selected':''}>Noto Sans JP</option>
+            <option value="M PLUS 1p" ${_cso(cs.font,'Noto Sans JP')==='M PLUS 1p'?'selected':''}>M PLUS 1p</option>
+            <option value="Arial" ${_cso(cs.font,'Noto Sans JP')==='Arial'?'selected':''}>Arial</option>
+          </select></div>
+      </div>
+      <div style="background:#111;border-radius:8px;overflow:hidden;position:relative;aspect-ratio:16/5;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8%;margin-bottom:10px;">
+        <div id="capPreviewText" style="font-size:${_cso(cs.fontSize,'24')}px;color:${_cso(cs.textColor,'#ffffff')};padding:4px 12px;border-radius:4px;background:rgba(0,0,0,0.6);font-family:'${_cso(cs.font,'Noto Sans JP')}',sans-serif;max-width:90%;text-align:center;">サンプルの字幕テキストです</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveCaptionStyleToChar()">💾 このキャラの字幕スタイルを保存</button>
+    </div>
 
     <!-- 過去素材の再利用（最重要） -->
     <div class="card" style="border-color:var(--char-color,#c9a84c)44;background:linear-gradient(135deg,rgba(201,168,76,.06),transparent);">
@@ -6289,13 +6369,24 @@ function closeCalModal() {
 // カレンダーから動画制作を開始
 function startMakingFromCal(charId, episodeId) {
   closeCalModal();
-  // キャラを切り替えてからエピソードをロード
+  const _go = (epId) => { loadEpisode(epId); switchTab('create'); };
+  // エピソードIDがない場合は新規作成
+  if (!episodeId) {
+    const cal = loadCalendar();
+    const entry = cal.find(e => e.charId === (charId||currentCharId) && !e.episodeId && !e.posted);
+    if (entry) {
+      const newEpId = 'ep_' + Date.now();
+      const ep = { id: newEpId, charId: charId||currentCharId, title: entry.title||entry.theme||'', theme: entry.theme||'', inputTheme: entry.theme||'', inputPattern: entry.pattern||'explanation', inputFormat: entry.format||'shorts', createdAt: new Date().toISOString(), status: 'draft' };
+      data.episodes = data.episodes || []; data.episodes.push(ep); saveData(data);
+      entry.episodeId = newEpId; saveCalendar(cal);
+      episodeId = newEpId;
+    }
+  }
   if (charId && charId !== currentCharId) {
     selectChar(charId);
-    setTimeout(() => { loadEpisode(episodeId); switchTab('create'); }, 100);
+    setTimeout(() => _go(episodeId), 100);
   } else {
-    loadEpisode(episodeId);
-    switchTab('create');
+    _go(episodeId);
   }
 }
 
@@ -6398,6 +6489,47 @@ function addScheduleToCalendar() {
 //  週間プラン生成
 // ════════════════════════════════════
 let _weeklyPlanItems = [];
+
+function _restoreWeeklyPlanResult() {
+  if (!_weeklyPlanItems.length) return;
+  const resultEl = document.getElementById('weeklyPlanResult');
+  const boxEl    = document.getElementById('weeklyPlanBox');
+  const iconEl   = document.getElementById('weeklyPlanToggleIcon');
+  if (!resultEl) return;
+  if (boxEl) { boxEl.style.display = 'block'; }
+  if (iconEl) iconEl.textContent = '▲';
+  const patternLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'};
+  const fmtIcon = f => f === 'shorts' ? '📱 ショート' : '📺 横動画';
+  const cards = _weeklyPlanItems.map((item, i) => {
+    const isRec = !!item.recommended;
+    const checked = document.querySelector(`.weeklyItemCheck[data-idx="${i}"]`)?.checked ?? isRec;
+    return `<div id="weeklyItem_${i}" style="border:2px solid ${isRec?'#4a9edd':'var(--border)'};border-radius:10px;padding:12px 14px;background:${isRec?'rgba(74,158,221,.1)':'var(--surface2)'};margin-bottom:8px;position:relative;opacity:${checked?1:.45};">
+      ${isRec ? '<div style="position:absolute;top:-10px;left:14px;background:#4a9edd;color:#fff;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:8px;">★ おすすめ</div>' : ''}
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" class="weeklyItemCheck" data-idx="${i}" ${checked?'checked':''} onclick="toggleWeeklyItem(${i})" style="accent-color:#4a9edd;width:16px;height:16px;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px;">${item.date} ／ ${fmtIcon(item.format)} ／ ${patternLabel[item.pattern]||item.pattern}</div>
+          <input id="weeklyTitle_${i}" value="${escHtml(item.title)}" oninput="_weeklyPlanItems[${i}].title=this.value" style="width:100%;font-weight:700;font-size:.9rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin-bottom:3px;">
+          <input id="weeklyTheme_${i}" value="${escHtml(item.theme)}" oninput="_weeklyPlanItems[${i}].theme=this.value" style="width:100%;font-size:.75rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);">
+          ${item.reason ? '<div style="font-size:.72rem;color:#4a9edd;margin-top:4px;">💡 ' + escHtml(item.reason) + '</div>' : ''}
+        </div>
+        <button onclick="regenWeeklyItem(${i})" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 8px;cursor:pointer;font-size:.78rem;color:var(--text-muted);">🔄</button>
+      </div>
+    </div>`;
+  }).join('');
+  resultEl.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:.75rem;color:var(--text-muted);">★おすすめは最初からチェック済み</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" style="font-size:.7rem;padding:3px 10px;" onclick="document.querySelectorAll('.weeklyItemCheck').forEach((cb,i)=>{cb.checked=true;const b=document.getElementById('weeklyItem_'+i);if(b)b.style.opacity='1';})">全選択</button>
+        <button class="btn btn-sm" style="font-size:.7rem;padding:3px 10px;" onclick="document.querySelectorAll('.weeklyItemCheck').forEach((cb,i)=>{cb.checked=false;const b=document.getElementById('weeklyItem_'+i);if(b)b.style.opacity='.45';})">全解除</button>
+      </div>
+    </div>
+    ${cards}
+    <button class="btn btn-primary" style="width:100%;padding:10px;margin-top:4px;font-size:.88rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="addWeeklyPlanToCalendar()">
+      📅 チェックした案をカレンダーに追加して動画制作を始める
+    </button>`;
+}
 
 async function generateWeeklyPlan() {
   const char = data.characters.find(c => c.id === currentCharId);
@@ -7344,24 +7476,27 @@ function updateCapPreview() {
   }
 }
 
-function saveCaptionStyle() {
-  const style = {
-    fontSize: document.getElementById('capFontSize').value,
-    textColor: document.getElementById('capTextColor').value,
-    bgStyle: document.getElementById('capBgStyle').value,
-    animation: document.getElementById('capAnimation').value,
-    position: document.getElementById('capPosition').value,
-    font: document.getElementById('capFont').value,
+function saveCaptionStyle() { saveCaptionStyleToChar(); }
+
+function saveCaptionStyleToChar() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) { showToast('キャラクターを選択してください'); return; }
+  char.caption_style = {
+    fontSize:  document.getElementById('capFontSize')?.value  || '24',
+    textColor: document.getElementById('capTextColor')?.value || '#ffffff',
+    bgStyle:   document.getElementById('capBgStyle')?.value   || 'semi',
+    animation: document.getElementById('capAnimation')?.value || 'fade',
+    position:  document.getElementById('capPosition')?.value  || 'bottom',
+    font:      document.getElementById('capFont')?.value      || 'Noto Sans JP',
   };
-  localStorage.setItem('channelos_caption_style', JSON.stringify(style));
-  const msg = document.getElementById('capStyleSaved');
-  if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
-  showToast('✅ 字幕スタイルを保存しました');
+  saveData(data);
+  showToast('✅ ' + char.name + ' の字幕スタイルを保存しました');
 }
 
 function getCaptionStyle() {
-  return Object.assign({ fontSize:'24', textColor:'#ffffff', bgStyle:'semi', animation:'fade', position:'bottom', font:'Noto Sans JP' },
-    JSON.parse(localStorage.getItem('channelos_caption_style')||'{}'));
+  const defaults = { fontSize:'24', textColor:'#ffffff', bgStyle:'semi', animation:'fade', position:'bottom', font:'Noto Sans JP' };
+  const char = data.characters.find(c => c.id === currentCharId);
+  return Object.assign(defaults, char?.caption_style || {});
 }
 
 function saveGdFolderId() {
@@ -9070,6 +9205,16 @@ function openEditChar(id) {
   if (gtRateEl) { gtRateEl.value = char.google_tts_rate || 1.0; const rv = document.getElementById('googleTtsRateVal'); if (rv) rv.textContent = gtRateEl.value; }
   const gtPitchEl = document.getElementById('googleTtsPitch');
   if (gtPitchEl) { gtPitchEl.value = char.google_tts_pitch || 0; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = gtPitchEl.value; }
+  // 字幕スタイル復元
+  const _cs = char.caption_style || {};
+  const _sv = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  _sv('newCharCapFontSize',  _cs.fontSize  || '24');
+  _sv('newCharCapTextColor', _cs.textColor || '#ffffff');
+  _sv('newCharCapBgStyle',   _cs.bgStyle   || 'semi');
+  _sv('newCharCapAnimation', _cs.animation || 'fade');
+  _sv('newCharCapPosition',  _cs.position  || 'bottom');
+  _sv('newCharCapFont',      _cs.font      || 'Noto Sans JP');
+
   const improveBar = document.getElementById('aiImproveBar');
   if (improveBar) improveBar.style.display = 'flex';
   const descBlock = document.getElementById('aiCharDescBlock');
@@ -9207,7 +9352,15 @@ function saveNewChar() {
     note_strategy:  document.getElementById('newCharNoteStrategy')?.value.trim() || '',
     x_strategy:     document.getElementById('newCharXStrategy')?.value.trim() || '',
     ig_strategy:    document.getElementById('newCharIgStrategy')?.value.trim() || '',
-    note_username:  document.getElementById('newCharNoteUsername')?.value.trim() || ''
+    note_username:  document.getElementById('newCharNoteUsername')?.value.trim() || '',
+    caption_style: {
+      fontSize:  document.getElementById('newCharCapFontSize')?.value || '24',
+      textColor: document.getElementById('newCharCapTextColor')?.value || '#ffffff',
+      bgStyle:   document.getElementById('newCharCapBgStyle')?.value || 'semi',
+      animation: document.getElementById('newCharCapAnimation')?.value || 'fade',
+      position:  document.getElementById('newCharCapPosition')?.value || 'bottom',
+      font:      document.getElementById('newCharCapFont')?.value || 'Noto Sans JP',
+    }
   });
   const newChar = data.characters[data.characters.length - 1];
   // アバター・参照画像を個別キーに保存
@@ -9254,6 +9407,14 @@ function updateChar() {
   char.x_strategy       = document.getElementById('newCharXStrategy')?.value.trim() || '';
   char.ig_strategy      = document.getElementById('newCharIgStrategy')?.value.trim() || '';
   char.note_username    = document.getElementById('newCharNoteUsername')?.value.trim() || '';
+  char.caption_style = {
+    fontSize:  document.getElementById('newCharCapFontSize')?.value || '24',
+    textColor: document.getElementById('newCharCapTextColor')?.value || '#ffffff',
+    bgStyle:   document.getElementById('newCharCapBgStyle')?.value || 'semi',
+    animation: document.getElementById('newCharCapAnimation')?.value || 'fade',
+    position:  document.getElementById('newCharCapPosition')?.value || 'bottom',
+    font:      document.getElementById('newCharCapFont')?.value || 'Noto Sans JP',
+  };
   // アバター・参照画像を個別キーに保存（QuotaExceeded防止）
   const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
   if (newAvatar) { saveCharAvatar(char.id, newAvatar); char.avatar_url = newAvatar; }
