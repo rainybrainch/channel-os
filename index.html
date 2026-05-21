@@ -235,6 +235,22 @@
       Google でログイン
     </button>
     <div id="loginGateError" style="margin-top:12px;font-size:.76rem;color:#e55;display:none;"></div>
+    <details style="margin-top:14px;text-align:left;">
+      <summary style="cursor:pointer;font-size:.74rem;color:var(--text-muted);padding:4px 0;">⚙️ ログインできない場合（OAuth設定）</summary>
+      <div style="margin-top:8px;font-size:.76rem;color:var(--text-muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:10px 12px;">
+        <b style="color:var(--text);">初回セットアップ手順：</b><br>
+        ① <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent);">Google Cloud Console</a> → 認証情報<br>
+        ② 「OAuthクライアントIDを作成」→ アプリの種類：<b>「デスクトップアプリ」</b> を選択<br>
+        ③ 作成されたクライアントIDをコピーして下に貼り付け
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input type="text" id="loginGateClientId" placeholder="420800714761-....apps.googleusercontent.com"
+            value="${localStorage.getItem('channelos_gd_client_id')||''}"
+            style="flex:1;padding:6px 8px;font-size:.74rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+          <button onclick="_saveGateClientId()" style="padding:6px 10px;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;">保存</button>
+        </div>
+        <div id="loginGateClientStatus" style="font-size:.7rem;margin-top:4px;color:#4caf50;display:none;">✅ 保存しました</div>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -6222,50 +6238,65 @@ function renderSettingsPanel() {
       ${action ? `<button class="btn btn-primary btn-sm" style="flex-shrink:0;" onclick="${action}">${ok?'再設定':'設定'}</button>` : ''}
     </div>`;
 
-  const allDone = gdToken && hasKey && hasFoldr && ytDone > 0;
+  const allRequired = hasKey && chars.length > 0 && ytDone === chars.length;
+  const incomplete = [];
+  if (!hasKey) incomplete.push({ icon:'🔑', label:'Gemini APIキー未設定', action:"document.querySelector('#panelSettings details.adv-settings').open=true;setTimeout(()=>document.getElementById('geminiApiKey')?.focus(),100)" });
+  if (chars.length === 0) incomplete.push({ icon:'👤', label:'キャラクターが未登録', action:"document.querySelector('.add-char-btn')?.click()" });
+  if (chars.length > 0 && ytDone < chars.length) incomplete.push({ icon:'📺', label:`YouTube認証 ${ytDone}/${chars.length}キャラ完了（各キャラのヘッダーで認証）`, action:null });
 
   return `
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
 
     <!-- 🚀 初期設定ウィザード -->
-    <div class="card" style="border:2px solid ${hasKey && ytDone > 0 ? '#4caf50' : 'var(--accent)'};">
-      <div class="card-title" style="color:${hasKey && ytDone > 0 ?'#4caf50':'var(--accent)'};">${hasKey && ytDone > 0 ? '✅ 必須設定完了' : '🚀 初期設定（初回のみ）'}</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">必須は ① と ②のみ。Drive は任意（ログインしなくても全機能使えます）。</p>
-
-      ${step(hasKey, '① Gemini APIキー ★必須 — AI生成の核心', "document.getElementById('geminiApiKey')?.focus()")}
-      ${step(ytDone > 0, `② YouTube認証 ★必須 — ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ）`, null)}
-
-      <details style="margin-top:10px;">
-        <summary style="cursor:pointer;font-size:.78rem;color:var(--text-muted);padding:6px 0;">
-          ☁️ Drive 同期（任意）— ${gdToken ? '✅ 接続中（自動同期ON）' : '未接続（PC内localStorage のみで動作中）'}
-        </summary>
-        <div style="margin-top:8px;font-size:.76rem;color:var(--text-muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:10px 12px;">
-          Drive に接続すると: データをクラウド保存 / PC・スマホ間で同期 / GAS自動投稿キューの書き出し<br>
-          <b>接続しなくてもOK</b> — キャラ・エピソード・画像は全てブラウザ内に保存されます。<br><br>
-          ${gdToken
-            ? `<span style="color:#4caf50;">✅ ${gdRefresh ? '自動更新ON（長期接続済み）' : '接続中'}</span> <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="gdAuth()">再認証</button>`
-            : `<button class="btn btn-primary btn-sm" onclick="gdAuth()">Google Drive に接続する（rainybrain.ch@gmail.com）</button>`
-          }
-          <div style="margin-top:12px;">
-            <label style="font-size:.76rem;font-weight:700;display:block;margin-bottom:4px;">📁 Drive フォルダID</label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <input type="text" id="gdFolderInput" placeholder="1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy"
-                value="${localStorage.getItem(GD_FOLDER_SK)||''}"
-                style="flex:1;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.8rem;">
-              <button class="btn btn-primary btn-sm" onclick="saveGdFolderId()">保存</button>
-            </div>
-            <div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">
-              Drive フォルダを開いた時のURL末尾の英数字。例: drive.google.com/drive/folders/<b>ここ</b>
-            </div>
-            ${hasFoldr ? `<div style="font-size:.72rem;color:#4caf50;margin-top:4px;">✅ 設定済み: ${localStorage.getItem(GD_FOLDER_SK)||''}</div>` : ''}
-          </div>
-          ${!gdToken ? `<div style="margin-top:10px;padding:8px;background:#1a2a1a;border-radius:6px;font-size:.72rem;color:#aed6a0;line-height:1.9;">
-            接続エラーが出る場合: Cloud Console → 認証情報 → OAuthクライアントID を <b>「デスクトップアプリ」</b>タイプで作成 →<br>
-            クライアントID を下の「OAuth クライアントID」欄に貼り付けて保存 → 再接続
-          </div>` : ''}
-        </div>
-      </details>
+    ${allRequired ? `
+    <details class="card" style="border:1px solid #4caf5044;padding:10px 14px;">
+      <summary style="cursor:pointer;font-size:.82rem;color:#4caf50;font-weight:700;display:flex;align-items:center;gap:8px;">
+        ✅ 必須設定完了 <span style="font-size:.72rem;color:var(--text-muted);font-weight:400;">（クリックで確認）</span>
+      </summary>
+      <div style="margin-top:8px;font-size:.78rem;color:var(--text-muted);line-height:2;">
+        ✅ Gemini APIキー設定済み<br>
+        ✅ YouTube認証: ${ytDone}/${chars.length} キャラ完了<br>
+        ${gdToken ? `✅ Drive同期: ${gdRefresh?'長期接続済み':'接続中'}` : '— Drive: 未接続（任意）'}
+      </div>
+    </details>
+    ` : `
+    <div class="card" style="border:2px solid var(--accent);padding:14px 16px;">
+      <div style="font-size:.82rem;font-weight:700;color:var(--accent);margin-bottom:10px;">🚀 未完了の設定</div>
+      ${incomplete.map(it => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:1rem;">${it.icon}</span>
+          <span style="flex:1;font-size:.83rem;color:var(--text);">${it.label}</span>
+          ${it.action ? `<button class="btn btn-primary btn-sm" onclick="${it.action}">設定</button>` : ''}
+        </div>`).join('')}
     </div>
+    `}
+
+    <!-- Drive 同期 -->
+    <details style="margin-top:4px;">
+      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:8px;list-style:none;" class="summary-row">
+        ☁️ Drive 同期（任意）
+        <span style="margin-left:auto;font-size:.75rem;color:${gdToken?'#4caf50':'var(--text-muted)'};">${gdToken ? (gdRefresh?'✅ 長期接続中':'✅ 接続中') : '未接続'}</span>
+      </summary>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-size:.76rem;color:var(--text-muted);line-height:1.8;">
+        Drive接続でデータをクラウド保存・PC/スマホ間同期・GAS自動投稿キュー書き出しが可能。<b>接続しなくても全機能使えます。</b><br><br>
+        ${gdToken
+          ? `<span style="color:#4caf50;">✅ ${gdRefresh ? '自動更新ON（長期接続済み）' : '接続中'}</span>
+             <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="gdAuth()">再認証</button>
+             <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="gdLogout()">ログアウト</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="gdAuth()">Google でログイン</button>`
+        }
+        <div style="margin-top:10px;">
+          <label style="font-size:.74rem;font-weight:700;display:block;margin-bottom:4px;">📁 Drive フォルダID</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="gdFolderInput" placeholder="1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy"
+              value="${localStorage.getItem(GD_FOLDER_SK)||''}"
+              style="flex:1;padding:6px 8px;font-size:.78rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+            <button class="btn btn-primary btn-sm" onclick="saveGdFolderId()">保存</button>
+          </div>
+          ${hasFoldr ? `<div style="font-size:.7rem;color:#4caf50;margin-top:4px;">✅ ${localStorage.getItem(GD_FOLDER_SK)||''}</div>` : ''}
+        </div>
+      </div>
+    </details>
 
     <!-- VOICEVOX接続 -->
     <div class="card" style="margin-top:8px;" id="settingsVvCard">
@@ -6307,30 +6338,19 @@ function renderSettingsPanel() {
       </div>
     </div>
 
-    <!-- Google ログイン（ドライブ＋キー共有） -->
-    <div class="card" style="border-color:var(--char-color);">
-      <div class="card-title">☁️ Google ログイン</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">
-        ログインするとDriveが使えるようになり、APIキーが自動で読み込まれます。
-      </p>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="gdAuth()">Google でログイン</button>
-        <span style="font-size:.78rem;color:${gdToken?'#4a8':'var(--text-muted)'};">${gdToken ? '✅ ログイン済み' : '未ログイン'}</span>
-        ${gdToken ? `<button class="btn btn-secondary btn-sm" onclick="gdLogout()">ログアウト</button>` : ''}
-      </div>
-      ${gdToken && !hasKey ? `<div style="margin-top:8px;"><button class="btn btn-secondary btn-sm" onclick="autoLoadKeysFromDrive(localStorage.getItem('channelos_gd_token'))">🔑 APIキーを読み込む</button></div>` : ''}
-      ${hasKey ? `<p style="font-size:.75rem;color:#4a8;margin-top:8px;">✅ APIキー読込済み</p>` : ''}
-    </div>
-
     <!-- YouTube認証はキャラヘッダーで個別管理 -->
-    <div class="card">
-      <div class="card-title">📺 YouTube 認証</div>
-      <p style="font-size:.78rem;color:var(--text-muted);">キャラクターを選択すると、ヘッダーに「YouTube認証」ボタンが表示されます。キャラごとに別のGoogleアカウントで認証できます。</p>
-    </div>
+    <details style="margin-top:4px;">
+      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;list-style:none;" class="summary-row">
+        📺 YouTube 認証 <span style="margin-left:8px;font-size:.75rem;color:${ytDone===chars.length&&chars.length>0?'#4caf50':'var(--text-muted)'};">${ytDone}/${chars.length} キャラ完了</span>
+      </summary>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-size:.78rem;color:var(--text-muted);">
+        キャラクターを選択 → ヘッダーの「YouTube認証」ボタンで各キャラに別のGoogleアカウントを接続できます。
+      </div>
+    </details>
 
     <!-- 管理者用：APIキーをDriveに保存 -->
-    <details style="margin-top:4px;">
-      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 0;">⚙️ 詳細設定（管理者用）</summary>
+    <details style="margin-top:4px;" class="adv-settings">
+      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 0;">⚙️ 詳細設定（APIキー・各種設定）</summary>
       <div class="card" style="margin-top:8px;">
         <div class="card-title">APIキーを手動入力</div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;">
@@ -9939,6 +9959,13 @@ function importData() {
 function handleOAuthCallback(e) { /* handled via location.hash above */ }
 
 // ── ログインゲート ──
+function _saveGateClientId() {
+  const val = document.getElementById('loginGateClientId')?.value.trim();
+  if (!val) return;
+  localStorage.setItem('channelos_gd_client_id', val);
+  const st = document.getElementById('loginGateClientStatus');
+  if (st) { st.style.display = 'block'; setTimeout(() => st.style.display = 'none', 2000); }
+}
 function _showLoginGate() {
   const gate = document.getElementById('loginGate');
   if (gate) gate.style.display = 'flex';
