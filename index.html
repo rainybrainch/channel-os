@@ -6568,42 +6568,6 @@ function renderSettingsPanel() {
       })()}
     </div>
 
-    <!-- 🤖 GAS 自動化セクション -->
-    <div class="card" style="margin-top:8px;border:1px solid #27ae6044;background:linear-gradient(135deg,rgba(39,174,96,.06),transparent);">
-      <div class="card-title" style="color:#27ae60;">🤖 GAS 完全自動化（朝6時投稿・ブラウザ不要）</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;line-height:1.7;">
-        Google Apps Script が毎時 Drive を監視し、予約時刻になったら X に自動投稿します。<br>
-        YouTube 予約投稿は YouTube API が直接処理するため GAS 不要。
-      </p>
-
-      <div style="margin-bottom:12px;">
-        <div style="font-size:.8rem;font-weight:700;margin-bottom:8px;color:var(--text);">① 投稿キューを Drive に書き出す</div>
-        <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">週1回の作業でここを押すだけ。全キャラの予約投稿リストをDriveに保存します。</p>
-        <button class="btn btn-primary btn-sm" onclick="exportPublishQueueToDrive()">📤 投稿キューをDriveに書き出す</button>
-        <div id="queueExportStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:6px;"></div>
-      </div>
-
-      <details style="margin-bottom:8px;">
-        <summary style="cursor:pointer;font-size:.8rem;color:#27ae60;font-weight:700;padding:6px 0;">📋 GAS セットアップ手順（初回1回だけ）</summary>
-        <div style="margin-top:10px;font-size:.76rem;line-height:2;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:12px 14px;">
-          <b style="color:var(--text);">1.</b> <a href="https://script.google.com" target="_blank" style="color:#27ae60;">script.google.com</a> を開く<br>
-          <b style="color:var(--text);">2.</b> 「新しいプロジェクト」→ 下のコードを全選択して貼り付け → 保存<br>
-          <b style="color:var(--text);">3.</b> 「実行」→ Google アカウント (FukuiSho0603) で承認<br>
-          <b style="color:var(--text);">4.</b> 「トリガー」→ 「トリガーを追加」→ 関数: <code>checkAndPost</code> / 時間ベース: 1時間ごと<br>
-          <b style="color:var(--text);">5.</b> Channel OS で「📤 投稿キューをDriveに書き出す」を週1回押すだけ
-        </div>
-      </details>
-
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span style="font-size:.8rem;font-weight:700;">② GAS コードをコピー</span>
-          <button class="btn btn-secondary btn-sm" onclick="copyGasCode()">📋 コードをコピー</button>
-        </div>
-        <pre id="gasCodeBlock" style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.68rem;color:#aef;overflow-x:auto;max-height:280px;white-space:pre;line-height:1.5;display:none;"></pre>
-        <button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="toggleGasPreview()">👁 コードを表示/非表示</button>
-      </div>
-    </div>
-
   </div>`;
 }
 
