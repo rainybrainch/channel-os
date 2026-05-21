@@ -572,14 +572,14 @@
         <input type="hidden" id="newCharVoicevox" value="">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
           <select id="newCharGoogleTtsVoice" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);" onchange="document.getElementById('newCharVoicevox').value=this.value">
-            <option value="ja-JP-Neural2-B">女性・高め（Neural2-B）</option>
-            <option value="ja-JP-Neural2-C">女性・落ち着き（Neural2-C）</option>
-            <option value="ja-JP-Neural2-D">男性・標準（Neural2-D）</option>
-            <option value="ja-JP-Neural2-A">女性・柔らか（Neural2-A）</option>
-            <option value="ja-JP-Wavenet-B">女性WaveNet（高品質）</option>
-            <option value="ja-JP-Wavenet-D">男性WaveNet（高品質）</option>
-            <option value="ja-JP-Standard-A">標準女性（無料枠大）</option>
-            <option value="ja-JP-Standard-B">標準男性（無料枠大）</option>
+            <option value="ja-JP-Neural2-B">女性A（Neural2-B）</option>
+            <option value="ja-JP-Neural2-C">女性B（Neural2-C）</option>
+            <option value="ja-JP-Neural2-D">男性A（Neural2-D）</option>
+            <option value="ja-JP-Neural2-A">女性C（Neural2-A）</option>
+            <option value="ja-JP-Wavenet-B">女性D・WaveNet（高品質）</option>
+            <option value="ja-JP-Wavenet-D">男性B・WaveNet（高品質）</option>
+            <option value="ja-JP-Standard-A">女性E・Standard</option>
+            <option value="ja-JP-Standard-B">男性C・Standard</option>
           </select>
           <button type="button" class="btn btn-secondary btn-sm" onclick="testGoogleTtsVoice()" id="googleTtsTestBtn">▶ テスト</button>
         </div>
@@ -8393,6 +8393,12 @@ function openEditChar(id) {
   const refPh   = document.getElementById('refImagePlaceholder');
   if (char.ref_image) { if(refPrev){refPrev.src=char.ref_image;refPrev.style.display='block';} if(refPh)refPh.style.display='none'; }
   else { if(refPrev){refPrev.src='';refPrev.style.display='none';} if(refPh)refPh.style.display='flex'; }
+  // アイコン復元
+  document.getElementById('newCharAvatarDataUrl').value = char.avatar_url || '';
+  const avatarPrev = document.getElementById('charIconPreview');
+  const avatarPh   = document.getElementById('charIconPlaceholder');
+  if (char.avatar_url) { if(avatarPrev){avatarPrev.src=char.avatar_url;avatarPrev.style.display='block';} if(avatarPh)avatarPh.style.display='none'; }
+  else { if(avatarPrev){avatarPrev.src='';avatarPrev.style.display='none';} if(avatarPh)avatarPh.style.display='flex'; }
   document.getElementById('newCharVoiceName').value        = char.voicevox_name || '';
   document.getElementById('newCharFolderId').value         = char.drive_folder_id || '';
   document.getElementById('newCharVoicevox').value         = char.voicevox_speaker ?? '';
@@ -8560,7 +8566,7 @@ function updateChar() {
   char.ig_strategy      = document.getElementById('newCharIgStrategy')?.value.trim() || '';
   char.note_username    = document.getElementById('newCharNoteUsername')?.value.trim() || '';
   const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
-  if (newAvatar) char.avatar_url = newAvatar;
+  if (newAvatar && newAvatar !== char.avatar_url) char.avatar_url = newAvatar;
   const newRef = document.getElementById('newCharRefImage').value;
   char.ref_image = newRef || char.ref_image || '';
   saveData(data);
