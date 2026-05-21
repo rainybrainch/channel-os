@@ -2993,8 +2993,11 @@ function renderPlanPanel(char) {
             onkeydown="if(event.key==='Enter')generateWeeklyPlan()">
           <button class="btn btn-primary" style="width:100%;padding:9px;font-size:.85rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="generateWeeklyPlan()">✨ AIがプランを提案する</button>
           <div id="weeklyPlanLoading" style="display:none;margin-top:10px;font-size:.8rem;color:var(--text-muted);align-items:center;gap:8px;">
-            <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:#4a9edd;animation:spin360 .8s linear infinite;"></div>
-            <span>AIがプランを考えています...</span>
+            <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:#4a9edd;animation:spin360 .8s linear infinite;flex-shrink:0;"></div>
+            <div>
+              <div>AIがプランを考えています... <span id="weeklyPlanTimer" style="color:#4a9edd;font-weight:700;">0秒</span></div>
+              <div style="font-size:.72rem;margin-top:2px;">推定: 20〜40秒（AIがPDCA分析と7本分を同時に考えています）</div>
+            </div>
           </div>
           <div id="weeklyPlanResult" style="margin-top:10px;"></div>
         </div>
@@ -4656,6 +4659,7 @@ async function generateVoicevox(sceneIdx) {
 
   const statusEl = document.getElementById(`vvStatus_${sceneIdx}`);
   if (statusEl) statusEl.textContent = '生成中...';
+  aiStart('音声生成中...');
 
   const mode = char?.voice_mode || 'browser';
 
@@ -4697,6 +4701,8 @@ async function generateVoicevox(sceneIdx) {
   } catch(e) {
     if (statusEl) statusEl.textContent = '❌ ' + e.message;
     showToast('❌ ' + e.message);
+  } finally {
+    aiEnd(null);
   }
 }
 
@@ -4746,7 +4752,7 @@ async function generateScenePrompt(sceneIdx) {
   const scene = sb.scenes[sceneIdx];
   const apiKey = localStorage.getItem(GEMINI_KEY_SK);
   if (!apiKey) { showToast('設定タブでGemini APIキーを入力してください'); return; }
-  showToast('AI生成中...');
+  aiStart('プロンプト生成中...');
   const prompt = `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 シーン: ${scene.label}（${scene.time}）
 台詞: ${scene.lines.join('、')}
@@ -4767,7 +4773,7 @@ JSON形式のみ: {"ja":"このシーンのポーズ・表情を日本語1文で
     const el = document.getElementById('storyboardContainer');
     if (el) el.innerHTML = renderStoryboard();
     showToast('✅ プロンプト生成完了');
-  } catch(e) { showToast('エラー: ' + e.message); }
+  } catch(e) { showToast('エラー: ' + e.message); } finally { aiEnd(null); }
 }
 
 function setCharRefImage(input) {
@@ -4850,6 +4856,7 @@ async function generateSceneImage(sceneIdx) {
   ].filter(Boolean).join(' ');
 
   if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  aiStart('画像生成中...');
 
   try {
     const refImage = sb.charRefDataUrl || char?.ref_image || null;
@@ -4886,6 +4893,7 @@ async function generateSceneImage(sceneIdx) {
     const el = document.getElementById('storyboardContainer');
     if (el) el.innerHTML = renderStoryboard();
   } finally {
+    aiEnd(null);
     const b = document.getElementById(`sbGenBtn${sceneIdx}`);
     if (b) { b.disabled = false; b.textContent = '💎 Gemini生成'; }
   }
@@ -6541,6 +6549,10 @@ async function generateWeeklyPlan() {
   const resultEl= document.getElementById('weeklyPlanResult');
   if (loadEl)  { loadEl.style.display = 'flex'; }
   if (resultEl) resultEl.innerHTML = '';
+  // タイマー表示
+  let _wpSec = 0;
+  const _timerEl = document.getElementById('weeklyPlanTimer');
+  const _wpTimer = setInterval(() => { _wpSec++; if (_timerEl) _timerEl.textContent = _wpSec + '秒'; }, 1000);
 
   // 今日から count 日分を生成（ローカル日付で計算）
   const _now = new Date();
@@ -6674,6 +6686,7 @@ JSONのみ出力（他テキスト不要）:
     if (resultEl) resultEl.innerHTML = `<div style="color:#e53935;font-size:.8rem;">❌ ${escHtml(e.message)}</div>`;
     showToast('❌ ' + e.message);
   } finally {
+    clearInterval(_wpTimer);
     if (loadEl) loadEl.style.display = 'none';
     aiEnd();
   }
@@ -8117,6 +8130,7 @@ async function buildThumbnailForPublish(orientation) {
     ? (meta.thumb_text_shorts || meta.title || '')
     : (meta.thumb_text_horizontal || meta.title || '');
 
+  aiStart('サムネイル生成中...');
   showToast('🎨 サムネイル生成中（Gemini）...');
   try {
     let imgDataUrl = null;
@@ -8163,6 +8177,8 @@ async function buildThumbnailForPublish(orientation) {
     switchTab('post');
   } catch (e) {
     showToast('❌ Gemini サムネイル生成失敗: ' + e.message);
+  } finally {
+    aiEnd(null);
   }
 }
 
