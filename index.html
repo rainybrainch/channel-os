@@ -6587,16 +6587,20 @@ JSONのみ出力（他テキスト不要）:
 
     const cards = _weeklyPlanItems.map((item, i) => {
       const isRec = !!item.recommended;
-      return `<div id="weeklyItem_${i}" onclick="toggleWeeklyItem(${i})" style="cursor:pointer;border:2px solid ${isRec?'#4a9edd':'var(--border)'};border-radius:10px;padding:12px 14px;background:${isRec?'rgba(74,158,221,.1)':'var(--surface2)'};margin-bottom:8px;position:relative;transition:all .15s;">
+      return `<div id="weeklyItem_${i}" style="border:2px solid ${isRec?'#4a9edd':'var(--border)'};border-radius:10px;padding:12px 14px;background:${isRec?'rgba(74,158,221,.1)':'var(--surface2)'};margin-bottom:8px;position:relative;transition:all .15s;">
         ${isRec ? '<div style="position:absolute;top:-10px;left:14px;background:#4a9edd;color:#fff;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.05em;">★ おすすめ</div>' : ''}
         <div style="display:flex;align-items:center;gap:10px;">
-          <input type="checkbox" class="weeklyItemCheck" data-idx="${i}" ${isRec?'checked':''} onclick="event.stopPropagation();toggleWeeklyItem(${i})" style="accent-color:#4a9edd;width:16px;height:16px;flex-shrink:0;">
-          <div style="flex:1;">
-            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:3px;">${item.date} ／ ${fmtIcon(item.format)} ／ ${patternLabel[item.pattern]||item.pattern}</div>
-            <div style="font-weight:700;font-size:.9rem;line-height:1.3;">${escHtml(item.title)}</div>
-            <div style="font-size:.75rem;color:var(--text-muted);margin-top:2px;">${escHtml(item.theme)}</div>
-            ${isRec && item.reason ? '<div style="font-size:.72rem;color:#4a9edd;margin-top:4px;">💡 ' + escHtml(item.reason) + '</div>' : ''}
+          <input type="checkbox" class="weeklyItemCheck" data-idx="${i}" ${isRec?'checked':''} onclick="toggleWeeklyItem(${i})" style="accent-color:#4a9edd;width:16px;height:16px;flex-shrink:0;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px;">${item.date} ／ ${fmtIcon(item.format)} ／ ${patternLabel[item.pattern]||item.pattern}</div>
+            <input id="weeklyTitle_${i}" value="${escHtml(item.title)}" oninput="_weeklyPlanItems[${i}].title=this.value"
+              style="width:100%;font-weight:700;font-size:.9rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin-bottom:3px;">
+            <input id="weeklyTheme_${i}" value="${escHtml(item.theme)}" oninput="_weeklyPlanItems[${i}].theme=this.value"
+              style="width:100%;font-size:.75rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);">
+            ${item.reason ? '<div style="font-size:.72rem;color:#4a9edd;margin-top:4px;">💡 ' + escHtml(item.reason) + '</div>' : ''}
           </div>
+          <button onclick="regenWeeklyItem(${i})" title="この1本だけ再生成"
+            style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 8px;cursor:pointer;font-size:.78rem;color:var(--text-muted);">🔄</button>
         </div>
       </div>`;
     }).join('');
@@ -6628,8 +6632,36 @@ function toggleWeeklyItem(idx) {
   const cb = document.querySelector(`.weeklyItemCheck[data-idx="${idx}"]`);
   const box = document.getElementById(`weeklyItem_${idx}`);
   if (!cb || !box) return;
-  cb.checked = !cb.checked;
   box.style.opacity = cb.checked ? '1' : '.45';
+}
+
+async function regenWeeklyItem(idx) {
+  const item = _weeklyPlanItems[idx];
+  if (!item) return;
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) return;
+  const btn = document.querySelector(`#weeklyItem_${idx} button`);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  const prompt = `あなたはYouTubeチャンネルの戦略コンサルタントです。
+キャラクター「${char.name}」（テーマ:${char.theme}）の${item.date}用の動画を1本だけ提案してください。
+形式:${item.format} ／ パターン:${item.pattern}
+他の動画との差別化・新鮮さを重視して全く別のタイトル・テーマにしてください。
+JSONのみ出力: {"title":"","theme":"","reason":"差別化の理由（30字以内）"}`;
+  try {
+    const text = await callClaude(prompt);
+    const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+    if (parsed.title) {
+      _weeklyPlanItems[idx].title  = parsed.title;
+      _weeklyPlanItems[idx].theme  = parsed.theme || item.theme;
+      _weeklyPlanItems[idx].reason = parsed.reason || '';
+      const titleEl = document.getElementById(`weeklyTitle_${idx}`);
+      const themeEl = document.getElementById(`weeklyTheme_${idx}`);
+      if (titleEl) titleEl.value = parsed.title;
+      if (themeEl) themeEl.value = parsed.theme || '';
+      showToast('✅ 再生成しました');
+    }
+  } catch(e) { showToast('❌ 再生成失敗'); }
+  finally { if (btn) { btn.textContent = '🔄'; btn.disabled = false; } }
 }
 
 async function addWeeklyPlanToCalendar() {
