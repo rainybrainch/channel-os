@@ -268,120 +268,153 @@
 
 <!-- Add/Edit Char Modal -->
 <div class="modal-overlay" id="addCharModal">
-  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto;">
-    <h2 id="modalTitle" style="margin-bottom:16px;">🎭 新しいキャラクターを追加</h2>
+  <div class="modal" style="max-width:580px;max-height:92vh;overflow-y:auto;">
+    <h2 id="modalTitle" style="margin-bottom:4px;">🎭 キャラクター設定</h2>
+    <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:16px;">ここで設定したら全プラットフォームに反映されます。後から変更もできます。</p>
 
-    <!-- STEP 1: アイコン＋基本情報 -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;">STEP 1 ── 基本情報（必須）</div>
-    <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
-        <img id="charIconPreview" src="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);display:none;">
-        <div id="charIconPlaceholder" style="width:80px;height:80px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;">🎭</div>
-        <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.7rem;text-align:center;">
-          📁 画像UP
-          <input type="file" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)">
-        </label>
-        <button type="button" class="btn btn-secondary btn-sm" style="font-size:.7rem;" onclick="generateCharIconInModal()">✨ AI生成</button>
-        <span id="charIconStatus" style="font-size:.68rem;color:#aaa;text-align:center;max-width:80px;"></span>
-        <input type="hidden" id="newCharAvatarDataUrl">
-      </div>
-      <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
-        <div><label>キャラクター名 <span style="color:#e55;">*</span></label><input type="text" id="newCharName" placeholder="例: ルナ" style="margin-top:4px;"></div>
-        <div><label>種族・見た目 <span style="color:#e55;">*</span></label><input type="text" id="newCharSpecies" placeholder="例: 猫耳の女の子" style="margin-top:4px;"></div>
-        <div><label>テーマ・ジャンル <span style="color:#e55;">*</span></label><input type="text" id="newCharTheme" placeholder="例: ピラティス・ボディメイク" style="margin-top:4px;"></div>
-        <div><label>トーン・口調 <span style="color:#e55;">*</span></label><input type="text" id="newCharTone" placeholder="例: 穏やか・丁寧・癒し系" style="margin-top:4px;"></div>
-        <div><label>シンボルカラー</label><input type="color" id="newCharColor" value="#c9a84c" style="height:36px;cursor:pointer;width:100%;margin-top:4px;"></div>
-      </div>
-    </div>
-
-    <!-- STEP 2: キャラクター詳細 -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 2 ── キャラクター詳細（画像生成・AI台本に影響）</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <div>
-        <label>外見メモ <span style="font-size:.72rem;color:var(--text-muted);">← 画像生成プロンプトに使われます</span></label>
-        <textarea id="newCharAppearance" placeholder="例: cat ears, long purple hair, white sports top, purple leggings, anime style" style="min-height:56px;margin-top:4px;"></textarea>
-      </div>
-      <div>
-        <label>AI人格メモ <span style="font-size:.72rem;color:var(--text-muted);">← 台本・企画の文体に影響します</span></label>
-        <textarea id="newCharPersonality" placeholder="例: 穏やかで丁寧な話し方。体とメンタルのバランスを大切にする。視聴者に寄り添う。" style="min-height:56px;margin-top:4px;"></textarea>
-      </div>
-      <div>
-        <label>参照画像 <span style="font-size:.72rem;color:var(--text-muted);">← AI画像生成の見本（一貫性UP）</span></label>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
-          <img id="refImagePreview" src="" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:none;">
-          <div id="refImagePlaceholder" style="width:64px;height:64px;border-radius:6px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:var(--text-muted);">🖼</div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.75rem;">
-              📁 アップロード
-              <input type="file" accept="image/*" style="display:none" onchange="handleRefImageUpload(this)">
+    <!-- ═══ BLOCK 1: キャラクター＆立ち絵 ═══ -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:12px;">🎭 キャラクター設定</div>
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px;">
+        <!-- アバター -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+          <img id="charIconPreview" src="" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);display:none;">
+          <div id="charIconPlaceholder" style="width:84px;height:84px;border-radius:50%;background:var(--surface);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;">🎭</div>
+          <div style="display:flex;gap:4px;">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.66rem;padding:4px 8px;">
+              📁<input type="file" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)">
             </label>
-            <button type="button" class="btn btn-secondary btn-sm" style="font-size:.75rem;" onclick="clearRefImage()">✕ 削除</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="font-size:.66rem;padding:4px 8px;" onclick="generateCharIconInModal()">✨AI</button>
+          </div>
+          <span id="charIconStatus" style="font-size:.62rem;color:#aaa;text-align:center;max-width:84px;"></span>
+          <input type="hidden" id="newCharAvatarDataUrl">
+        </div>
+        <!-- 基本情報 -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div><label style="font-size:.74rem;">名前 <span style="color:#e55;">*</span></label><input type="text" id="newCharName" placeholder="例: ルナ" style="margin-top:3px;"></div>
+            <div><label style="font-size:.74rem;">種族・見た目</label><input type="text" id="newCharSpecies" placeholder="例: 猫耳の女の子" style="margin-top:3px;"></div>
+            <div><label style="font-size:.74rem;">テーマ・ジャンル <span style="color:#e55;">*</span></label><input type="text" id="newCharTheme" placeholder="例: ピラティス" style="margin-top:3px;"></div>
+            <div><label style="font-size:.74rem;">トーン・口調</label><input type="text" id="newCharTone" placeholder="例: 穏やか・癒し系" style="margin-top:3px;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;">
+            <div><label style="font-size:.74rem;">カラー</label><input type="color" id="newCharColor" value="#c9a84c" style="height:32px;cursor:pointer;width:60px;margin-top:3px;"></div>
+            <div><label style="font-size:.74rem;">AI人格（一言）<span style="font-size:.68rem;color:var(--text-muted);"> ← 台本の文体に影響</span></label><input type="text" id="newCharPersonality" placeholder="例: 穏やか・体験談ベース・視聴者に寄り添う" style="margin-top:3px;font-size:.82rem;"></div>
           </div>
         </div>
-        <input type="hidden" id="newCharRefImage">
+      </div>
+      <!-- 外見メモ＋参照画像（折りたたみ） -->
+      <details style="margin-top:4px;">
+        <summary style="font-size:.72rem;color:var(--text-muted);cursor:pointer;">🖼 立ち絵・外見メモ（任意・画像生成に使用）</summary>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+          <textarea id="newCharAppearance" placeholder="例: cat ears, long purple hair, white sports top, purple leggings, anime style" style="min-height:48px;font-size:.8rem;"></textarea>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <img id="refImagePreview" src="" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:none;">
+            <div id="refImagePlaceholder" style="width:56px;height:56px;border-radius:6px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--text-muted);">🖼</div>
+            <div style="display:flex;gap:6px;">
+              <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.72rem;">📁 参照画像<input type="file" accept="image/*" style="display:none" onchange="handleRefImageUpload(this)"></label>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="clearRefImage()">✕</button>
+            </div>
+          </div>
+          <input type="hidden" id="newCharRefImage">
+        </div>
+      </details>
+    </div>
+
+    <!-- ═══ BLOCK 2: プラットフォーム接続 ═══ -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px;">📡 プラットフォーム接続</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:12px;">接続すると投稿が全自動になります。後から設定タブでも変更できます。</div>
+
+      <!-- YouTube -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:1.2rem;">🎥</span>
+        <div style="flex:1;">
+          <div style="font-size:.84rem;font-weight:700;">YouTube</div>
+          <div id="wizYtStatus" style="font-size:.72rem;color:var(--text-muted);">未接続</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="wizYtBtn" onclick="wizYtAuth()" style="font-size:.75rem;">接続する</button>
+      </div>
+      <div style="padding:8px 0 4px;padding-left:34px;display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;"><label style="font-size:.72rem;color:var(--text-muted);">チャンネルID（UC〜）</label><input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxx" style="margin-top:2px;font-size:.8rem;"></div>
+        <div style="flex:1;min-width:120px;"><label style="font-size:.72rem;color:var(--text-muted);">DriveフォルダID</label><input type="text" id="newCharFolderId" placeholder="1ABCxyz..." style="margin-top:2px;font-size:.8rem;"></div>
+      </div>
+      <input type="hidden" id="newCharYtUrl">
+
+      <!-- X (Twitter) -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:1.2rem;">🐦</span>
+        <div style="flex:1;">
+          <div style="font-size:.84rem;font-weight:700;">X (Twitter)</div>
+          <div id="wizXStatus" style="font-size:.72rem;color:var(--text-muted);">未接続（設定タブでClient IDを先に入力）</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="wizXBtn" onclick="wizXAuth()" style="font-size:.75rem;">接続する</button>
+      </div>
+
+      <!-- Instagram -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:1.2rem;">📸</span>
+        <div style="flex:1;">
+          <div style="font-size:.84rem;font-weight:700;">Instagram</div>
+          <div id="wizIgStatus" style="font-size:.72rem;color:var(--text-muted);">未接続（設定タブでApp IDを先に入力）</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="wizIgBtn" onclick="wizIgAuth()" style="font-size:.75rem;">接続する</button>
+      </div>
+
+      <!-- Note -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;">
+        <span style="font-size:1.2rem;">📒</span>
+        <div style="flex:1;">
+          <div style="font-size:.84rem;font-weight:700;">Note</div>
+          <div style="font-size:.72rem;color:var(--text-muted);">公式APIなし。Noteユーザー名を入れておくと誘導URLが自動設定されます。</div>
+          <input type="text" id="newCharNoteUsername" placeholder="例: luna_fitness" style="margin-top:4px;font-size:.8rem;width:100%;">
+        </div>
       </div>
     </div>
 
-    <!-- STEP 3: YouTube・Drive連携 -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 3 ── YouTube・Drive連携</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <div>
-        <label>YouTubeチャンネルID <span style="font-size:.72rem;color:var(--text-muted);">← チャンネルURLの「UC〜」の部分</span></label>
-        <input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxxxxxxxxxxxxxxxxxx" style="margin-top:4px;">
+    <!-- ═══ BLOCK 3: AI戦略（シンプル1行） ═══ -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px;">🧠 AI戦略メモ（任意・一言でOK）</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">AIが各プラットフォームの文章を生成するときに参考にします。後から変えられます。</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1rem;width:20px;">📺</span>
+          <input type="text" id="newCharYtStrategy" placeholder="視聴者層・強み・NG（例: 運動初心者女性向け、専門用語禁止）" style="flex:1;font-size:.82rem;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1rem;width:20px;">📒</span>
+          <input type="text" id="newCharNoteStrategy" placeholder="Noteスタイル（例: 動画の裏側を本音で語る添え書き）" style="flex:1;font-size:.82rem;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1rem;width:20px;">🐦</span>
+          <input type="text" id="newCharXStrategy" placeholder="X投稿スタイル（例: 一言フック＋URL、絵文字2〜3個）" style="flex:1;font-size:.82rem;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1rem;width:20px;">📸</span>
+          <input type="text" id="newCharIgStrategy" placeholder="IG方針（例: サムネそのまま、100字以内キャプション）" style="flex:1;font-size:.82rem;">
+        </div>
       </div>
-      <div>
-        <label>YouTubeチャンネルURL <span style="font-size:.72rem;color:var(--text-muted);">← 確認用メモ</span></label>
-        <input type="text" id="newCharYtUrl" placeholder="https://www.youtube.com/@channel" style="margin-top:4px;">
-      </div>
-      <div>
-        <label>Google DriveフォルダID <span style="font-size:.72rem;color:var(--text-muted);">← 素材フォルダURLの末尾</span></label>
-        <input type="text" id="newCharFolderId" placeholder="1ABCxyz..." style="margin-top:4px;">
-      </div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:10px;font-size:.72rem;" onclick="autoFillStrategy()">✨ AIが戦略を自動提案</button>
     </div>
 
-    <!-- STEP 4: VOICEVOX -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 4 ── VOICEVOX音声設定</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <input type="hidden" id="newCharVoicevox" value="13">
-      <div><label>声優名</label><input type="text" id="newCharVoiceName" placeholder="例: 青山龍星（熱血）" style="margin-top:4px;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-        <div><label style="font-size:.74rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-        <div><label style="font-size:.74rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
-        <div><label style="font-size:.74rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-        <div><label style="font-size:.74rem;">音量</label><input type="number" id="newCharVolumeScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-        <div><label style="font-size:.74rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
-        <div><label style="font-size:.74rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
+    <!-- ═══ BLOCK 4: 音声＋AI連携（折りたたみ） ═══ -->
+    <details style="margin-bottom:16px;">
+      <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;padding:8px 0;">⚙️ 詳細設定（VOICEVOX・AI連携URL）</summary>
+      <div style="padding:12px 0;display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" id="newCharVoicevox" value="13">
+        <div><label style="font-size:.74rem;">声優名</label><input type="text" id="newCharVoiceName" placeholder="例: 青山龍星（熱血）" style="margin-top:3px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div><label style="font-size:.72rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+          <div><label style="font-size:.72rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
+          <div><label style="font-size:.72rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+          <div><label style="font-size:.72rem;">音量</label><input type="number" id="newCharVolumeScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+          <div><label style="font-size:.72rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
+          <div><label style="font-size:.72rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
+        </div>
+        <div><label style="font-size:.74rem;">ChatGPT カスタムGPT URL</label><input type="text" id="newCharGptUrl" placeholder="https://chatgpt.com/g/g-..." style="margin-top:3px;"></div>
+        <div><label style="font-size:.74rem;">Gemini Gem URL</label><input type="text" id="newCharGemUrl" placeholder="https://gemini.google.com/gem/..." style="margin-top:3px;"></div>
       </div>
-    </div>
-
-    <!-- STEP 5: プラットフォーム戦略 -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 5 ── プラットフォーム別コンテンツ戦略（クオリティ向上に直結）</div>
-    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">このキャラクター固有の戦略をAIに覚えさせます。一括生成の品質が上がります。</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <div>
-        <label>📺 YouTube戦略 <span style="font-size:.72rem;color:var(--text-muted);">視聴者層・強みテーマ・避けるNG・競合との差別化</span></label>
-        <textarea id="newCharYtStrategy" placeholder="例: 20〜30代の運動初心者女性。他チャンネルと違い「続けられる」をテーマに安心感を重視。専門用語は使わず体験談ベースで話す。" style="min-height:64px;margin-top:4px;font-size:.82rem;"></textarea>
-      </div>
-      <div>
-        <label>📒 Note戦略 <span style="font-size:.72rem;color:var(--text-muted);">Noteの読者層・投稿スタイル・動画との連携方法</span></label>
-        <textarea id="newCharNoteStrategy" placeholder="例: YouTube動画を深掘りする添え書き。「なぜこの動画を作ったか」を本音で語るスタイル。読者が動画を見たくなる入口を作る。" style="min-height:64px;margin-top:4px;font-size:.82rem;"></textarea>
-      </div>
-      <div>
-        <label>🐦 X (Twitter) 戦略 <span style="font-size:.72rem;color:var(--text-muted);">投稿スタイル・フォロワーとの関係・バズらせ方</span></label>
-        <textarea id="newCharXStrategy" placeholder="例: 動画のハイライト1文＋URL。共感を呼ぶ問いかけ形式で締める。絵文字は多用しすぎず2〜3個。" style="min-height:56px;margin-top:4px;font-size:.82rem;"></textarea>
-      </div>
-      <div>
-        <label>📸 Instagram戦略 <span style="font-size:.72rem;color:var(--text-muted);">ビジュアル方針・キャプションスタイル・ハッシュタグ戦略</span></label>
-        <textarea id="newCharIgStrategy" placeholder="例: サムネイルをそのまま使用。キャプションは短め（100字以内）で感情的なフック→URL案内の流れ。" style="min-height:56px;margin-top:4px;font-size:.82rem;"></textarea>
-      </div>
-    </div>
-
-    <!-- STEP 6: AI連携URL -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 6 ── AI連携（任意）</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-      <div><label>ChatGPT カスタムGPT URL</label><input type="text" id="newCharGptUrl" placeholder="https://chatgpt.com/g/g-..." style="margin-top:4px;"></div>
-      <div><label>Gemini Gem URL</label><input type="text" id="newCharGemUrl" placeholder="https://gemini.google.com/gem/..." style="margin-top:4px;"></div>
-    </div>
+    </details>
 
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addCharModal')">キャンセル</button>
@@ -5783,15 +5816,12 @@ async function uploadVideoToYouTube() {
 // ════════════════════════════════════
 //  Character CRUD
 // ════════════════════════════════════
-function openAddCharModal() {
-  editingCharId = null;
-  document.getElementById('modalTitle').textContent = '🎭 新しいキャラクターを追加';
-  document.getElementById('modalSaveBtn').onclick = saveNewChar;
+function _clearCharModal() {
   ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality','newCharAppearance','newCharVoiceName','newCharFolderId',
-   'newCharSpeedScale','newCharPitchScale','newCharIntonationScale','newCharVolumeScale','newCharPauseScale','newCharPreSilence'].forEach(id => document.getElementById(id).value = '');
+   'newCharSpeedScale','newCharPitchScale','newCharIntonationScale','newCharVolumeScale','newCharPauseScale','newCharPreSilence',
+   'newCharGptUrl','newCharGemUrl','newCharYtStrategy','newCharNoteStrategy','newCharXStrategy','newCharIgStrategy','newCharNoteUsername']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('newCharVoicevox').value = '3';
-  document.getElementById('newCharGptUrl').value = '';
-  document.getElementById('newCharGemUrl').value = '';
   document.getElementById('newCharColor').value = '#c9a84c';
   document.getElementById('newCharAvatarDataUrl').value = '';
   const prev = document.getElementById('charIconPreview');
@@ -5800,6 +5830,59 @@ function openAddCharModal() {
   if (ph) ph.style.display = 'flex';
   const st = document.getElementById('charIconStatus');
   if (st) st.textContent = '';
+  _updateWizardStatus(null);
+}
+
+function _updateWizardStatus(charId) {
+  const id = charId || editingCharId;
+  const ytTok  = id ? getYtToken(id) : null;
+  const xTok   = id ? localStorage.getItem(X_TOKEN_PFX + id) : null;
+  const igTok  = id ? localStorage.getItem(IG_TOKEN_PFX + id) : null;
+  const xUser  = id ? localStorage.getItem(X_UNAME_PFX + id) : null;
+  const igUser = id ? localStorage.getItem(IG_UNAME_PFX + id) : null;
+  const _set = (elId, txt, ok) => { const el = document.getElementById(elId); if (el) { el.textContent = txt; el.style.color = ok ? '#4caf50' : 'var(--text-muted)'; } };
+  const _btn = (elId, label, ok) => { const el = document.getElementById(elId); if (el) { el.textContent = ok ? '✅ 接続済' : label; el.disabled = ok; } };
+  _set('wizYtStatus', ytTok ? '✅ 接続済み' : '未接続', !!ytTok);
+  _set('wizXStatus',  xTok  ? `✅ @${xUser||'接続済み'}` : '未接続（設定タブでClient IDを先に入力）', !!xTok);
+  _set('wizIgStatus', igTok ? `✅ @${igUser||'接続済み'}` : '未接続（設定タブでApp IDを先に入力）', !!igTok);
+  _btn('wizYtBtn', '接続する', !!ytTok);
+  _btn('wizXBtn',  '接続する', !!xTok);
+  _btn('wizIgBtn', '接続する', !!igTok);
+}
+
+function wizYtAuth()  { closeModal('addCharModal'); ytAuth(editingCharId || '_wizard_'); }
+function wizXAuth()   { if (!localStorage.getItem(X_CLIENT_SK)) { showToast('先に設定タブでX Client IDを入力してください'); return; } xAuth(editingCharId || '_wizard_'); }
+function wizIgAuth()  { if (!localStorage.getItem(IG_APP_ID_SK)) { showToast('先に設定タブでIG App IDを入力してください'); return; } igAuth(editingCharId || '_wizard_'); }
+
+async function autoFillStrategy() {
+  const name  = document.getElementById('newCharName')?.value || '';
+  const theme = document.getElementById('newCharTheme')?.value || '';
+  const tone  = document.getElementById('newCharTone')?.value || '';
+  if (!theme) { showToast('テーマ・ジャンルを先に入力してください'); return; }
+  const key = localStorage.getItem(GEMINI_KEY_SK);
+  if (!key) { showToast('設定タブでGemini APIキーを入力してください'); return; }
+  showToast('✨ AI戦略を自動提案中...');
+  const prompt = `YouTubeチャンネル「${name||'キャラ'}」のコンテンツ戦略を各プラットフォーム向けに1行ずつ提案してください。
+テーマ: ${theme} / トーン: ${tone||'不明'}
+各フィールドを以下のJSON形式のみで出力（他テキスト不要）:
+{"yt":"YouTube戦略（視聴者層・差別化・NGを30字以内）","note":"Note戦略（スタイルを30字以内）","x":"X戦略（投稿スタイルを30字以内）","ig":"IG方針（30字以内）"}`;
+  try {
+    const text = await callClaude(prompt);
+    const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const _fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    _fill('newCharYtStrategy',   r.yt);
+    _fill('newCharNoteStrategy', r.note);
+    _fill('newCharXStrategy',    r.x);
+    _fill('newCharIgStrategy',   r.ig);
+    showToast('✅ 戦略を自動提案しました。修正してから保存してください');
+  } catch(e) { showToast('❌ 戦略提案失敗: ' + e.message); }
+}
+
+function openAddCharModal() {
+  editingCharId = null;
+  document.getElementById('modalTitle').textContent = '🎭 新しいキャラクターを追加';
+  document.getElementById('modalSaveBtn').onclick = saveNewChar;
+  _clearCharModal();
   openModal('addCharModal');
 }
 
@@ -5839,6 +5922,8 @@ function openEditChar(id) {
   _sf('newCharNoteStrategy', char.note_strategy);
   _sf('newCharXStrategy',    char.x_strategy);
   _sf('newCharIgStrategy',   char.ig_strategy);
+  _sf('newCharNoteUsername', char.note_username);
+  _updateWizardStatus(id);
   openModal('addCharModal');
 }
 
@@ -5930,10 +6015,11 @@ function saveNewChar() {
     gpt_url: document.getElementById('newCharGptUrl').value.trim(),
     gem_url: document.getElementById('newCharGemUrl').value.trim(),
     yt_url:  document.getElementById('newCharYtUrl')?.value.trim() || '',
-    yt_strategy:   document.getElementById('newCharYtStrategy')?.value.trim() || '',
-    note_strategy: document.getElementById('newCharNoteStrategy')?.value.trim() || '',
-    x_strategy:    document.getElementById('newCharXStrategy')?.value.trim() || '',
-    ig_strategy:   document.getElementById('newCharIgStrategy')?.value.trim() || ''
+    yt_strategy:    document.getElementById('newCharYtStrategy')?.value.trim() || '',
+    note_strategy:  document.getElementById('newCharNoteStrategy')?.value.trim() || '',
+    x_strategy:     document.getElementById('newCharXStrategy')?.value.trim() || '',
+    ig_strategy:    document.getElementById('newCharIgStrategy')?.value.trim() || '',
+    note_username:  document.getElementById('newCharNoteUsername')?.value.trim() || ''
   });
   saveData(data);
   closeModal('addCharModal');
@@ -5970,6 +6056,7 @@ function updateChar() {
   char.note_strategy    = document.getElementById('newCharNoteStrategy')?.value.trim() || '';
   char.x_strategy       = document.getElementById('newCharXStrategy')?.value.trim() || '';
   char.ig_strategy      = document.getElementById('newCharIgStrategy')?.value.trim() || '';
+  char.note_username    = document.getElementById('newCharNoteUsername')?.value.trim() || '';
   const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
   if (newAvatar) char.avatar_url = newAvatar;
   const newRef = document.getElementById('newCharRefImage').value;
