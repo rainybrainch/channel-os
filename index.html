@@ -5914,7 +5914,11 @@ function showCalModal(entry, chars, episodes) {
         <label for="calScheduled" style="font-size:.82rem;">⏰ YouTube予約投稿に設定する</label>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end;">
+    ${!isNew && entry.episodeId ? `
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;padding:11px;font-size:.9rem;font-weight:700;" onclick="startMakingFromCal('${entry.charId||currentCharId}','${entry.episodeId}')">
+      🎬 この動画を今すぐ作り始める
+    </button>` : ''}
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
       ${!isNew?`<button class="btn btn-secondary btn-sm" style="color:#e55;margin-right:auto;" onclick="deleteCalEntry('${entry.id}')">削除</button>`:''}
       <button class="btn btn-secondary btn-sm" onclick="closeCalModal()">キャンセル</button>
       <button class="btn btn-primary btn-sm" onclick="saveCalEntry('${entry.id||''}')">保存</button>
@@ -5977,63 +5981,16 @@ function closeCalModal() {
   if (m) m.remove();
 }
 
-async function generateWeeklyPlan() {
-  const chars = (loadData().characters || []).filter(c => c.id.startsWith('char_'));
-  if (!chars.length) { showToast('キャラクターを追加してください'); return; }
-  const geminiKey = localStorage.getItem('channelos_gemini_api_key');
-  if (!geminiKey) { showToast('Gemini APIキーを設定してください'); return; }
-
-  showToast('1週間プランを生成中...');
-  const today = new Date();
-  const days = Array.from({length:7}, (_,i) => {
-    const d = new Date(today); d.setDate(today.getDate() + i);
-    return d.toISOString().slice(0,10);
-  });
-
-  // 各キャラの戦略コンテキストを収集
-  const charStrategies = chars.map(c => {
-    const s = _buildStrategyContext(c.id);
-    return `${c.name}（${c.theme}）- 過去${s.totalEps}本 / 比率: ${s.patternSummary || 'なし'}${s.suggest ? ' / 不足: '+s.suggest : ''}`;
-  }).join('\n');
-
-  const userRequest = document.getElementById('weeklyPlanRequest')?.value.trim() || '';
-  const prompt = `あなたはYouTubeチャンネルの週次プランナーです。
-以下のキャラクターに対して、今週7日間の投稿スケジュールを戦略的に生成してください。
-
-【キャラクター別戦略コンテキスト】
-${charStrategies}
-${userRequest ? `\n【今週の要望・テーマ指示】\n${userRequest}\n` : ''}
-【ルール】
-- 各キャラクターはできれば毎日or隔日投稿
-- 同じコンテンツパターンが連続しない
-- コンテンツ比率のバランスを改善する方向で
-- 投稿時間は18:00〜20:00の間で自然にばらつかせる
-- 要望がある場合は最優先で反映する
-
-以下のJSON形式のみ出力：
-[{"date":"YYYY-MM-DD","charName":"キャラ名","contentPattern":"パターンID","theme":"今日のテーマ1行","time":"18:00"}]
-パターンID: explanation/ranking/story/drama/dialogue/challenge/reaction/howto/secret`;
-
-  try {
-    const text = await callClaude(prompt);
-    const plans = safeParseArr(text, []);
-    if (!plans.length) { showToast('プラン生成に失敗しました'); return; }
-
-    const cal = loadCalendar();
-    let added = 0;
-    plans.forEach(p => {
-      const char = chars.find(c => c.name === p.charName);
-      if (!char) return;
-      // 同日・同キャラの予定が既にあればスキップ
-      if (cal.some(e => e.date === p.date && e.charId === char.id)) return;
-      cal.push({ id: 'cal_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), date: p.date, time: p.time || '18:00', charId: char.id, theme: p.theme, contentPattern: p.contentPattern, title: '', scheduled: false, posted: false, createdAt: new Date().toISOString() });
-      added++;
-    });
-    saveCalendar(cal);
-    renderCalendar();
-    showToast(`✅ ${added}件の予定をカレンダーに追加しました`);
-  } catch(e) {
-    showToast('エラー: ' + e.message);
+// カレンダーから動画制作を開始
+function startMakingFromCal(charId, episodeId) {
+  closeCalModal();
+  // キャラを切り替えてからエピソードをロード
+  if (charId && charId !== currentCharId) {
+    selectChar(charId);
+    setTimeout(() => { loadEpisode(episodeId); switchTab('plan'); }, 100);
+  } else {
+    loadEpisode(episodeId);
+    switchTab('plan');
   }
 }
 
@@ -6234,11 +6191,14 @@ async function addWeeklyPlanToCalendar() {
   const char    = data.characters.find(c => c.id === currentCharId);
   let added = 0;
 
+  let firstEpIdAdded = null;
   for (const idx of checked) {
     const item = _weeklyPlanItems[idx];
     if (!item) continue;
     // エピソードを作成
     const epId = 'ep_' + Date.now() + '_' + idx;
+    if (!firstEpIdAdded) firstEpIdAdded = epId;
+    item._epId = epId; // ボタン生成用に保持
     const ep = {
       id: epId, charId: currentCharId,
       title: item.title, theme: item.theme,
@@ -6277,9 +6237,20 @@ async function addWeeklyPlanToCalendar() {
     _calYear = y; _calMonth = m - 1;
   }
 
-  // カレンダータブへ
-  document.getElementById('weeklyPlanResult').innerHTML += `<div style="margin-top:8px;font-size:.8rem;color:#4caf50;font-weight:700;">✅ ${added}本をカレンダーに追加しました。カレンダーで確認→クリックして制作開始！</div>`;
+  const firstEpId = firstEpIdAdded;
+
   renderMain();
+
+  // 結果エリアに完了メッセージ＋制作開始ボタン
+  const resultEl = document.getElementById('weeklyPlanResult');
+  if (resultEl) resultEl.innerHTML = `
+    <div style="background:rgba(74,158,221,.1);border:1px solid #4a9edd55;border-radius:10px;padding:14px 16px;text-align:center;">
+      <div style="font-size:.9rem;font-weight:700;color:#4a9edd;margin-bottom:8px;">✅ ${added}本をカレンダーに追加しました</div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:12px;">★おすすめの動画から制作を始めましょう</div>
+      ${firstEpId ? `<button class="btn btn-primary" style="padding:10px 20px;font-size:.88rem;font-weight:700;" onclick="startMakingFromCal('${currentCharId}','${firstEpId}')">
+        🎬 最初の動画を今すぐ作り始める
+      </button>` : ''}
+    </div>`;
   showToast(`✅ ${added}本のプランをカレンダーに追加しました`);
 }
 
