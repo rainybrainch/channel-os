@@ -6341,19 +6341,61 @@ async function generateWeeklyPlan() {
   });
 
   const fmtDesc = fmt === 'mix' ? '横動画とショートを混在' : fmt === 'horizontal' ? '横動画のみ' : 'ショートのみ';
-  const prompt = `YouTubeキャラクター「${char.name}」（テーマ:${char.theme}、口調:${char.tone||'未設定'}）の今週の投稿プランを${count}本提案してください。
-形式: ${fmtDesc}
-今週の日付候補: ${dates.join(', ')}
-${request ? '要望: ' + request : ''}
 
-以下のルール:
-- 各案に投稿推奨日(上記日付から選ぶ)・形式(horizontal/shorts)・パターン(explanation/ranking/story/drama/dialogue/howto/secret)・タイトル案・テーマ1行を設定
-- ${count}案の中から最も視聴回数が伸びそうな1案に "recommended":true を付ける（残りは false）
-- キャラの個性・口調に合ったタイトルにする
+  // 過去エピソード（直近20本）を取得してAIに渡す
+  const pastEps = (data.episodes || [])
+    .filter(e => e.charId === char.id && (e.title || e.plan?.title))
+    .sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''))
+    .slice(0, 20)
+    .map(e => ({ title: e.title || e.plan?.title || '', pattern: e.inputPattern || e.plan?.pattern || '', theme: e.inputTheme || e.plan?.theme || '' }));
+
+  // カレンダーの直近4週分のエントリを取得
+  const cal = loadCalendar();
+  const fourWeeksAgo = new Date(today); fourWeeksAgo.setDate(today.getDate() - 28);
+  const pastCalEntries = cal
+    .filter(e => e.charId === char.id && e.date >= fourWeeksAgo.toISOString().slice(0,10))
+    .map(e => ({ date: e.date, title: e.title || e.theme || '' }));
+
+  // 今週すでにカレンダーに登録済みの日を取得（重複防止）
+  const thisWeekDates = dates;
+  const alreadyScheduled = cal
+    .filter(e => e.charId === char.id && thisWeekDates.includes(e.date))
+    .map(e => e.date);
+
+  const pastEpsText = pastEps.length
+    ? '【過去動画（直近）】\n' + pastEps.map(e => `・${e.title}（パターン:${e.pattern}）`).join('\n')
+    : '（過去動画なし・初回投稿）';
+
+  const pastCalText = pastCalEntries.length
+    ? '【過去4週のカレンダー】\n' + pastCalEntries.map(e => `・${e.date} ${e.title}`).join('\n')
+    : '';
+
+  const scheduledText = alreadyScheduled.length
+    ? `【今週すでに登録済みの日（この日を避ける）】: ${alreadyScheduled.join(', ')}`
+    : '';
+
+  const prompt = `あなたはYouTubeチャンネルの長期戦略コンサルタントです。
+キャラクター「${char.name}」（テーマ:${char.theme}、口調:${char.tone||'未設定'}、個性:${char.ai_personality||'未設定'}）の今週の投稿プランを${count}本提案してください。
+
+【今週の日付】${dates.join(', ')}
+【形式】${fmtDesc}
+${scheduledText}
+${request ? '【今週の要望】' + request : ''}
+
+${pastEpsText}
+
+${pastCalText}
+
+【戦略的要件（必ず守ること）】
+1. 過去動画と同じタイトル・テーマ・パターンを繰り返さない
+2. 視聴者が飽きないよう、今週7本の中でパターン（explanation/ranking/story/drama/howto/secret/challenge）を分散させる
+3. 連続性を意識する：前後の動画でシリーズ感・伏線・続きを作れる場合はreasonに明記
+4. 週の前半（月〜水）は入門・広め、後半（木〜日）は深掘り・コア向けにして新規とリピーターを両立
+5. チャンネルの長期成長を考え、${char.theme}の中で未開拓のサブテーマを優先する
 
 JSONのみ出力（他テキスト不要）:
 [
-  {"date":"YYYY-MM-DD","format":"horizontal|shorts","pattern":"explanation|...","title":"","theme":"","reason":"この案をおすすめする理由（30字以内）","recommended":false},
+  {"date":"YYYY-MM-DD","format":"shorts","pattern":"explanation|ranking|story|drama|dialogue|howto|secret|challenge","title":"","theme":"","reason":"この案をおすすめする・差別化の理由（40字以内）","recommended":false},
   ...
 ]`;
 
