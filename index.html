@@ -2987,6 +2987,7 @@ function renderPlanPanel(char) {
                 ${e.posted ? '<span style="font-size:.68rem;color:#4caf50;">✅投稿済</span>' : isToday ? '<span style="font-size:.68rem;color:var(--char-color,#c9a84c);font-weight:700;">今日！</span>' : ''}
                 ${!e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}')">🎬 作る</button>` : ''}
                 ${isPast ? `<button class="btn btn-sm" style="font-size:.66rem;padding:3px 8px;background:${perf?'rgba(76,175,80,.2)':'var(--surface2)'};color:${perf?'#4caf50':'var(--text-muted)'};" onclick="openPdcaModal('${e.date}','${e.charId}',${JSON.stringify(e.title||e.theme||'')})">${perf?'📊 編集':'📊 実績'}</button>` : ''}
+                <button onclick="deleteCalEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#666;padding:2px 4px;" title="この予定を削除">🗑</button>
               </div>
             </div>
           </div>`;
@@ -6069,6 +6070,20 @@ function loadCalendar() {
 }
 function saveCalendar(entries) {
   localStorage.setItem(CAL_KEY, JSON.stringify(entries));
+}
+
+function deleteCalEntry(entryId) {
+  const cal = loadCalendar();
+  const idx = cal.findIndex(e => e.id === entryId);
+  if (idx < 0) return;
+  const entry = cal[idx];
+  cal.splice(idx, 1);
+  saveCalendar(cal);
+  const char = data.characters.find(c => c.id === currentCharId);
+  const el = document.getElementById('panelPlan');
+  if (el) el.outerHTML = renderPlanPanel(char);
+  setTimeout(_restoreWeeklyPlanResult, 0);
+  showToast('🗑 予定を削除しました');
 }
 
 /* ════════ PDCA 実績記録 ════════ */
