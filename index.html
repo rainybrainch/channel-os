@@ -6229,10 +6229,22 @@ function renderSettingsPanel() {
             ? `<span style="color:#4caf50;">✅ ${gdRefresh ? '自動更新ON（長期接続済み）' : '接続中'}</span> <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="gdAuth()">再認証</button>`
             : `<button class="btn btn-primary btn-sm" onclick="gdAuth()">Google Drive に接続する（rainybrain.ch@gmail.com）</button>`
           }
+          <div style="margin-top:12px;">
+            <label style="font-size:.76rem;font-weight:700;display:block;margin-bottom:4px;">📁 Drive フォルダID</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="text" id="gdFolderInput" placeholder="1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy"
+                value="${localStorage.getItem(GD_FOLDER_SK)||''}"
+                style="flex:1;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.8rem;">
+              <button class="btn btn-primary btn-sm" onclick="saveGdFolderId()">保存</button>
+            </div>
+            <div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">
+              Drive フォルダを開いた時のURL末尾の英数字。例: drive.google.com/drive/folders/<b>ここ</b>
+            </div>
+            ${hasFoldr ? `<div style="font-size:.72rem;color:#4caf50;margin-top:4px;">✅ 設定済み: ${localStorage.getItem(GD_FOLDER_SK)||''}</div>` : ''}
+          </div>
           ${!gdToken ? `<div style="margin-top:10px;padding:8px;background:#1a2a1a;border-radius:6px;font-size:.72rem;color:#aed6a0;line-height:1.9;">
             接続エラーが出る場合: Cloud Console → 認証情報 → OAuthクライアントID を <b>「デスクトップアプリ」</b>タイプで作成 →<br>
-            クライアントID を下の「OAuth クライアントID」欄に貼り付けて保存 → 再接続<br>
-            Cloud Console → OAuth同意画面 → テストユーザーに <code>rainybrain.ch@gmail.com</code> を追加
+            クライアントID を下の「OAuth クライアントID」欄に貼り付けて保存 → 再接続
           </div>` : ''}
         </div>
       </details>
@@ -6730,6 +6742,15 @@ function saveCaptionStyle() {
 function getCaptionStyle() {
   return Object.assign({ fontSize:'24', textColor:'#ffffff', bgStyle:'semi', animation:'fade', position:'bottom', font:'Noto Sans JP' },
     JSON.parse(localStorage.getItem('channelos_caption_style')||'{}'));
+}
+
+function saveGdFolderId() {
+  const val = document.getElementById('gdFolderInput')?.value.trim();
+  if (!val) { showToast('フォルダIDを入力してください'); return; }
+  localStorage.setItem(GD_FOLDER_SK, val);
+  showToast('✅ DriveフォルダIDを保存しました');
+  const sp = document.getElementById('panelSettings');
+  if (sp) sp.outerHTML = renderSettingsPanel();
 }
 
 function saveApiKey() {
