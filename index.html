@@ -6417,22 +6417,37 @@ function renderSettingsPanel() {
 
     <!-- 配信アカウント設定 -->
     <div class="card" style="margin-top:8px;border:1px solid #4a9edd44;">
-      <div class="card-title" style="color:#4a9edd;">📡 配信アカウント設定</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">X (Twitter) と Instagram を接続するための設定。Developer アカウントが必要です。</p>
+      <div class="card-title" style="color:#4a9edd;">📡 X (Twitter) API設定</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Developer Portal → アプリ → Keys &amp; Tokens から4つをコピーして入力</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:.76rem;color:var(--text-muted);">API Key（コンシューマーキー）</label>
+          <input type="password" id="xApiKeyInput" placeholder="xxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem('channelos_x_api_key')||''}" autocomplete="off" style="margin-top:3px;font-size:.82rem;">
+        </div>
+        <div>
+          <label style="font-size:.76rem;color:var(--text-muted);">API Key Secret（コンシューマーシークレット）</label>
+          <input type="password" id="xApiSecretInput" placeholder="xxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem('channelos_x_api_secret')||''}" autocomplete="off" style="margin-top:3px;font-size:.82rem;">
+        </div>
+        <div>
+          <label style="font-size:.76rem;color:var(--text-muted);">Access Token</label>
+          <input type="password" id="xAccessTokenInput" placeholder="xxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem('channelos_x_access_token')||''}" autocomplete="off" style="margin-top:3px;font-size:.82rem;">
+        </div>
+        <div>
+          <label style="font-size:.76rem;color:var(--text-muted);">Access Token Secret</label>
+          <input type="password" id="xAccessTokenSecretInput" placeholder="xxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem('channelos_x_access_token_secret')||''}" autocomplete="off" style="margin-top:3px;font-size:.82rem;">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveXOAuth1Keys()">✅ 保存</button>
+      ${localStorage.getItem('channelos_x_api_key') ? `<span style="font-size:.74rem;color:#4caf50;margin-left:10px;">✅ 設定済み</span>` : ''}
 
-      <details style="margin-bottom:12px;">
-        <summary style="cursor:pointer;font-size:.82rem;color:#4a9edd;font-weight:600;padding:6px 0;">🐦 X (Twitter) 設定</summary>
-        <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:6px;">
-          <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;line-height:1.7;">
-            <b>設定手順：</b><br>
-            ① <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" style="color:#4a9edd;">Twitter Developer Portal</a> でアプリを作成<br>
-            ② User authentication settings → OAuth 2.0 を有効化 → Type: Public client<br>
-            ③ Callback URL: <code style="background:#111;padding:2px 6px;border-radius:4px;">https://rainybrainch.github.io/channel-os/</code><br>
-            ④ Client ID をコピーして下に貼り付け
-          </p>
+      <details style="margin-top:14px;">
+        <summary style="cursor:pointer;font-size:.76rem;color:var(--text-muted);">OAuth 2.0設定（X接続ボタン用・任意）</summary>
+        <div style="margin-top:8px;background:var(--surface2);border-radius:6px;padding:10px;">
           <label style="font-size:.78rem;">X Client ID</label>
           <input type="text" id="xClientIdInput" placeholder="xxxxxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem(X_CLIENT_SK)||''}" style="margin-top:4px;font-size:.82rem;">
-          <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="saveXClientId()">保存</button>
+          <button class="btn btn-secondary btn-sm" style="margin-top:6px;" onclick="saveXClientId()">保存</button>
+        </div>
+      </details>
           <div style="margin-top:10px;">
             ${(data.characters||[]).map(c => {
               const tok = localStorage.getItem(X_TOKEN_PFX + c.id);
@@ -9128,6 +9143,20 @@ function toSRTTime(sec) {
 // ════════════════════════════════════
 //  X (Twitter) 認証・投稿
 // ════════════════════════════════════
+function saveXOAuth1Keys() {
+  const apiKey    = document.getElementById('xApiKeyInput')?.value.trim();
+  const apiSecret = document.getElementById('xApiSecretInput')?.value.trim();
+  const token     = document.getElementById('xAccessTokenInput')?.value.trim();
+  const secret    = document.getElementById('xAccessTokenSecretInput')?.value.trim();
+  if (!apiKey || !apiSecret || !token || !secret) { showToast('4つすべて入力してください'); return; }
+  localStorage.setItem('channelos_x_api_key', apiKey);
+  localStorage.setItem('channelos_x_api_secret', apiSecret);
+  localStorage.setItem('channelos_x_access_token', token);
+  localStorage.setItem('channelos_x_access_token_secret', secret);
+  showToast('✅ X APIキーを保存しました');
+  const sp = document.getElementById('panelSettings');
+  if (sp) sp.outerHTML = renderSettingsPanel();
+}
 function saveXClientId() {
   const v = document.getElementById('xClientIdInput')?.value.trim();
   if (!v) { showToast('Client IDを入力してください'); return; }
