@@ -6163,42 +6163,20 @@ function renderSettingsPanel() {
   return `
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
 
-    <!-- 📋 アカウント構成の説明 -->
-    <div class="card" style="margin-bottom:8px;border:1px solid #4a9edd44;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);">
-      <div class="card-title" style="color:#4a9edd;">📋 アカウント構成（2アカウント運用）</div>
-      <div style="font-size:.78rem;line-height:1.8;color:var(--text-muted);">
-        <div style="margin-bottom:6px;">
-          <span style="color:var(--accent);font-weight:700;">① Drive・API管理アカウント</span><br>
-          <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:.75rem;">FukuiSho0603@gmail.com</code>
-          <span style="font-size:.72rem;"> → Google Cloud Console / APIキー / Driveデータ保管</span>
-        </div>
-        <div>
-          <span style="color:#4caf50;font-weight:700;">② チャンネル運用アカウント</span><br>
-          <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:.75rem;">rainybrain.ch@gmail.com</code>
-          <span style="font-size:.72rem;"> → YouTube投稿・SNS・視聴者への顔</span>
-        </div>
-        <div style="margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:6px;font-size:.72rem;color:#aaa;">
-          💡 Googleログインは <b>FukuiSho0603</b> でOK（DriveとAPI管理のため）。YouTubeアップロードのみ <b>rainybrain.ch</b> で別途認証します。
-        </div>
-      </div>
-    </div>
-
     <!-- 🚀 初期設定ウィザード -->
     <div class="card" style="border:2px solid ${allDone ? '#4caf50' : 'var(--accent)'};">
       <div class="card-title" style="color:${allDone?'#4caf50':'var(--accent)'};">${allDone ? '✅ 初期設定完了' : '🚀 初期設定（初回のみ）'}</div>
       ${allDone ? '<p style="font-size:.78rem;color:#4caf50;">すべての設定が完了しています。Drive同期・自動認証が有効です。</p>' : '<p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">以下を上から順に設定してください。一度やれば次回以降は自動で繋がります。</p>'}
-      ${step(gdToken && gdRefresh, `① Google Drive ログイン (FukuiSho0603@gmail.com)${gdRefresh?' ✅ 自動更新ON':' → Drive/API管理用アカウント'}`, "gdAuth()")}
+      ${step(gdToken && gdRefresh, `① Google Drive ログイン${gdRefresh?' ✅ 自動更新ON':' → データのクラウド保存・デバイス間同期用（rainybrain.ch でOK）'}`, "gdAuth()")}
       ${step(hasKey, '② Gemini APIキー → AI生成の核心。必須です', "document.getElementById('geminiApiKey')?.focus()")}
-      ${step(hasFoldr, '③ DriveフォルダID → チームで同じIDを使うと全員でデータ共有できます', "document.getElementById('gdFolderInput')?.focus()")}
-      ${step(ytDone > 0, `④ YouTube認証 (rainybrain.ch) → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
-      ${!allDone ? `<div style="margin-top:10px;padding:10px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.9;">
-        💡 <b>Googleログインが通らない場合の確認事項（1回だけ）：</b><br>
-        <b style="color:#ffd700;">① OAuthクライアントの種類を「デスクトップアプリ」にする</b><br>
-        <span style="color:#aaa;">→ Cloud Console → 認証情報 → 「＋作成」→ OAuthクライアントID → <b>デスクトップアプリ</b> を選択</span><br>
-        <span style="color:#aaa;">→ 生成されたクライアントID（client_secretは不要）を下の「OAuth クライアントID」欄に貼る</span><br>
-        <b style="color:#ffd700;">② テストユーザーに追加する（OAuthアプリが未審査の場合）</b><br>
-        <span style="color:#aaa;">→ Cloud Console → OAuth同意画面 → テストユーザー → <code>fukuisho0603@gmail.com</code>（小文字）</span>
-      </div>` : ''}
+      ${step(hasFoldr, '③ DriveフォルダID → データを保存する Drive フォルダの ID', "document.getElementById('gdFolderInput')?.focus()")}
+      ${step(ytDone > 0, `④ YouTube認証 → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
+      <div style="margin-top:10px;padding:10px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.9;">
+        💡 <b>① Drive ログインで「アクセスをブロック」が出る場合：</b><br>
+        <b style="color:#ffd700;">Cloud Console → 認証情報 → OAuthクライアントID を「デスクトップアプリ」タイプで新規作成</b><br>
+        <span style="color:#aaa;">→ 生成されたクライアントID を下の「OAuth クライアントID」欄に貼り付け → 保存 → 再ログイン</span><br>
+        <b style="color:#ffd700;">Cloud Console → OAuth同意画面 → テストユーザーに <code>rainybrain.ch@gmail.com</code> を追加</b>
+      </div>
     </div>
 
     <!-- VOICEVOX接続 -->
