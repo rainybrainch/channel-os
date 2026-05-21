@@ -8753,8 +8753,10 @@ JSON形式のみで出力（他テキスト不要）:
       const pitchEl = document.getElementById('googleTtsPitch');
       if (pitchEl) { pitchEl.value = r.voice_pitch; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = r.voice_pitch; }
     }
-    if (st) st.textContent = '✅ 改良しました。確認して保存してください';
-    showToast('✅ AI改良完了（音声設定も更新）');
+    if (st) st.textContent = '✅ 保存しました';
+    showToast('✅ AI改良完了・自動保存しました');
+    // 自動保存
+    updateChar();
   } catch(e) {
     if (st) st.textContent = '❌ ' + e.message;
     showToast('❌ ' + e.message);
