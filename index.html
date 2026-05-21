@@ -8128,20 +8128,32 @@ async function generateGoogleTTS(text, voice, rate, pitch) {
   const json = await res.json();
   return 'data:audio/mp3;base64,' + json.audioContent;
 }
+let _googleTtsTestAudio = null;
 async function testGoogleTtsVoice() {
+  const btn = document.getElementById('googleTtsTestBtn');
+  // 再生中なら停止
+  if (_googleTtsTestAudio && !_googleTtsTestAudio.paused) {
+    _googleTtsTestAudio.pause();
+    _googleTtsTestAudio.currentTime = 0;
+    if (btn) btn.textContent = '▶ テスト';
+    return;
+  }
   const voice = document.getElementById('newCharGoogleTtsVoice')?.value || 'ja-JP-Neural2-B';
   const rate  = parseFloat(document.getElementById('googleTtsRate')?.value) || 1.0;
   const pitch = parseFloat(document.getElementById('googleTtsPitch')?.value) || 0;
   const name  = document.getElementById('newCharName')?.value || 'キャラ';
-  const btn   = document.getElementById('googleTtsTestBtn');
   if (btn) { btn.disabled = true; btn.textContent = '🎵 生成中...'; }
   try {
     const dataUrl = await generateGoogleTTS(`こんにちは、${name}です。よろしくお願いします！`, voice, rate, pitch);
-    const audio = new Audio(dataUrl);
-    audio.play();
+    _googleTtsTestAudio = new Audio(dataUrl);
+    _googleTtsTestAudio.onended = () => { if (btn) btn.textContent = '▶ テスト'; };
+    _googleTtsTestAudio.play();
+    if (btn) { btn.disabled = false; btn.textContent = '⏸ 停止'; }
     showToast('▶ テスト再生中');
-  } catch(e) { showToast('❌ ' + e.message); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = '▶ テスト'; } }
+  } catch(e) {
+    showToast('❌ ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '▶ テスト'; }
+  }
 }
 
 // VOICEVOX話者取得・選択
