@@ -791,17 +791,78 @@ async function _pollDrive() {
   } catch(_e) { /* サイレントに失敗 */ }
 }
 
+// アバター・参照画像は別キーで保存（メインデータのQuota超過を防ぐ）
+const AVATAR_KEY_PFX = 'channelos_avatar_';
+const REFIMG_KEY_PFX = 'channelos_refimg_';
+
+function saveCharAvatar(charId, dataUrl) {
+  try { if (dataUrl) localStorage.setItem(AVATAR_KEY_PFX + charId, dataUrl);
+        else localStorage.removeItem(AVATAR_KEY_PFX + charId); } catch(e) { console.warn('avatar save failed:', e); }
+}
+function loadCharAvatar(charId) {
+  return localStorage.getItem(AVATAR_KEY_PFX + charId) || '';
+}
+function saveCharRefImg(charId, dataUrl) {
+  try { if (dataUrl) localStorage.setItem(REFIMG_KEY_PFX + charId, dataUrl);
+        else localStorage.removeItem(REFIMG_KEY_PFX + charId); } catch(e) { console.warn('refimg save failed:', e); }
+}
+function loadCharRefImg(charId) {
+  return localStorage.getItem(REFIMG_KEY_PFX + charId) || '';
+}
+
 function saveData(d) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+    // アバター・参照画像をメインデータから除外して軽量化
+    const slim = { ...d, characters: (d.characters || []).map(c => {
+      const { avatar_url, ref_image, ...rest } = c;
+      return rest;
+    })};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
     scheduleDriveSync(d);
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
-      showToast('⚠️ ストレージ容量不足。画像データが多すぎます。');
+      showToast('⚠️ ストレージ容量不足。不要なデータを削除してください。');
     } else {
       console.error('saveData error:', e);
     }
   }
+}
+
+function loadData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || !saved.characters || saved.characters.length === 0) return defaultData();
+    // マイグレーション: 既存avatar_urlをメインデータから個別キーに移行
+    saved.characters.forEach(c => {
+      if (c.avatar_url) { saveCharAvatar(c.id, c.avatar_url); delete c.avatar_url; }
+      if (c.ref_image)  { saveCharRefImg(c.id, c.ref_image);  delete c.ref_image;  }
+    });
+    // アバター・参照画像を個別キーから復元
+    saved.characters.forEach(c => {
+      c.avatar_url = loadCharAvatar(c.id);
+      c.ref_image  = loadCharRefImg(c.id);
+    });
+    // ルナのVOICEVOX設定マイグレーション
+    const luna = saved.characters.find(c => c.id === 'luna');
+    if (luna && luna.voicevox_speaker == null) {
+      Object.assign(luna, {
+        voicevox_speaker: 28, voicevox_speed: 1.10, voicevox_pitch: 0.04,
+        voicevox_intonation: 0.80, voicevox_volume: 1.00,
+        voicevox_pre_phoneme_length: 0.10, voicevox_post_phoneme_length: 0.10,
+        voicevox_pause_length_scale: 1.00
+      });
+    }
+    if (!saved.characters.find(c => c.id === 'rbr')) {
+      saved.characters.push({
+        id: 'rbr', name: 'RAINYBRAINラジオ', species: 'ラジオパーソナリティ',
+        theme: 'ラジオ・雑談・思想・日常・感情', tone: '落ち着いた・知的・親密・素直',
+        color: '#4a9edd', channel_id: '@Rainy_Brain_22',
+        ai_personality: 'RAINYBRAINの声として語る。雨のように静かに、でも確かに響く言葉を届ける。思想・日常・感情を素直に話す。リスナーを「あなた」と呼ぶ。',
+        icon: '🎙', drive_folder_id: ''
+      });
+    }
+    return saved;
+  } catch { return defaultData(); }
 }
 
 // ── グローバルAIスピナー & タブ通知 ──
@@ -853,36 +914,6 @@ function defaultData() {
     }],
     episodes: [], schedules: [], assets: []
   };
-}
-
-function loadData() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!saved || !saved.characters || saved.characters.length === 0) return defaultData();
-    // RBRキャラが存在しない場合は自動追加
-    // ルナのVOICEVOX設定マイグレーション
-    const luna = saved.characters.find(c => c.id === 'luna');
-    if (luna && luna.voicevox_speaker == null) {
-      Object.assign(luna, {
-        voicevox_speaker: 28, voicevox_speed: 1.10, voicevox_pitch: 0.04,
-        voicevox_intonation: 0.80, voicevox_volume: 1.00,
-        voicevox_pre_phoneme_length: 0.10, voicevox_post_phoneme_length: 0.10,
-        voicevox_pause_length_scale: 1.00
-      });
-      saveData(saved);
-    }
-    if (!saved.characters.find(c => c.id === 'rbr')) {
-      saved.characters.push({
-        id: 'rbr', name: 'RAINYBRAINラジオ', species: 'ラジオパーソナリティ',
-        theme: 'ラジオ・雑談・思想・日常・感情', tone: '落ち着いた・知的・親密・素直',
-        color: '#4a9edd', channel_id: '@Rainy_Brain_22',
-        ai_personality: 'RAINYBRAINの声として語る。雨のように静かに、でも確かに響く言葉を届ける。思想・日常・感情を素直に話す。リスナーを「あなた」と呼ぶ。',
-        icon: '🎙', avatar_url: '', drive_folder_id: ''
-      });
-      saveData(saved);
-    }
-    return saved;
-  } catch { return defaultData(); }
 }
 
 // 旧キーを削除
@@ -2820,6 +2851,54 @@ function renderPlanPanel(char) {
   const _savedFormat = _epInput?.inputFormat || 'horizontal';
   return `
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
+
+    <!-- ══ 週間プラン作成 ══ -->
+    <div class="card" style="border:1px solid #4a9edd88;background:linear-gradient(135deg,rgba(74,158,221,.07),transparent);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="font-size:1.2rem;">📅</div>
+        <div>
+          <div style="font-weight:700;font-size:.95rem;color:#4a9edd;">今週の投稿プランを作る</div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:1px;">AIが本数・テーマ・日程を提案。おすすめ1案を★表示します</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">投稿本数</label>
+          <select id="weeklyPlanCount" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
+            <option value="2">2本</option>
+            <option value="3" selected>3本</option>
+            <option value="4">4本</option>
+            <option value="5">5本</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">形式</label>
+          <select id="weeklyPlanFormat" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
+            <option value="mix" selected>横＋ショート混合</option>
+            <option value="horizontal">横動画のみ</option>
+            <option value="shorts">ショートのみ</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">今週の要望・方向性（任意）</label>
+        <input type="text" id="weeklyPlanRequest" placeholder="例: 初心者向けの内容多め・ダイエット特集・前回の続き…"
+          style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.84rem;"
+          onkeydown="if(event.key==='Enter')generateWeeklyPlan()">
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:10px;font-size:.88rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="generateWeeklyPlan()">
+        ✨ AIがプランを提案する
+      </button>
+      <div id="weeklyPlanLoading" style="display:none;margin-top:10px;font-size:.8rem;color:var(--text-muted);display:none;align-items:center;gap:8px;">
+        <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:#4a9edd;animation:spin360 .8s linear infinite;"></div>
+        <span>AIがプランを考えています...</span>
+      </div>
+      <div id="weeklyPlanResult" style="margin-top:12px;"></div>
+    </div>
+
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div class="card-title" style="margin:0;">🎬 動画を作る</div>
@@ -6053,6 +6132,157 @@ function addScheduleToCalendar() {
   showToast(`✅ ${added}件をカレンダーに追加しました`);
 }
 
+// ════════════════════════════════════
+//  週間プラン生成
+// ════════════════════════════════════
+let _weeklyPlanItems = [];
+
+async function generateWeeklyPlan() {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) { showToast('キャラクターを選択してください'); return; }
+
+  const count   = parseInt(document.getElementById('weeklyPlanCount')?.value  || '3');
+  const fmt     = document.getElementById('weeklyPlanFormat')?.value || 'mix';
+  const request = document.getElementById('weeklyPlanRequest')?.value.trim() || '';
+
+  const loadEl  = document.getElementById('weeklyPlanLoading');
+  const resultEl= document.getElementById('weeklyPlanResult');
+  if (loadEl)  { loadEl.style.display = 'flex'; }
+  if (resultEl) resultEl.innerHTML = '';
+
+  // 今週の月曜〜日曜を計算
+  const today = new Date();
+  const dow   = today.getDay(); // 0=日
+  const monday= new Date(today); monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const dates = Array.from({length: 7}, (_, i) => {
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    return d.toISOString().slice(0,10);
+  });
+
+  const fmtDesc = fmt === 'mix' ? '横動画とショートを混在' : fmt === 'horizontal' ? '横動画のみ' : 'ショートのみ';
+  const prompt = `YouTubeキャラクター「${char.name}」（テーマ:${char.theme}、口調:${char.tone||'未設定'}）の今週の投稿プランを${count}本提案してください。
+形式: ${fmtDesc}
+今週の日付候補: ${dates.join(', ')}
+${request ? '要望: ' + request : ''}
+
+以下のルール:
+- 各案に投稿推奨日(上記日付から選ぶ)・形式(horizontal/shorts)・パターン(explanation/ranking/story/drama/dialogue/howto/secret)・タイトル案・テーマ1行を設定
+- ${count}案の中から最も視聴回数が伸びそうな1案に "recommended":true を付ける（残りは false）
+- キャラの個性・口調に合ったタイトルにする
+
+JSONのみ出力（他テキスト不要）:
+[
+  {"date":"YYYY-MM-DD","format":"horizontal|shorts","pattern":"explanation|...","title":"","theme":"","reason":"この案をおすすめする理由（30字以内）","recommended":false},
+  ...
+]`;
+
+  aiStart('週間プランを生成中...');
+  try {
+    const text = await callClaude(prompt);
+    _weeklyPlanItems = safeParseArr(text, []);
+    if (!_weeklyPlanItems.length) throw new Error('プランの生成に失敗しました');
+
+    const patternLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'};
+    const fmtIcon = f => f === 'shorts' ? '📱 ショート' : '📺 横動画';
+
+    const cards = _weeklyPlanItems.map((item, i) => {
+      const isRec = !!item.recommended;
+      return `<div id="weeklyItem_${i}" onclick="toggleWeeklyItem(${i})" style="cursor:pointer;border:2px solid ${isRec?'#4a9edd':'var(--border)'};border-radius:10px;padding:12px 14px;background:${isRec?'rgba(74,158,221,.1)':'var(--surface2)'};margin-bottom:8px;position:relative;transition:all .15s;">
+        ${isRec ? '<div style="position:absolute;top:-10px;left:14px;background:#4a9edd;color:#fff;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.05em;">★ おすすめ</div>' : ''}
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" class="weeklyItemCheck" data-idx="${i}" ${isRec?'checked':''} onclick="event.stopPropagation();toggleWeeklyItem(${i})" style="accent-color:#4a9edd;width:16px;height:16px;flex-shrink:0;">
+          <div style="flex:1;">
+            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:3px;">${item.date} ／ ${fmtIcon(item.format)} ／ ${patternLabel[item.pattern]||item.pattern}</div>
+            <div style="font-weight:700;font-size:.9rem;line-height:1.3;">${escHtml(item.title)}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:2px;">${escHtml(item.theme)}</div>
+            ${isRec && item.reason ? '<div style="font-size:.72rem;color:#4a9edd;margin-top:4px;">💡 ' + escHtml(item.reason) + '</div>' : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    if (resultEl) resultEl.innerHTML = `
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">チェックした案をカレンダーに追加します（★おすすめは最初からチェック済み）</div>
+      ${cards}
+      <button class="btn btn-primary" style="width:100%;padding:10px;margin-top:4px;font-size:.88rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="addWeeklyPlanToCalendar()">
+        📅 チェックした案をカレンダーに追加して動画制作を始める
+      </button>`;
+
+    showToast('✅ 週間プランを生成しました');
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = `<div style="color:#e53935;font-size:.8rem;">❌ ${escHtml(e.message)}</div>`;
+    showToast('❌ ' + e.message);
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+    aiEnd();
+  }
+}
+
+function toggleWeeklyItem(idx) {
+  const cb = document.querySelector(`.weeklyItemCheck[data-idx="${idx}"]`);
+  const box = document.getElementById(`weeklyItem_${idx}`);
+  if (!cb || !box) return;
+  cb.checked = !cb.checked;
+  box.style.opacity = cb.checked ? '1' : '.45';
+}
+
+async function addWeeklyPlanToCalendar() {
+  const checked = [...document.querySelectorAll('.weeklyItemCheck:checked')].map(el => parseInt(el.dataset.idx));
+  if (!checked.length) { showToast('少なくとも1案を選択してください'); return; }
+
+  const entries = loadCalendar();
+  const char    = data.characters.find(c => c.id === currentCharId);
+  let added = 0;
+
+  for (const idx of checked) {
+    const item = _weeklyPlanItems[idx];
+    if (!item) continue;
+    // エピソードを作成
+    const epId = 'ep_' + Date.now() + '_' + idx;
+    const ep = {
+      id: epId, charId: currentCharId,
+      title: item.title, theme: item.theme,
+      inputTheme: item.theme, inputPattern: item.pattern, inputFormat: item.format,
+      createdAt: new Date().toISOString(), status: 'draft',
+      plan: null, script: '', meta: null
+    };
+    data.episodes = data.episodes || [];
+    data.episodes.push(ep);
+
+    // カレンダーエントリを作成
+    entries.push({
+      id: 'cal_' + Date.now() + '_' + idx,
+      charId: currentCharId,
+      episodeId: epId,
+      date: item.date,
+      time: '18:00',
+      title: item.title,
+      theme: item.theme,
+      format: item.format,
+      scheduled: false, posted: false
+    });
+    added++;
+    // Date重複防止のため少し待つ
+    await new Promise(r => setTimeout(r, 2));
+  }
+
+  saveData(data);
+  saveCalendar(entries);
+  autoSaveToDrive();
+
+  // カレンダーを該当週に移動
+  const firstDate = _weeklyPlanItems[checked[0]]?.date;
+  if (firstDate) {
+    const [y, m] = firstDate.split('-').map(Number);
+    _calYear = y; _calMonth = m - 1;
+  }
+
+  // カレンダータブへ
+  document.getElementById('weeklyPlanResult').innerHTML += `<div style="margin-top:8px;font-size:.8rem;color:#4caf50;font-weight:700;">✅ ${added}本をカレンダーに追加しました。カレンダーで確認→クリックして制作開始！</div>`;
+  renderMain();
+  showToast(`✅ ${added}本のプランをカレンダーに追加しました`);
+}
+
 async function generateSchedule() {
   const char  = data.characters.find(c => c.id === currentCharId);
   const month = document.getElementById('scheduleMonth').value;
@@ -8608,8 +8838,6 @@ function saveNewChar() {
     appearance:    document.getElementById('newCharAppearance').value.trim(),
     voicevox_name: document.getElementById('newCharVoiceName').value.trim(),
     icon: icons[Math.floor(Math.random()*icons.length)],
-    avatar_url: document.getElementById('newCharAvatarDataUrl').value || '',
-    ref_image: document.getElementById('newCharRefImage').value || '',
     drive_folder_id: document.getElementById('newCharFolderId').value.trim(),
     voice_mode: document.getElementById('newCharVoiceMode')?.value || 'browser',
     browser_voice_name:  document.getElementById('newCharBrowserVoice')?.value || '',
@@ -8628,10 +8856,18 @@ function saveNewChar() {
     ig_strategy:    document.getElementById('newCharIgStrategy')?.value.trim() || '',
     note_username:  document.getElementById('newCharNoteUsername')?.value.trim() || ''
   });
+  const newChar = data.characters[data.characters.length - 1];
+  // アバター・参照画像を個別キーに保存
+  const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
+  const newRef    = document.getElementById('newCharRefImage').value;
+  saveCharAvatar(newChar.id, newAvatar);
+  saveCharRefImg(newChar.id, newRef);
+  newChar.avatar_url = newAvatar;
+  newChar.ref_image  = newRef;
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
-  selectChar(data.characters[data.characters.length-1].id);
+  selectChar(newChar.id);
   _afterCharSave();
 }
 
@@ -8663,10 +8899,11 @@ function updateChar() {
   char.x_strategy       = document.getElementById('newCharXStrategy')?.value.trim() || '';
   char.ig_strategy      = document.getElementById('newCharIgStrategy')?.value.trim() || '';
   char.note_username    = document.getElementById('newCharNoteUsername')?.value.trim() || '';
+  // アバター・参照画像を個別キーに保存（QuotaExceeded防止）
   const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
-  if (newAvatar && newAvatar !== char.avatar_url) char.avatar_url = newAvatar;
+  if (newAvatar) { saveCharAvatar(char.id, newAvatar); char.avatar_url = newAvatar; }
   const newRef = document.getElementById('newCharRefImage').value;
-  char.ref_image = newRef || char.ref_image || '';
+  if (newRef) { saveCharRefImg(char.id, newRef); char.ref_image = newRef; }
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
