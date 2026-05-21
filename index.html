@@ -2847,10 +2847,116 @@ function renderPlanPanel(char) {
   const _savedDetail = _epInput?.inputDetail || '';
   const _savedPattern = _epInput?.inputPattern || 'explanation';
   const _savedFormat = _epInput?.inputFormat || 'horizontal';
+  const planMode = localStorage.getItem('channelos_plan_mode') || 'now';
+
+  // 今週の予定（カレンダーから）
+  const today = new Date(); today.setHours(0,0,0,0);
+  const monday = new Date(today); monday.setDate(today.getDate() - (today.getDay()===0?6:today.getDay()-1));
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const calEntries = loadCalendar().filter(e => {
+    if (e.charId !== char.id) return false;
+    const d = new Date(e.date); d.setHours(0,0,0,0);
+    return d >= monday && d <= sunday;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  // 習慣テンプレ
+  const habits = (() => { try { return JSON.parse(localStorage.getItem('channelos_habits_'+char.id)||'[]'); } catch{return[];} })();
+
+  const modeBtn = (id, icon, label, active) =>
+    `<button onclick="setPlanViewMode('${id}')" style="flex:1;padding:9px 4px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;transition:all .15s;background:${active?'var(--char-color,#c9a84c)':'transparent'};color:${active?'#0d0d0d':'var(--text-muted)'};">${icon}<br><span style="font-size:.68rem;font-weight:400;">${label}</span></button>`;
+
   return `
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
 
-    <!-- ══ 週間プラン作成 ══ -->
+    <!-- ══ モード切替 ══ -->
+    <div style="display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:4px;">
+      ${modeBtn('week','📅','今週の予定',planMode==='week')}
+      ${modeBtn('now','⚡','今すぐ作る',planMode==='now')}
+      ${modeBtn('habit','🔁','習慣シリーズ',planMode==='habit')}
+    </div>
+
+    <!-- ══ 今週の予定モード ══ -->
+    <div id="planModeWeek" style="display:${planMode==='week'?'flex':'none'};flex-direction:column;gap:12px;">
+      <div class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:.9rem;color:#4a9edd;">今週の投稿予定</div>
+          <button class="btn btn-sm" style="background:#4a9edd;color:#fff;font-size:.74rem;" onclick="setPlanViewMode('now');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">＋ プランを追加</button>
+        </div>
+        ${calEntries.length ? calEntries.map(e => {
+          const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
+          const fmtIcon = e.format==='shorts'?'📱':'📺';
+          const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'}[ep?.inputPattern||'']||'';
+          const isToday = e.date === today.toISOString().slice(0,10);
+          const isPast  = e.date < today.toISOString().slice(0,10);
+          return `<div style="border:2px solid ${isToday?'var(--char-color,#c9a84c)':isPast?'var(--border)':'var(--border)33'};border-radius:10px;padding:12px 14px;background:${isToday?'rgba(201,168,76,.08)':'var(--surface2)'};opacity:${isPast&&e.posted?'.5':'1'};">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="text-align:center;min-width:36px;">
+                <div style="font-size:.65rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
+                <div style="font-size:1.2rem;font-weight:700;color:${isToday?'var(--char-color,#c9a84c)':'var(--text)'};">${parseInt(e.date.slice(8))}</div>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:2px;">${fmtIcon} ${patLabel} ${e.time?'／ '+e.time:''}</div>
+                <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(e.title||e.theme||'タイトル未設定')}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+                ${e.posted ? '<span style="font-size:.68rem;color:#4caf50;">✅投稿済</span>' : isToday ? '<span style="font-size:.68rem;color:var(--char-color,#c9a84c);font-weight:700;">今日！</span>' : ''}
+                ${ep && !e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId}')">🎬 作る</button>` : ''}
+              </div>
+            </div>
+          </div>`;
+        }).join('') : `<div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:.84rem;">
+          今週の予定がまだありません<br>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="setPlanViewMode('now');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">📅 週間プランを作る</button>
+        </div>`}
+      </div>
+    </div>
+
+    <!-- ══ 今すぐ作るモード ══ -->
+    <div id="planModeNow" style="display:${planMode==='now'?'flex':'none'};flex-direction:column;gap:12px;">
+
+      <!-- 週間プラン作成（折りたたみ） -->
+      <div id="weeklyPlanSection" class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.05),transparent);">
+        <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="toggleWeeklyPlanBox()">
+          <span style="font-size:1rem;">📅</span>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:.88rem;color:#4a9edd;">週間プランをまとめて作る</div>
+            <div style="font-size:.7rem;color:var(--text-muted);">AIがテーマ・日程・おすすめを提案してカレンダーに登録</div>
+          </div>
+          <span id="weeklyPlanToggleIcon" style="font-size:.8rem;color:var(--text-muted);">▼</span>
+        </div>
+        <div id="weeklyPlanBox" style="display:none;margin-top:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">投稿本数</label>
+              <select id="weeklyPlanCount" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
+                <option value="2">2本</option><option value="3" selected>3本</option><option value="4">4本</option><option value="5">5本</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">形式</label>
+              <select id="weeklyPlanFormat" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
+                <option value="mix" selected>横＋ショート混合</option>
+                <option value="horizontal">横動画のみ</option>
+                <option value="shorts">ショートのみ</option>
+              </select>
+            </div>
+          </div>
+          <input type="text" id="weeklyPlanRequest" placeholder="今週の要望（例: 初心者向け多め・ダイエット特集…）"
+            style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.84rem;margin-bottom:10px;"
+            onkeydown="if(event.key==='Enter')generateWeeklyPlan()">
+          <button class="btn btn-primary" style="width:100%;padding:9px;font-size:.85rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="generateWeeklyPlan()">✨ AIがプランを提案する</button>
+          <div id="weeklyPlanLoading" style="display:none;margin-top:10px;font-size:.8rem;color:var(--text-muted);align-items:center;gap:8px;">
+            <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:#4a9edd;animation:spin360 .8s linear infinite;"></div>
+            <span>AIがプランを考えています...</span>
+          </div>
+          <div id="weeklyPlanResult" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+    <!-- 単発動画作成 -->
+    <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">🎬 動画を作る</div>
     <div class="card" style="border:1px solid #4a9edd88;background:linear-gradient(135deg,rgba(74,158,221,.07),transparent);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
         <div style="font-size:1.2rem;">📅</div>
@@ -3071,7 +3177,155 @@ function renderPlanPanel(char) {
         <div id="planRadioLoading" class="loading" style="display:none;margin-top:12px;"><div class="spinner"></div><span>Claude が分析中...</span></div>
       </div>
     </details>
+    </div><!-- /card 単発動画 -->
+    </div><!-- /planModeNow -->
+
+    <!-- ══ 習慣シリーズモード ══ -->
+    <div id="planModeHabit" style="display:${planMode==='habit'?'flex':'none'};flex-direction:column;gap:12px;">
+      <div class="card" style="border:1px solid #9c27b055;background:linear-gradient(135deg,rgba(156,39,176,.07),transparent);">
+        <div style="font-weight:700;font-size:.9rem;color:#ce93d8;margin-bottom:12px;">🔁 習慣シリーズ</div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:14px;">定期的に作るシリーズを登録。「作る」を押すだけで設定済みのフォーマットで制作開始。</div>
+
+        <!-- 習慣リスト -->
+        <div id="habitList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+          ${habits.length ? habits.map((h,i) => {
+            const fmtLabel = h.format==='shorts'?'📱 ショート':'📺 横動画';
+            const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'}[h.pattern]||h.pattern||'';
+            const freqLabel = h.freq==='daily'?'毎日':h.freq==='weekly'?['日','月','火','水','木','金','土'][h.dayOfWeek||1]+'曜 毎週':'不定期';
+            return `<div style="border:1px solid #9c27b033;border-radius:10px;padding:12px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;">
+              <div style="font-size:1.6rem;">${h.icon||'🔁'}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:700;font-size:.88rem;">${escHtml(h.name)}</div>
+                <div style="font-size:.7rem;color:var(--text-muted);margin-top:2px;">${fmtLabel} ／ ${patLabel} ／ ${freqLabel}</div>
+                ${h.theme?`<div style="font-size:.72rem;color:#ce93d8;margin-top:2px;">${escHtml(h.theme)}</div>`:''}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <button class="btn btn-primary btn-sm" style="font-size:.74rem;padding:5px 12px;" onclick="startHabitEpisode(${i})">🎬 作る</button>
+                <button class="btn btn-secondary btn-sm" style="font-size:.68rem;padding:3px 8px;color:#e55;" onclick="deleteHabit(${i})">削除</button>
+              </div>
+            </div>`;
+          }).join('') : '<div style="text-align:center;padding:16px 0;color:var(--text-muted);font-size:.82rem;">まだシリーズがありません</div>'}
+        </div>
+
+        <!-- 習慣追加フォーム -->
+        <details>
+          <summary style="cursor:pointer;font-size:.8rem;color:#ce93d8;font-weight:700;list-style:none;padding:8px 0;">＋ 新しいシリーズを追加</summary>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+            <input type="text" id="habitName" placeholder="シリーズ名（例: 毎朝ショート、週1解説）" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;">
+            <input type="text" id="habitTheme" placeholder="テーマのヒント（例: 筋トレ、資産形成、料理…）" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+              <div>
+                <label style="font-size:.7rem;color:var(--text-muted);display:block;margin-bottom:3px;">形式</label>
+                <select id="habitFormat" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+                  <option value="shorts">📱 ショート</option>
+                  <option value="horizontal">📺 横動画</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:.7rem;color:var(--text-muted);display:block;margin-bottom:3px;">パターン</label>
+                <select id="habitPattern" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+                  <option value="explanation">解説</option>
+                  <option value="howto">How-To</option>
+                  <option value="ranking">ランキング</option>
+                  <option value="story">ストーリー</option>
+                  <option value="drama">ドラマ</option>
+                  <option value="challenge">チャレンジ</option>
+                  <option value="secret">本音暴露</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:.7rem;color:var(--text-muted);display:block;margin-bottom:3px;">頻度</label>
+                <select id="habitFreq" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+                  <option value="daily">毎日</option>
+                  <option value="weekly">毎週</option>
+                  <option value="free">不定期</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="align-self:flex-end;background:#9c27b0;border-color:#9c27b0;" onclick="saveHabit()">＋ 登録</button>
+          </div>
+        </details>
+      </div>
+    </div><!-- /planModeHabit -->
+
   </div>`;
+}
+
+// ── 作成モード切替 ──
+function setPlanViewMode(mode) {
+  localStorage.setItem('channelos_plan_mode', mode);
+  ['week','now','habit'].forEach(m => {
+    const el = document.getElementById('planMode' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (el) el.style.display = m === mode ? 'flex' : 'none';
+  });
+  // モードボタンのハイライト更新
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--char-color').trim() || '#c9a84c';
+  document.querySelectorAll('#planModeSelector button').forEach(b => {
+    const bid = b.dataset.mode;
+    b.style.background = bid === mode ? color : 'transparent';
+    b.style.color = bid === mode ? '#0d0d0d' : 'var(--text-muted)';
+  });
+}
+
+function toggleWeeklyPlanBox() {
+  const box  = document.getElementById('weeklyPlanBox');
+  const icon = document.getElementById('weeklyPlanToggleIcon');
+  if (!box) return;
+  const open = box.style.display === 'none';
+  box.style.display  = open ? 'block' : 'none';
+  if (icon) icon.textContent = open ? '▲' : '▼';
+}
+
+// ── 習慣シリーズ ──
+function saveHabit() {
+  const name = document.getElementById('habitName')?.value.trim();
+  if (!name) { showToast('シリーズ名を入力してください'); return; }
+  const habits = (() => { try { return JSON.parse(localStorage.getItem('channelos_habits_'+currentCharId)||'[]'); } catch{return[];} })();
+  const icons = ['🔁','📺','📱','🎯','⚡','🌟','🔥','💎','🎬','✨'];
+  habits.push({
+    id: 'habit_'+Date.now(),
+    icon: icons[habits.length % icons.length],
+    name,
+    theme: document.getElementById('habitTheme')?.value.trim() || '',
+    format: document.getElementById('habitFormat')?.value || 'shorts',
+    pattern: document.getElementById('habitPattern')?.value || 'explanation',
+    freq: document.getElementById('habitFreq')?.value || 'free',
+    dayOfWeek: new Date().getDay(),
+  });
+  localStorage.setItem('channelos_habits_'+currentCharId, JSON.stringify(habits));
+  showToast('✅ シリーズを登録しました');
+  const char = data.characters.find(c=>c.id===currentCharId);
+  if (char) { const el = document.getElementById('panelPlan'); if (el) el.outerHTML = renderPlanPanel(char); }
+}
+
+function deleteHabit(idx) {
+  const habits = (() => { try { return JSON.parse(localStorage.getItem('channelos_habits_'+currentCharId)||'[]'); } catch{return[];} })();
+  habits.splice(idx, 1);
+  localStorage.setItem('channelos_habits_'+currentCharId, JSON.stringify(habits));
+  const char = data.characters.find(c=>c.id===currentCharId);
+  if (char) { const el = document.getElementById('panelPlan'); if (el) el.outerHTML = renderPlanPanel(char); }
+}
+
+function startHabitEpisode(idx) {
+  const habits = (() => { try { return JSON.parse(localStorage.getItem('channelos_habits_'+currentCharId)||'[]'); } catch{return[];} })();
+  const h = habits[idx];
+  if (!h) return;
+  // 新規エピソード作成（習慣テンプレから）
+  const epId = 'ep_' + Date.now();
+  const ep = {
+    id: epId, charId: currentCharId,
+    title: h.name + ' #' + (Date.now()+'').slice(-4),
+    theme: h.theme || '', inputTheme: h.theme || '',
+    inputPattern: h.pattern, inputFormat: h.format,
+    habitId: h.id, createdAt: new Date().toISOString(), status: 'draft',
+    plan: null, script: '', meta: null
+  };
+  data.episodes = data.episodes || [];
+  data.episodes.push(ep);
+  saveData(data);
+  loadEpisode(epId);
+  setPlanViewMode('now');
+  showToast('✅ ' + h.name + ' の制作を開始しました');
 }
 
 async function suggestTheme() {
