@@ -1073,9 +1073,14 @@ async function autoLoadKeysFromDrive(token) {
     );
     if (!fileRes.ok) return;
     const keys = await fileRes.json();
-    if (keys.claude)  localStorage.setItem(API_KEY_SK, keys.claude);
-    if (keys.openai)  localStorage.setItem('channelos_openai_api_key', keys.openai);
-    if (keys.gemini)  localStorage.setItem(GEMINI_KEY_SK, keys.gemini);
+    if (keys.claude)          localStorage.setItem(API_KEY_SK, keys.claude);
+    if (keys.openai)          localStorage.setItem('channelos_openai_api_key', keys.openai);
+    if (keys.gemini)          localStorage.setItem(GEMINI_KEY_SK, keys.gemini);
+    if (keys.x_api_key)       localStorage.setItem('channelos_x_api_key', keys.x_api_key);
+    if (keys.x_api_secret)    localStorage.setItem('channelos_x_api_secret', keys.x_api_secret);
+    if (keys.x_access_token)  localStorage.setItem('channelos_x_access_token', keys.x_access_token);
+    if (keys.x_access_secret) localStorage.setItem('channelos_x_access_token_secret', keys.x_access_secret);
+    if (keys.x_client_id)     localStorage.setItem(X_CLIENT_SK, keys.x_client_id);
     showToast('🔑 APIキーをDriveから自動読み込みしました');
   } catch(e) { /* 失敗しても無視 */ }
 }
@@ -1140,9 +1145,14 @@ async function saveKeysToDrive() {
   const token = localStorage.getItem(GD_TOKEN_SK);
   if (!token) { showToast('先にGoogle Driveで認証してください'); return; }
   const keys = {
-    claude: localStorage.getItem(API_KEY_SK) || '',
-    openai: localStorage.getItem('channelos_openai_api_key') || '',
-    gemini: localStorage.getItem(GEMINI_KEY_SK) || ''
+    claude:          localStorage.getItem(API_KEY_SK) || '',
+    openai:          localStorage.getItem('channelos_openai_api_key') || '',
+    gemini:          localStorage.getItem(GEMINI_KEY_SK) || '',
+    x_api_key:       localStorage.getItem('channelos_x_api_key') || '',
+    x_api_secret:    localStorage.getItem('channelos_x_api_secret') || '',
+    x_access_token:  localStorage.getItem('channelos_x_access_token') || '',
+    x_access_secret: localStorage.getItem('channelos_x_access_token_secret') || '',
+    x_client_id:     localStorage.getItem(X_CLIENT_SK) || '',
   };
   try {
     // 既存ファイルを検索
