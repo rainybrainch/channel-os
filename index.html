@@ -2331,8 +2331,7 @@ function renderConnectionBar() {
 
   // 次のアクション（最優先1件）
   let nextAction = '';
-  if (!gdToken)   nextAction = `<div onclick="gdAuth()" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#4a9edd22;border:1px solid #4a9edd55;border-radius:6px;font-size:.72rem;color:#4a9edd;font-weight:700;">▶ Googleでログイン（rainybrain.ch@gmail.com）</div>`;
-  else if (!geminiKey && !openaiKey) nextAction = `<div onclick="currentCharId?switchTab('settings'):document.querySelector('[onclick*=settings]')?.click()" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#e67e2222;border:1px solid #e67e2255;border-radius:6px;font-size:.72rem;color:#e67e22;font-weight:700;">▶ APIキーを設定（⚙️設定ボタン）</div>`;
+  if (!geminiKey && !openaiKey) nextAction = `<div onclick="currentCharId?switchTab('settings'):document.querySelector('[onclick*=settings]')?.click()" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#e67e2222;border:1px solid #e67e2255;border-radius:6px;font-size:.72rem;color:#e67e22;font-weight:700;">▶ APIキーを設定（⚙️設定ボタン）</div>`;
   else if (currentCharId && !ytToken) nextAction = `<div onclick="ytAuth(currentCharId)" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#ff000022;border:1px solid #ff000055;border-radius:6px;font-size:.72rem;color:#ff6666;font-weight:700;">▶ このキャラのYouTube認証</div>`;
   else if (currentCharId && currentEpisodeId) {
     const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
@@ -2345,7 +2344,7 @@ function renderConnectionBar() {
 
   el.innerHTML = `
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
-      ${dot(gdToken, 'Drive', 'Googleドライブ連携')}
+      ${dot(gdToken, 'Drive', gdToken ? 'Drive同期ON' : 'Drive未接続（任意 — なくても動作します）')}
       ${dot(imgOk, '画像AI', `画像生成: ${imgProv}`)}
       ${dot(geminiKey, 'Gemini', 'テキスト生成AI')}
       ${dot(ytToken, 'YouTube', currentCharId ? 'このキャラのYT認証' : 'キャラ選択で確認')}
@@ -6164,19 +6163,31 @@ function renderSettingsPanel() {
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
 
     <!-- 🚀 初期設定ウィザード -->
-    <div class="card" style="border:2px solid ${allDone ? '#4caf50' : 'var(--accent)'};">
-      <div class="card-title" style="color:${allDone?'#4caf50':'var(--accent)'};">${allDone ? '✅ 初期設定完了' : '🚀 初期設定（初回のみ）'}</div>
-      ${allDone ? '<p style="font-size:.78rem;color:#4caf50;">すべての設定が完了しています。Drive同期・自動認証が有効です。</p>' : '<p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">以下を上から順に設定してください。一度やれば次回以降は自動で繋がります。</p>'}
-      ${step(gdToken && gdRefresh, `① Google Drive ログイン${gdRefresh?' ✅ 自動更新ON':' → データのクラウド保存・デバイス間同期用（rainybrain.ch でOK）'}`, "gdAuth()")}
-      ${step(hasKey, '② Gemini APIキー → AI生成の核心。必須です', "document.getElementById('geminiApiKey')?.focus()")}
-      ${step(hasFoldr, '③ DriveフォルダID → データを保存する Drive フォルダの ID', "document.getElementById('gdFolderInput')?.focus()")}
-      ${step(ytDone > 0, `④ YouTube認証 → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
-      <div style="margin-top:10px;padding:10px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.9;">
-        💡 <b>① Drive ログインで「アクセスをブロック」が出る場合：</b><br>
-        <b style="color:#ffd700;">Cloud Console → 認証情報 → OAuthクライアントID を「デスクトップアプリ」タイプで新規作成</b><br>
-        <span style="color:#aaa;">→ 生成されたクライアントID を下の「OAuth クライアントID」欄に貼り付け → 保存 → 再ログイン</span><br>
-        <b style="color:#ffd700;">Cloud Console → OAuth同意画面 → テストユーザーに <code>rainybrain.ch@gmail.com</code> を追加</b>
-      </div>
+    <div class="card" style="border:2px solid ${hasKey && ytDone > 0 ? '#4caf50' : 'var(--accent)'};">
+      <div class="card-title" style="color:${hasKey && ytDone > 0 ?'#4caf50':'var(--accent)'};">${hasKey && ytDone > 0 ? '✅ 必須設定完了' : '🚀 初期設定（初回のみ）'}</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">必須は ① と ②のみ。Drive は任意（ログインしなくても全機能使えます）。</p>
+
+      ${step(hasKey, '① Gemini APIキー ★必須 — AI生成の核心', "document.getElementById('geminiApiKey')?.focus()")}
+      ${step(ytDone > 0, `② YouTube認証 ★必須 — ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ）`, null)}
+
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:.78rem;color:var(--text-muted);padding:6px 0;">
+          ☁️ Drive 同期（任意）— ${gdToken ? '✅ 接続中（自動同期ON）' : '未接続（PC内localStorage のみで動作中）'}
+        </summary>
+        <div style="margin-top:8px;font-size:.76rem;color:var(--text-muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:10px 12px;">
+          Drive に接続すると: データをクラウド保存 / PC・スマホ間で同期 / GAS自動投稿キューの書き出し<br>
+          <b>接続しなくてもOK</b> — キャラ・エピソード・画像は全てブラウザ内に保存されます。<br><br>
+          ${gdToken
+            ? `<span style="color:#4caf50;">✅ ${gdRefresh ? '自動更新ON（長期接続済み）' : '接続中'}</span> <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="gdAuth()">再認証</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="gdAuth()">Google Drive に接続する（rainybrain.ch@gmail.com）</button>`
+          }
+          ${!gdToken ? `<div style="margin-top:10px;padding:8px;background:#1a2a1a;border-radius:6px;font-size:.72rem;color:#aed6a0;line-height:1.9;">
+            接続エラーが出る場合: Cloud Console → 認証情報 → OAuthクライアントID を <b>「デスクトップアプリ」</b>タイプで作成 →<br>
+            クライアントID を下の「OAuth クライアントID」欄に貼り付けて保存 → 再接続<br>
+            Cloud Console → OAuth同意画面 → テストユーザーに <code>rainybrain.ch@gmail.com</code> を追加
+          </div>` : ''}
+        </div>
+      </details>
     </div>
 
     <!-- VOICEVOX接続 -->
