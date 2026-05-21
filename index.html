@@ -391,6 +391,22 @@ const GIST_ID_SK      = 'channelos_gist_id';
 const GIST_PAT_SK     = 'channelos_gist_pat';
 const DRIVE_SYNC_FILE = 'channelos_sync_fileId'; // DriveのJSONファイルID
 
+// ── X (Twitter) ────────────────────────────────────
+const X_CLIENT_SK    = 'channelos_x_client_id';
+const X_TOKEN_PFX    = 'channelos_x_token_';
+const X_REFRESH_PFX  = 'channelos_x_refresh_';
+const X_EXPIRY_PFX   = 'channelos_x_expiry_';
+const X_USERID_PFX   = 'channelos_x_userid_';
+const X_UNAME_PFX    = 'channelos_x_username_';
+
+// ── Instagram ─────────────────────────────────────
+const IG_APP_ID_SK   = 'channelos_ig_app_id';
+const IG_APP_SEC_SK  = 'channelos_ig_app_secret';
+const IG_TOKEN_PFX   = 'channelos_ig_token_';
+const IG_USERID_PFX  = 'channelos_ig_userid_';
+const IG_UNAME_PFX   = 'channelos_ig_username_';
+const IG_EXPIRY_PFX  = 'channelos_ig_expiry_';
+
 // ── Drive データ同期 ────────────────────────────────
 let _syncTimer = null;
 let _syncStatus = ''; // 'synced'|'dirty'|'syncing'|'error'
@@ -1311,8 +1327,8 @@ function renderMain() {
     </div>
 
     <div class="tabs">
-      ${['plan','script','meta','scene','assets','publish','comments'].map(t => {
-        const labels = {plan:'📋 企画',script:'📝 台本',meta:'📄 概要欄',scene:'🎨 絵コンテ',assets:'🖼 素材',publish:'📦 投稿',comments:'💬 コメント'};
+      ${['plan','script','meta','scene','assets','publish','distribute','comments'].map(t => {
+        const labels = {plan:'📋 企画',script:'📝 台本',meta:'📄 概要欄',scene:'🎨 絵コンテ',assets:'🖼 素材',publish:'📦 投稿',distribute:'📡 配信',comments:'💬 コメント'};
         return `<button class="tab ${currentTab===t?'active':''}" id="tab_${t}" onclick="switchTab('${t}')">${labels[t]}<span class="notif-dot"></span></button>`;
       }).join('')}
     </div>
@@ -1324,6 +1340,7 @@ function renderMain() {
     ${renderRadioPanel()}
     ${renderAssetsPanel()}
     ${renderPublishPanel()}
+    ${renderDistributePanel()}
     ${renderCommentsPanel()}
     ${renderSettingsPanel()}
   `;
@@ -1363,8 +1380,9 @@ function switchTab(tab) {
       meta:     () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
       assets:   () => { loadDriveAssets(); },
       scene:    () => { setTimeout(initCanvas, 50); },
-      publish:  () => { setTimeout(renderCalendar, 0); },
-      comments: () => { setTimeout(renderCommentsPanel, 0); },
+      publish:     () => { setTimeout(renderCalendar, 0); },
+      distribute:  () => { const el = document.getElementById('panelDistribute'); if (el) el.outerHTML = renderDistributePanel(); },
+      comments:    () => { setTimeout(renderCommentsPanel, 0); },
     };
     if (renders[tab]) renders[tab]();
   }
@@ -1375,10 +1393,10 @@ function switchTab(tab) {
 
   // タブボタンactive
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active',
-    b.textContent.includes({plan:'企画',script:'台本',meta:'概要欄',scene:'絵コンテ',assets:'素材',publish:'投稿',comments:'コメント'}[tab]||'__none__')
+    b.textContent.includes({plan:'企画',script:'台本',meta:'概要欄',scene:'絵コンテ',assets:'素材',publish:'投稿',distribute:'配信',comments:'コメント'}[tab]||'__none__')
   ));
   // パネルactive
-  ['plan','script','meta','scene','assets','publish','settings'].forEach(t => {
+  ['plan','script','meta','scene','assets','publish','distribute','settings'].forEach(t => {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
     if (el) el.classList.toggle('active', t === tab);
   });
@@ -4108,6 +4126,133 @@ JSONのみ出力: [{"date":"YYYY-MM-DD","episode":1,"format":"horizontal|shorts"
 }
 
 // ════════════════════════════════════
+//  Distribution Panel（配信タブ）
+// ════════════════════════════════════
+function renderDistributePanel() {
+  const charId = currentCharId;
+  const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  const meta = ep?.meta || ep?.generatedMeta || {};
+  const videoUrl = ep?.youtubeUrl || '';
+
+  const xToken = localStorage.getItem(X_TOKEN_PFX + charId);
+  const xUser  = localStorage.getItem(X_UNAME_PFX + charId);
+  const igToken= localStorage.getItem(IG_TOKEN_PFX + charId);
+  const igUser = localStorage.getItem(IG_UNAME_PFX + charId);
+  const xClientId = localStorage.getItem(X_CLIENT_SK);
+  const igAppId   = localStorage.getItem(IG_APP_ID_SK);
+
+  const platBadge = (ok, name, icon) =>
+    `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:1rem;">${icon}</span>
+      <span style="flex:1;font-size:.85rem;color:${ok?'var(--text)':'var(--text-muted)'};">${name}</span>
+      <span style="font-size:.72rem;color:${ok?'#4caf50':'#aaa'};">${ok?'✅ 接続済':'未接続'}</span>
+    </div>`;
+
+  const hashtags = (meta.hashtags||[]).join(' ');
+  const tweetText = meta.title ? `${meta.title}\n${videoUrl}\n\n${hashtags.slice(0,80)}` : '';
+  const igCaption = meta.title ? `${meta.title}\n\n${meta.description?.slice(0,200)||''}\n\n${hashtags}` : '';
+
+  return `
+  <div class="panel ${currentTab==='distribute'?'active':''}" id="panelDistribute">
+
+    <!-- プラットフォーム接続状況 -->
+    <div class="card">
+      <div class="card-title">📡 プラットフォーム接続状況</div>
+      ${platBadge(!!xToken, `X (Twitter)${xUser?' — @'+xUser:''}`, '🐦')}
+      ${platBadge(!!igToken, `Instagram${igUser?' — @'+igUser:''}`, '📸')}
+      ${platBadge(true, 'YouTube（メインアカウントで接続済）', '🎥')}
+      ${platBadge(true, 'Note（コピー配信 — APIなし）', '📒')}
+      <div style="margin-top:10px;font-size:.74rem;color:var(--text-muted);">接続するには設定タブ →「配信アカウント設定」から認証してください</div>
+    </div>
+
+    <!-- 一括配信ボタン -->
+    <div class="card" style="border:2px solid var(--char-color);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
+      <div class="card-title">🚀 一括配信</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">YouTube動画URLを入力して「一括配信」を押すと、X・Note・ファーストコメントを自動処理します。</p>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:.78rem;">YouTube 動画URL</label>
+        <input type="text" id="distVideoUrl" placeholder="https://www.youtube.com/watch?v=..." value="${escHtml(videoUrl)}" style="margin-top:4px;">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" style="flex:1;min-width:160px;" onclick="distributeAll()">🚀 一括配信（X + Note + ファーストコメント）</button>
+        <button class="btn btn-secondary" onclick="postFirstComment()">💬 ファーストコメントのみ</button>
+      </div>
+      <div id="distributeLog" style="margin-top:12px;font-size:.78rem;display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <!-- X プレビュー -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">🐦 X (Twitter)</div>
+        ${xToken
+          ? `<button class="btn btn-primary btn-sm" onclick="postToX()">投稿する</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="xAuth('${charId}')">X に接続</button>`}
+      </div>
+      <label style="font-size:.78rem;">投稿テキスト（280字以内）</label>
+      <textarea id="xTweetText" style="margin-top:4px;min-height:100px;font-size:.85rem;">${escHtml(tweetText)}</textarea>
+      <div id="xCharCount" style="font-size:.72rem;color:var(--text-muted);text-align:right;margin-top:4px;">${tweetText.length}/280</div>
+      <script>document.getElementById('xTweetText')?.addEventListener('input',function(){document.getElementById('xCharCount').textContent=this.value.length+'/280';});<\/script>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="generateXThread()">🧵 スレッド生成（AI）</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyXText()">📋 コピー</button>
+      </div>
+      <div id="xThreadResult" style="margin-top:10px;font-size:.82rem;line-height:1.7;"></div>
+    </div>
+
+    <!-- Instagram プレビュー -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">📸 Instagram</div>
+        ${igToken
+          ? `<button class="btn btn-primary btn-sm" onclick="postToInstagram()">投稿する</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="igAuth('${charId}')">Instagram に接続</button>`}
+      </div>
+      <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">サムネイル画像＋キャプションをInstagramに投稿します。Business/Creatorアカウント必須。</p>
+      <label style="font-size:.78rem;">キャプション</label>
+      <textarea id="igCaption" style="margin-top:4px;min-height:100px;font-size:.85rem;">${escHtml(igCaption)}</textarea>
+      <div style="margin-top:8px;">
+        <label style="font-size:.78rem;">投稿する画像URL（または左記サムネを使用）</label>
+        <input type="text" id="igImageUrl" placeholder="https://..." value="${escHtml(ep?.thumbnailDataUrl?'':meta.thumb_shorts||'')}" style="margin-top:4px;font-size:.82rem;">
+      </div>
+    </div>
+
+    <!-- Note 記事 -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">📒 Note記事</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="generateNoteArticle()">✨ AI生成</button>
+          <button class="btn btn-primary btn-sm" onclick="copyNoteAndOpen()">📋 コピー＆Note開く</button>
+        </div>
+      </div>
+      <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">Note公式APIなし。「コピー＆Note開く」でClipboardに入れてから貼り付けてください。</p>
+      <div id="noteArticleArea" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:.82rem;line-height:1.8;white-space:pre-wrap;min-height:80px;color:var(--text);">${escHtml(ep?.noteArticle||'（「AI生成」ボタンで記事を作成）')}</div>
+      <div id="noteLoading" class="loading" style="display:none;margin-top:8px;"><div class="spinner"></div><span>Note記事を生成中...</span></div>
+    </div>
+
+    <!-- ファーストコメント設定 -->
+    <div class="card">
+      <div class="card-title">💬 ファーストコメント</div>
+      <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:10px;">YouTube投稿後、自動でチャンネル主からコメントを入れます。固定コメントにも使えます。</p>
+      <label style="font-size:.78rem;">コメント文（AI生成 or 手動入力）</label>
+      <textarea id="firstCommentText" style="margin-top:4px;min-height:80px;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="generateFirstComment()">✨ AIで生成</button>
+        <button class="btn btn-primary btn-sm" onclick="postFirstComment()">💬 今すぐ投稿</button>
+      </div>
+      <div id="firstCommentStatus" style="margin-top:8px;font-size:.78rem;"></div>
+    </div>
+
+  </div>`;
+}
+
+function generateDefaultFirstComment(meta) {
+  if (!meta?.title) return '';
+  const tags = (meta.hashtags||[]).slice(0,3).join(' ');
+  return `ご視聴ありがとうございます！💛\nコメント・いいね・保存で応援してください🙏\n${tags}`;
+}
+
+// ════════════════════════════════════
 //  Settings Panel
 // ════════════════════════════════════
 function renderSettingsPanel() {
@@ -4219,6 +4364,76 @@ function renderSettingsPanel() {
         </div>
       </div>
     </details>
+
+    <!-- 配信アカウント設定 -->
+    <div class="card" style="margin-top:8px;border:1px solid #4a9edd44;">
+      <div class="card-title" style="color:#4a9edd;">📡 配信アカウント設定</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">X (Twitter) と Instagram を接続するための設定。Developer アカウントが必要です。</p>
+
+      <details style="margin-bottom:12px;">
+        <summary style="cursor:pointer;font-size:.82rem;color:#4a9edd;font-weight:600;padding:6px 0;">🐦 X (Twitter) 設定</summary>
+        <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:6px;">
+          <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;line-height:1.7;">
+            <b>設定手順：</b><br>
+            ① <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" style="color:#4a9edd;">Twitter Developer Portal</a> でアプリを作成<br>
+            ② User authentication settings → OAuth 2.0 を有効化 → Type: Public client<br>
+            ③ Callback URL: <code style="background:#111;padding:2px 6px;border-radius:4px;">https://rainybrainch.github.io/channel-os/</code><br>
+            ④ Client ID をコピーして下に貼り付け
+          </p>
+          <label style="font-size:.78rem;">X Client ID</label>
+          <input type="text" id="xClientIdInput" placeholder="xxxxxxxxxxxxxxxxxxxxxxx" value="${localStorage.getItem(X_CLIENT_SK)||''}" style="margin-top:4px;font-size:.82rem;">
+          <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="saveXClientId()">保存</button>
+          <div style="margin-top:10px;">
+            ${(data.characters||[]).map(c => {
+              const tok = localStorage.getItem(X_TOKEN_PFX + c.id);
+              const uname = localStorage.getItem(X_UNAME_PFX + c.id);
+              return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
+                <span style="font-size:.85rem;flex:1;">${escHtml(c.name)}</span>
+                ${tok ? `<span style="font-size:.72rem;color:#4a8;">✅ @${escHtml(uname||'接続済')}</span>
+                  <button class="btn btn-secondary btn-sm" onclick="xLogout('${c.id}')">解除</button>`
+                      : `<button class="btn btn-primary btn-sm" onclick="xAuth('${c.id}')">X接続</button>`}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </details>
+
+      <details>
+        <summary style="cursor:pointer;font-size:.82rem;color:#e040fb;font-weight:600;padding:6px 0;">📸 Instagram 設定</summary>
+        <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:6px;">
+          <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;line-height:1.7;">
+            <b>設定手順：</b><br>
+            ① <a href="https://developers.facebook.com/apps/" target="_blank" style="color:#e040fb;">Meta for Developers</a> でアプリを作成<br>
+            ② Instagram Graph API を追加<br>
+            ③ Business または Creator アカウントと連携<br>
+            ④ App ID と App Secret を下に入力
+          </p>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div>
+              <label style="font-size:.78rem;">Instagram App ID</label>
+              <input type="text" id="igAppIdInput" placeholder="123456789..." value="${localStorage.getItem(IG_APP_ID_SK)||''}" style="margin-top:4px;font-size:.82rem;">
+            </div>
+            <div>
+              <label style="font-size:.78rem;">App Secret</label>
+              <input type="password" id="igAppSecInput" placeholder="（安全にローカルに保存されます）" value="${localStorage.getItem(IG_APP_SEC_SK)||''}" style="margin-top:4px;font-size:.82rem;" autocomplete="off">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="saveIgSettings()">保存</button>
+          <div style="margin-top:10px;">
+            ${(data.characters||[]).map(c => {
+              const tok = localStorage.getItem(IG_TOKEN_PFX + c.id);
+              const uname = localStorage.getItem(IG_UNAME_PFX + c.id);
+              return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
+                <span style="font-size:.85rem;flex:1;">${escHtml(c.name)}</span>
+                ${tok ? `<span style="font-size:.72rem;color:#4a8;">✅ @${escHtml(uname||'接続済')}</span>
+                  <button class="btn btn-secondary btn-sm" onclick="igLogout('${c.id}')">解除</button>`
+                      : `<button class="btn btn-primary btn-sm" onclick="igAuth('${c.id}')">Instagram接続</button>`}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </details>
+    </div>
 
     <!-- 字幕スタイル設定 -->
     <div class="card" style="margin-top:8px;">
@@ -5342,6 +5557,10 @@ async function uploadVideoToYouTube() {
   if (!code) return;
   history.replaceState(null, '', location.pathname);
 
+  // X / Instagram コールバックを先に確認
+  const isDistribute = await _handleDistributeCallback(params);
+  if (isDistribute) return;
+
   const verifier  = sessionStorage.getItem('pkce_verifier');
   const pkceType  = sessionStorage.getItem('pkce_type');
   sessionStorage.removeItem('pkce_verifier');
@@ -6144,6 +6363,345 @@ function toSRTTime(sec) {
   const s = Math.floor(sec % 60);
   const ms = Math.round((sec % 1) * 1000);
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+}
+
+// ════════════════════════════════════
+//  X (Twitter) 認証・投稿
+// ════════════════════════════════════
+function saveXClientId() {
+  const v = document.getElementById('xClientIdInput')?.value.trim();
+  if (!v) { showToast('Client IDを入力してください'); return; }
+  localStorage.setItem(X_CLIENT_SK, v);
+  showToast('✅ X Client IDを保存しました');
+}
+
+async function xAuth(charId) {
+  const clientId = localStorage.getItem(X_CLIENT_SK);
+  if (!clientId) { showToast('設定タブ → 配信アカウント設定 → X Client IDを先に設定してください'); switchTab('settings'); return; }
+  const { verifier, challenge } = await _pkcePair();
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('x_pkce_verifier', verifier);
+  sessionStorage.setItem('x_pkce_char', charId);
+  sessionStorage.setItem('x_pkce_state', state);
+  const redirect = localStorage.getItem('channelos_redirect') || 'https://rainybrainch.github.io/channel-os/';
+  const scope = encodeURIComponent('tweet.write users.read offline.access');
+  const url = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}&scope=${scope}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
+  window.location.href = url;
+}
+
+async function _xExchangeCode(code, verifier, clientId, redirect) {
+  // X PKCE token exchange（公開クライアント → Basic auth不要）
+  const body = new URLSearchParams({ code, grant_type:'authorization_code', client_id:clientId, redirect_uri:redirect, code_verifier:verifier });
+  const res = await fetch('https://api.twitter.com/2/oauth2/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  if (!res.ok) throw new Error('X token exchange failed: ' + await res.text());
+  return res.json();
+}
+
+async function _xRefresh(charId) {
+  const clientId = localStorage.getItem(X_CLIENT_SK);
+  const refresh  = localStorage.getItem(X_REFRESH_PFX + charId);
+  if (!clientId || !refresh) return null;
+  const body = new URLSearchParams({ grant_type:'refresh_token', refresh_token:refresh, client_id:clientId });
+  const res = await fetch('https://api.twitter.com/2/oauth2/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  if (!res.ok) return null;
+  const data2 = await res.json();
+  const expiry = Date.now() + (data2.expires_in || 7200) * 1000;
+  localStorage.setItem(X_TOKEN_PFX + charId, data2.access_token);
+  localStorage.setItem(X_EXPIRY_PFX + charId, expiry);
+  if (data2.refresh_token) localStorage.setItem(X_REFRESH_PFX + charId, data2.refresh_token);
+  return data2.access_token;
+}
+
+async function getXToken(charId) {
+  const expiry = parseInt(localStorage.getItem(X_EXPIRY_PFX + charId)||'0');
+  const token  = localStorage.getItem(X_TOKEN_PFX + charId);
+  if (token && Date.now() < expiry - 120000) return token;
+  return await _xRefresh(charId);
+}
+
+function xLogout(charId) {
+  [X_TOKEN_PFX, X_REFRESH_PFX, X_EXPIRY_PFX, X_USERID_PFX, X_UNAME_PFX].forEach(p => localStorage.removeItem(p + charId));
+  showToast('X接続を解除しました');
+  const sp = document.getElementById('panelSettings'); if (sp) sp.outerHTML = renderSettingsPanel();
+}
+
+async function postToX(charId = currentCharId) {
+  const token = await getXToken(charId);
+  if (!token) { showToast('X未接続です。設定タブから接続してください'); return; }
+  const text = document.getElementById('xTweetText')?.value.trim();
+  if (!text) { showToast('投稿テキストを入力してください'); return; }
+  if (text.length > 280) { showToast('280字を超えています'); return; }
+  aiStart('Xに投稿中...');
+  try {
+    const res = await fetch('https://api.twitter.com/2/tweets', {
+      method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) { const e=await res.json(); throw new Error(e.detail||JSON.stringify(e)); }
+    const d = await res.json();
+    aiEnd('distribute');
+    showToast('✅ Xに投稿しました！');
+    _distLog('🐦 X投稿完了', 'success');
+    return d.data?.id;
+  } catch(e) { aiEnd(null); showToast('X投稿エラー: '+e.message); _distLog('🐦 X投稿失敗: '+e.message,'error'); }
+}
+
+function copyXText() {
+  const text = document.getElementById('xTweetText')?.value || '';
+  copyText(text);
+}
+
+async function generateXThread() {
+  const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  const meta = ep?.meta || {};
+  if (!meta.title) { showToast('先に概要欄を生成してください'); return; }
+  aiStart('Xスレッドを生成中...');
+  const prompt = `以下の動画をXでスレッド投稿する文章を3〜5ツイート分生成してください。
+タイトル: ${meta.title}
+概要: ${meta.description?.slice(0,300)||''}
+ハッシュタグ: ${(meta.hashtags||[]).slice(0,3).join(' ')}
+
+条件:
+- 1ツイートは270字以内
+- 1ツイート目はフックで興味を引く
+- 最後のツイートにYouTube動画リンクの案内と主要ハッシュタグを入れる
+- 番号付きで出力: 【1】〜【5】`;
+  try {
+    const text = await callClaude(prompt);
+    aiEnd('distribute');
+    const el = document.getElementById('xThreadResult');
+    if (el) el.innerHTML = text.split('\n').map(l=>`<p style="margin:4px 0;">${escHtml(l)}</p>`).join('');
+  } catch(e) { aiEnd(null); showToast('エラー: '+e.message); }
+}
+
+// ════════════════════════════════════
+//  Instagram 認証・投稿
+// ════════════════════════════════════
+function saveIgSettings() {
+  const appId  = document.getElementById('igAppIdInput')?.value.trim();
+  const secret = document.getElementById('igAppSecInput')?.value.trim();
+  if (!appId) { showToast('App IDを入力してください'); return; }
+  localStorage.setItem(IG_APP_ID_SK, appId);
+  if (secret) localStorage.setItem(IG_APP_SEC_SK, secret);
+  showToast('✅ Instagram設定を保存しました');
+}
+
+async function igAuth(charId) {
+  const appId = localStorage.getItem(IG_APP_ID_SK);
+  if (!appId) { showToast('設定タブ → 配信アカウント設定 → Instagram App IDを先に設定してください'); switchTab('settings'); return; }
+  const state = charId + '_' + Math.random().toString(36).slice(2);
+  sessionStorage.setItem('ig_auth_char', charId);
+  sessionStorage.setItem('ig_auth_state', state);
+  const redirect = localStorage.getItem('channelos_redirect') || 'https://rainybrainch.github.io/channel-os/';
+  const scope = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement';
+  const url = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirect)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
+  window.location.href = url;
+}
+
+async function _igExchangeCode(code, charId, appId, appSecret, redirect) {
+  const body = new URLSearchParams({ client_id:appId, client_secret:appSecret, grant_type:'authorization_code', redirect_uri:redirect, code });
+  const res = await fetch('https://api.instagram.com/oauth/access_token', { method:'POST', body });
+  if (!res.ok) throw new Error('IG token exchange failed: ' + await res.text());
+  const data2 = await res.json();
+  // 短期トークン → 長期トークン（60日）に交換
+  const longRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${appSecret}&access_token=${data2.access_token}`);
+  if (!longRes.ok) return data2;
+  const longData = await longRes.json();
+  const expiry = Date.now() + (longData.expires_in||5184000)*1000;
+  localStorage.setItem(IG_TOKEN_PFX + charId, longData.access_token);
+  localStorage.setItem(IG_EXPIRY_PFX + charId, expiry);
+  localStorage.setItem(IG_USERID_PFX + charId, data2.user_id);
+  // ユーザー名取得
+  try {
+    const uRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${longData.access_token}`);
+    const uData = await uRes.json();
+    if (uData.username) localStorage.setItem(IG_UNAME_PFX + charId, uData.username);
+  } catch(e) {}
+  return longData;
+}
+
+async function postToInstagram(charId = currentCharId) {
+  const token  = localStorage.getItem(IG_TOKEN_PFX + charId);
+  const userId = localStorage.getItem(IG_USERID_PFX + charId);
+  if (!token || !userId) { showToast('Instagram未接続です'); return; }
+  const caption  = document.getElementById('igCaption')?.value.trim() || '';
+  const imageUrl = document.getElementById('igImageUrl')?.value.trim();
+  if (!imageUrl) { showToast('投稿する画像URLを入力してください'); return; }
+  aiStart('Instagramに投稿中...');
+  try {
+    // Step1: media container作成
+    const createRes = await fetch(`https://graph.instagram.com/v18.0/${userId}/media`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image_url:imageUrl, caption, access_token:token })
+    });
+    if (!createRes.ok) { const e=await createRes.json(); throw new Error(e.error?.message||JSON.stringify(e)); }
+    const { id: containerId } = await createRes.json();
+    // Step2: publish
+    const pubRes = await fetch(`https://graph.instagram.com/v18.0/${userId}/media_publish`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ creation_id:containerId, access_token:token })
+    });
+    if (!pubRes.ok) { const e=await pubRes.json(); throw new Error(e.error?.message||JSON.stringify(e)); }
+    aiEnd('distribute');
+    showToast('✅ Instagramに投稿しました！');
+    _distLog('📸 Instagram投稿完了', 'success');
+  } catch(e) { aiEnd(null); showToast('Instagram投稿エラー: '+e.message); _distLog('📸 Instagram失敗: '+e.message,'error'); }
+}
+
+function igLogout(charId) {
+  [IG_TOKEN_PFX, IG_EXPIRY_PFX, IG_USERID_PFX, IG_UNAME_PFX].forEach(p => localStorage.removeItem(p + charId));
+  showToast('Instagram接続を解除しました');
+  const sp = document.getElementById('panelSettings'); if (sp) sp.outerHTML = renderSettingsPanel();
+}
+
+// ════════════════════════════════════
+//  Note 記事生成
+// ════════════════════════════════════
+async function generateNoteArticle() {
+  const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  const meta = ep?.meta || {};
+  const script = ep?.script || '';
+  if (!meta.title && !script) { showToast('先に台本・概要欄を生成してください'); return; }
+  const noteLoading = document.getElementById('noteLoading');
+  if (noteLoading) noteLoading.style.display = 'flex';
+  aiStart('Note記事を生成中...');
+  const char = data.characters.find(c=>c.id===currentCharId);
+  const prompt = `以下のYouTube動画の内容をNote記事として書き直してください。
+キャラクター: ${char?.name||''}（${char?.species||''}）テーマ: ${char?.theme||''}
+タイトル: ${meta.title||''}
+概要: ${meta.description?.slice(0,400)||''}
+台本（抜粋）: ${script.slice(0,600)}
+
+Note記事の構成：
+- タイトル（記事タイトル）
+- リード文（3〜4行・読者の興味を引く）
+- 本文（見出しを3〜5個つけて、各300〜500字で展開）
+- まとめ（YouTube動画への誘導文を含む）
+- マガジン用タグ提案（#の形式で3〜5個）
+
+YouTube動画のリンクは「【YouTube動画はこちら】」というプレースホルダーを使ってください。
+読者に価値を届ける読み物として、動画の要約ではなく深掘り記事として書いてください。`;
+  try {
+    const text = await callClaude(prompt);
+    aiEnd('distribute');
+    if (noteLoading) noteLoading.style.display = 'none';
+    const area = document.getElementById('noteArticleArea');
+    if (area) area.textContent = text;
+    // エピソードに保存
+    if (currentEpisodeId) {
+      const _ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+      if (_ep) { _ep.noteArticle = text; saveData(data); }
+    }
+    showToast('✅ Note記事を生成しました');
+  } catch(e) {
+    aiEnd(null);
+    if (noteLoading) noteLoading.style.display = 'none';
+    showToast('エラー: '+e.message);
+  }
+}
+
+function copyNoteAndOpen() {
+  const text = document.getElementById('noteArticleArea')?.textContent || '';
+  if (!text || text.includes('AI生成')) { showToast('先にNote記事を生成してください'); return; }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 記事をコピーしました。Note.comに貼り付けてください');
+    setTimeout(() => window.open('https://note.com/new', '_blank'), 800);
+  }).catch(() => { copyText(text); window.open('https://note.com/new', '_blank'); });
+}
+
+// ════════════════════════════════════
+//  一括配信
+// ════════════════════════════════════
+async function distributeAll() {
+  const log = document.getElementById('distributeLog');
+  if (log) log.innerHTML = '';
+  _distLog('🚀 配信開始...', 'info');
+
+  // 1. X投稿
+  const xToken = await getXToken(currentCharId);
+  if (xToken) {
+    _distLog('🐦 X投稿中...', 'info');
+    await postToX(currentCharId);
+  } else {
+    _distLog('🐦 X: 未接続のためスキップ', 'warn');
+  }
+
+  // 2. ファーストコメント
+  _distLog('💬 ファーストコメント投稿中...', 'info');
+  await postFirstComment();
+
+  // 3. Note（コピー案内）
+  const noteText = document.getElementById('noteArticleArea')?.textContent || '';
+  if (noteText && !noteText.includes('AI生成')) {
+    _distLog('📒 Note: 記事生成済み。「コピー＆Note開く」で投稿してください', 'warn');
+  } else {
+    _distLog('📒 Note: 記事未生成。「AI生成」ボタンで作成してください', 'warn');
+  }
+
+  _distLog('✅ 配信処理が完了しました', 'success');
+}
+
+function _distLog(msg, type='info') {
+  const log = document.getElementById('distributeLog');
+  if (!log) return;
+  const colors = { info:'var(--text-muted)', success:'#4caf50', error:'#e55', warn:'#c9a84c' };
+  const div = document.createElement('div');
+  div.style.cssText = `font-size:.78rem;color:${colors[type]||colors.info};padding:3px 0;`;
+  div.textContent = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ════════════════════════════════════
+//  OAuth コールバック処理拡張（X・IG）
+// ════════════════════════════════════
+async function _handleDistributeCallback(params) {
+  const code  = params.get('code');
+  const state = params.get('state');
+  if (!code) return false;
+
+  // X callback判定
+  const xState = sessionStorage.getItem('x_pkce_state');
+  if (xState && state === xState) {
+    const verifier = sessionStorage.getItem('x_pkce_verifier');
+    const charId   = sessionStorage.getItem('x_pkce_char');
+    const clientId = localStorage.getItem(X_CLIENT_SK);
+    const redirect = localStorage.getItem('channelos_redirect') || 'https://rainybrainch.github.io/channel-os/';
+    ['x_pkce_verifier','x_pkce_char','x_pkce_state'].forEach(k=>sessionStorage.removeItem(k));
+    try {
+      const data2 = await _xExchangeCode(code, verifier, clientId, redirect);
+      const expiry = Date.now() + (data2.expires_in||7200)*1000;
+      localStorage.setItem(X_TOKEN_PFX + charId, data2.access_token);
+      localStorage.setItem(X_EXPIRY_PFX + charId, expiry);
+      if (data2.refresh_token) localStorage.setItem(X_REFRESH_PFX + charId, data2.refresh_token);
+      // ユーザー名取得
+      const uRes = await fetch('https://api.twitter.com/2/users/me', { headers:{'Authorization':'Bearer '+data2.access_token} });
+      const uData = await uRes.json();
+      if (uData.data?.username) localStorage.setItem(X_UNAME_PFX + charId, uData.data.username);
+      if (uData.data?.id)       localStorage.setItem(X_USERID_PFX + charId, uData.data.id);
+      showToast('✅ X (@' + (uData.data?.username||'接続') + ') 認証完了！');
+    } catch(e) { showToast('X認証エラー: '+e.message); }
+    return true;
+  }
+
+  // Instagram callback判定
+  const igState = sessionStorage.getItem('ig_auth_state');
+  if (igState && state === decodeURIComponent(igState) || (igState && state?.startsWith(sessionStorage.getItem('ig_auth_char')||'__'))){
+    const charId  = sessionStorage.getItem('ig_auth_char');
+    const appId   = localStorage.getItem(IG_APP_ID_SK);
+    const secret  = localStorage.getItem(IG_APP_SEC_SK);
+    const redirect= localStorage.getItem('channelos_redirect') || 'https://rainybrainch.github.io/channel-os/';
+    ['ig_auth_char','ig_auth_state'].forEach(k=>sessionStorage.removeItem(k));
+    if (!secret) { showToast('App Secretが未設定です。設定タブから設定してください'); return true; }
+    try {
+      await _igExchangeCode(code, charId, appId, secret, redirect);
+      const uname = localStorage.getItem(IG_UNAME_PFX + charId) || '接続完了';
+      showToast('✅ Instagram (@' + uname + ') 認証完了！');
+    } catch(e) { showToast('Instagram認証エラー: '+e.message); }
+    return true;
+  }
+
+  return false;
 }
 
 function downloadSRT() {
