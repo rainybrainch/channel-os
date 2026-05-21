@@ -8583,8 +8583,7 @@ function handleRefImageUpload(input) {
     const ph   = document.getElementById('refImagePlaceholder');
     if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
     if (ph)   ph.style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  });
 }
 function clearRefImage() {
   document.getElementById('newCharRefImage').value = '';
