@@ -5911,17 +5911,19 @@ async function generateWeeklyPlan() {
     return `${c.name}（${c.theme}）- 過去${s.totalEps}本 / 比率: ${s.patternSummary || 'なし'}${s.suggest ? ' / 不足: '+s.suggest : ''}`;
   }).join('\n');
 
+  const userRequest = document.getElementById('weeklyPlanRequest')?.value.trim() || '';
   const prompt = `あなたはYouTubeチャンネルの週次プランナーです。
 以下のキャラクターに対して、今週7日間の投稿スケジュールを戦略的に生成してください。
 
 【キャラクター別戦略コンテキスト】
 ${charStrategies}
-
+${userRequest ? `\n【今週の要望・テーマ指示】\n${userRequest}\n` : ''}
 【ルール】
 - 各キャラクターはできれば毎日or隔日投稿
 - 同じコンテンツパターンが連続しない
 - コンテンツ比率のバランスを改善する方向で
 - 投稿時間は18:00〜20:00の間で自然にばらつかせる
+- 要望がある場合は最優先で反映する
 
 以下のJSON形式のみ出力：
 [{"date":"YYYY-MM-DD","charName":"キャラ名","contentPattern":"パターンID","theme":"今日のテーマ1行","time":"18:00"}]
@@ -7196,6 +7198,7 @@ function renderPublishPanel() {
       <div class="cal-grid" id="calGrid"></div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:.72rem;color:var(--text-muted);">日をクリック→予定追加 / 予定クリック→編集</span>
+        <input type="text" id="weeklyPlanRequest" placeholder="要望（例: 今週は筋トレネタ多め）" style="font-size:.78rem;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:200px;">
         <button class="btn btn-sm" style="background:#27ae60;color:#fff;" onclick="generateWeeklyPlan()">📅 1週間自動プラン</button>
         <button class="btn btn-sm" style="background:#c0392b;color:#fff;margin-left:auto;" onclick="importPostedVideos()">📥 投稿済み動画を取得</button>
       </div>
