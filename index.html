@@ -607,6 +607,9 @@ const GD_EXPIRY_SK  = 'channelos_gd_token_expiry';
 const GD_REFRESH_SK = 'channelos_gd_refresh_token';
 const GD_CLIENT_SK  = 'channelos_gd_client_id';
 const GD_FOLDER_SK  = 'channelos_gd_folder_id';
+const GD_FOLDER_DEFAULT = '1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy';
+// 未設定なら自動でデフォルトをセット
+if (!localStorage.getItem(GD_FOLDER_SK)) localStorage.setItem(GD_FOLDER_SK, GD_FOLDER_DEFAULT);
 const YT_TOKEN_SK   = 'channelos_yt_token';
 const YT_EXPIRY_PFX = 'channelos_yt_token_expiry_';
 const YT_REFRESH_PFX= 'channelos_yt_refresh_';
@@ -805,7 +808,7 @@ function defaultData() {
       theme: '筋トレ・フィットネス', tone: '熱血・ポジティブ・体育会系',
       color: '#FF4500', channel_id: 'UC39C9TLzlPxvFv6Radzgbcw',
       ai_personality: '熱血で前向きなライオン。筋トレの辛さも笑いに変える。ギャグ多め。視聴者を仲間と呼ぶ。',
-      icon: '🦁', avatar_url: '', drive_folder_id: '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x',
+      icon: '🦁', avatar_url: '', drive_folder_id: '1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy',
       gpt_url: 'https://chatgpt.com/g/g-6a0c21c1924881918ca4e8073e147afe-kaorur',
       gem_url: 'https://gemini.google.com/u/0/gem/fe5184980316'
     }, {
@@ -1416,7 +1419,7 @@ async function driveRequest(url, options = {}) {
 }
 
 async function findSharedFile() {
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy';
   const res = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=name='${SHARED_FILENAME}'+and+'${folderId}'+in+parents&fields=files(id)`);
   if (!res) return null;
   const json = await res.json();
@@ -1426,7 +1429,7 @@ async function findSharedFile() {
 async function autoSaveToDrive() {
   const token = localStorage.getItem(GD_TOKEN_SK);
   if (!token) return;
-  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  const folderId = localStorage.getItem(GD_FOLDER_SK) || '1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy';
   try {
     if (!sharedFileId) sharedFileId = await findSharedFile();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -5179,7 +5182,7 @@ function renderAssetsPanel() {
 function getCharFolderId() {
   const char = data.characters.find(c => c.id === currentCharId);
   console.log('[Drive folder] char:', char?.name, 'folder:', char?.drive_folder_id);
-  return (char && char.drive_folder_id) || localStorage.getItem(GD_FOLDER_SK) || '1-QySS62i1cHPNh9lHg1quqPtyZ2zIp_x';
+  return (char && char.drive_folder_id) || localStorage.getItem(GD_FOLDER_SK) || '1NNml8cHjBe3lqGwvn21mnqP1p5UO5Fyy';
 }
 
 async function loadDriveAssets() {
