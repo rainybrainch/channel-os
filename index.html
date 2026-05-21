@@ -1410,6 +1410,7 @@ function renderPlanPanel(char) {
   const _savedTheme  = _epInput?.inputTheme  || '';
   const _savedNote   = _epInput?.inputNote   || '';
   const _savedDetail = _epInput?.inputDetail || '';
+  const _savedPattern = _epInput?.inputPattern || 'explanation';
   const _savedFormat = _epInput?.inputFormat || 'horizontal';
   return `
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
@@ -1436,9 +1437,31 @@ function renderPlanPanel(char) {
         <input type="hidden" id="allGenFormat" value="${_savedFormat}">
       </div>
 
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="patternCards">
+          ${[
+            {id:'explanation', icon:'🎤', label:'解説', desc:'キャラが語る'},
+            {id:'ranking',     icon:'🏆', label:'ランキング', desc:'TOP5・比較'},
+            {id:'story',       icon:'📖', label:'ストーリー', desc:'「もし〇〇なら」'},
+            {id:'drama',       icon:'🎭', label:'ドラマ', desc:'キャラ体験談'},
+            {id:'dialogue',    icon:'💬', label:'対談', desc:'Q&A・掛け合い'},
+            {id:'challenge',   icon:'🔥', label:'チャレンジ', desc:'実験・試す'},
+            {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・感想'},
+            {id:'howto',       icon:'📋', label:'How-To', desc:'手順・やり方'},
+            {id:'secret',      icon:'🤫', label:'暴露・本音', desc:'裏側・実態'},
+          ].map(p => `<label id="patternCard_${p.id}" onclick="selectPattern('${p.id}')" style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:10px 8px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;">
+            <span style="font-size:1.3rem;">${p.icon}</span>
+            <span style="font-weight:700;font-size:.82rem;">${p.label}</span>
+            <span style="font-size:.66rem;color:var(--text-muted);">${p.desc}</span>
+          </label>`).join('')}
+        </div>
+        <input type="hidden" id="allGenPattern" value="${_savedPattern}">
+      </div>
+
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">STEP 2 ── 企画テーマ</label>
+          <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">STEP 3 ── 企画テーマ</label>
           <button class="btn btn-secondary btn-sm" style="font-size:.72rem;padding:4px 10px;" onclick="suggestTheme()">💡 AIが提案</button>
         </div>
         <div id="themeSuggestArea" style="display:none;margin-bottom:8px;"></div>
@@ -1448,13 +1471,13 @@ function renderPlanPanel(char) {
       </div>
 
       <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 3 ── 追加指示（任意）</label>
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 4 ── 追加指示（任意）</label>
         <input type="text" id="allGenNote" placeholder="例: ギャグ多め、感情的に訴える、データ重視で信頼感を出す…" value="${escHtml(_savedNote)}"
           style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
       </div>
 
       <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 4 ── 詳細指示（任意）</label>
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 5 ── 詳細指示（任意）</label>
         <textarea id="allGenDetail" placeholder="例: この動画は新規視聴者向け。冒頭に統計データを入れる。最後はLINE登録に誘導する。"
           style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;">${escHtml(_savedDetail)}</textarea>
       </div>
@@ -1592,6 +1615,34 @@ function selectFormat(fmt) {
   if (btn60) btn60.style.fontWeight = fmt === 'shorts' ? '700' : '400';
   if (btn180) btn180.style.fontWeight = fmt === 'horizontal' ? '700' : '400';
 }
+const PATTERN_GUIDE = {
+  explanation: { label:'解説', guide:'キャラが専門知識や体験を分かりやすく語る。冒頭に「知らないと損する」系フック。断言→理由→具体例の構成。' },
+  ranking:     { label:'ランキング', guide:'TOP5〜3形式でカウントダウン。「第○位は…意外にも…」という引きを各ランクに。比較・数字・驚き反転を多用。' },
+  story:       { label:'ストーリー', guide:'「もし○○だったら」「もし○○になったら」という仮想シナリオ。キャラが体験者として一人称で語る。感情の起伏を重視。' },
+  drama:       { label:'ドラマ', guide:'キャラが実際に経験したような体験談形式。「実は……があった」から始め、葛藤→転換→教訓の三幕構成。' },
+  dialogue:    { label:'対談', guide:'Q&A形式またはキャラが2役（質問者と回答者）を演じる。「よく聞かれるんですが…」「正直に言うと…」などの掛け合いリズム。' },
+  challenge:   { label:'チャレンジ', guide:'「○○を△△日間やってみた」「○○に挑戦」形式。実験・検証・試みの過程と結果を動的に語る。失敗も含めるとリアリティ増。' },
+  reaction:    { label:'リアクション', guide:'驚き・感動・共感をベースにレビューや反応を語る。「信じられない…」「これは知らなかった」などの感情表現を多用。' },
+  howto:       { label:'How-To', guide:'ステップ形式（STEP1→STEP2→STEP3）で実用情報を伝える。「まず…次に…最後に…」の手順構成。初心者が実践できる粒度で。' },
+  secret:      { label:'暴露・本音', guide:'「実は知られていない…」「業界の裏側…」「正直に言うと…」形式。インサイダー感・禁断感を演出。視聴者の好奇心を最大化。' },
+};
+
+function selectPattern(pid) {
+  document.getElementById('allGenPattern').value = pid;
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--char-color').trim() || '#c9a84c';
+  Object.keys(PATTERN_GUIDE).forEach(k => {
+    const card = document.getElementById('patternCard_' + k);
+    if (!card) return;
+    const active = k === pid;
+    card.style.border = `2px solid ${active ? color : 'var(--border)'}`;
+    card.style.background = active ? 'rgba(201,168,76,.12)' : 'transparent';
+  });
+  if (currentEpisodeId) {
+    const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (ep) { ep.inputPattern = pid; saveData(data); }
+  }
+}
+
 function getEpisodeFormat() {
   const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
   return ep?.inputFormat || 'horizontal';
@@ -1614,9 +1665,10 @@ async function generateAll() {
   if (!apiKey) { showToast('設定タブでGemini APIキーを入力してください'); return; }
   const theme = document.getElementById('planTheme').value.trim();
   if (!theme) { showToast('テーマを入力してください'); return; }
-  const format = document.getElementById('allGenFormat')?.value || 'horizontal';
-  const note   = document.getElementById('allGenNote')?.value.trim() || '';
-  const detail = document.getElementById('allGenDetail')?.value.trim() || '';
+  const format  = document.getElementById('allGenFormat')?.value || 'horizontal';
+  const pattern = document.getElementById('allGenPattern')?.value || 'explanation';
+  const note    = document.getElementById('allGenNote')?.value.trim() || '';
+  const detail  = document.getElementById('allGenDetail')?.value.trim() || '';
 
   // エピソードが未選択なら自動で新規作成
   if (!currentEpisodeId) {
@@ -1626,7 +1678,7 @@ async function generateAll() {
   // 入力値をエピソードに保存
   if (currentEpisodeId) {
     const _ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
-    if (_ep) { _ep.inputTheme = theme; _ep.inputNote = note; _ep.inputDetail = detail; _ep.inputFormat = format; saveData(data); }
+    if (_ep) { _ep.inputTheme = theme; _ep.inputNote = note; _ep.inputDetail = detail; _ep.inputFormat = format; _ep.inputPattern = pattern; saveData(data); }
   }
   const isShorts = format === 'shorts';
 
@@ -1642,11 +1694,13 @@ async function generateAll() {
   aiStart('一括生成中...');
 
   const strategy = isShorts ? SHORTS_STRATEGY_2026 : HORIZONTAL_STRATEGY_2026;
+  const patternInfo = PATTERN_GUIDE[pattern] || PATTERN_GUIDE.explanation;
   const prompt = `あなたはYouTubeチャンネルの企画・台本・投稿最適化の専門家です。
 キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 AI人格: ${char.ai_personality}
 テーマキーワード: ${theme}
 動画形式: ${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分）'}
+コンテンツパターン: 【${patternInfo.label}】${patternInfo.guide}
 追加指示: ${note || 'なし'}
 詳細指示: ${detail || 'なし'}
 
