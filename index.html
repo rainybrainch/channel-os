@@ -677,6 +677,8 @@ async function syncToDrive(data) {
       localStorage.setItem(DRIVE_SYNC_FILE, json.id);
     }
     _setSyncStatus('synced');
+    window._myLastSaveTs = Date.now();
+    startDrivePoll(); // 書き込み成功後にポーリング開始
   } catch(e) { _setSyncStatus('error', e.message); }
 }
 
@@ -717,6 +719,50 @@ function scheduleDriveSync(d) {
   clearTimeout(_syncTimer);
   _setSyncStatus('dirty');
   _syncTimer = setTimeout(() => syncToDrive(d), 3000); // 3秒後に自動同期
+}
+
+// ── Drive リアルタイム受信（30秒ポーリング）──
+let _pollTimer = null;
+let _lastDriveTs = 0; // 最後に受け取った Drive 側タイムスタンプ
+
+function startDrivePoll() {
+  if (_pollTimer) return; // 二重起動防止
+  _pollTimer = setInterval(_pollDrive, 30000); // 30秒ごと
+}
+
+async function _pollDrive() {
+  const token = await getGdToken().catch(() => null);
+  if (!token) return;
+  const fileId = localStorage.getItem(DRIVE_SYNC_FILE);
+  if (!fileId) return;
+  try {
+    // まずメタデータだけ取得してタイムスタンプを確認（軽量）
+    const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!metaRes.ok) return;
+    const meta = await metaRes.json();
+    const driveTs = new Date(meta.modifiedTime).getTime();
+    if (driveTs <= _lastDriveTs) return; // 変更なし → スキップ
+    // 変更あり → フルデータ取得
+    const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!dlRes.ok) return;
+    const json = await dlRes.json();
+    if (!json.data) return;
+    // 自分の最終書き込みより新しい場合のみ反映（自分の書き込みで上書きしない）
+    if (json.ts && json.ts <= (window._myLastSaveTs || 0)) return;
+    _lastDriveTs = driveTs;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(json.data));
+    if (json.storyboard) localStorage.setItem('channelos_storyboard', JSON.stringify(json.storyboard));
+    if (json.calendar)   localStorage.setItem('channelos_calendar',   JSON.stringify(json.calendar));
+    data = loadData();
+    storyboardData = (() => { try { return JSON.parse(localStorage.getItem('channelos_storyboard') || '{}'); } catch { return {}; } })();
+    renderSidebar();
+    _setSyncStatus('synced');
+    showToast('🔄 メンバーの変更を受信しました');
+  } catch(_e) { /* サイレントに失敗 */ }
 }
 
 function saveData(d) {
@@ -1512,6 +1558,8 @@ window.addEventListener('message', handleOAuthCallback);
     setInterval(async () => {
       try { await getGdToken(); } catch(_e) { }
     }, 55 * 60 * 1000);
+    // Drive接続済みならリアルタイム受信ポーリングを開始
+    setTimeout(startDrivePoll, 5000); // 5秒後に開始（初期化完了待ち）
   }
 
   // ④ 何も設定されていない → ウェルカム画面
