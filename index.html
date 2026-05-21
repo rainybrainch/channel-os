@@ -6564,80 +6564,29 @@ async function generateWeeklyPlan() {
 
   const fmtDesc = fmt === 'mix' ? '横動画とショートを混在' : fmt === 'horizontal' ? '横動画のみ' : 'ショートのみ';
 
-  // 過去エピソード（直近20本）を取得してAIに渡す
+  const cal = loadCalendar();
+
+  // 今週すでに登録済みの日
+  const alreadyScheduled = cal.filter(e => e.charId === char.id && dates.includes(e.date)).map(e => e.date);
+
+  // 過去動画（直近5本のみ）
   const pastEps = (data.episodes || [])
     .filter(e => e.charId === char.id && (e.title || e.plan?.title))
     .sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''))
-    .slice(0, 20)
-    .map(e => ({ title: e.title || e.plan?.title || '', pattern: e.inputPattern || e.plan?.pattern || '', theme: e.inputTheme || e.plan?.theme || '' }));
+    .slice(0, 5)
+    .map(e => `${e.title||e.plan?.title}(${e.inputPattern||e.plan?.pattern||''})`).join('、');
 
-  // カレンダーの直近4週分のエントリを取得
-  const cal = loadCalendar();
-  const fourWeeksAgo = new Date(today); fourWeeksAgo.setDate(today.getDate() - 28);
-  const pastCalEntries = cal
-    .filter(e => e.charId === char.id && e.date >= fourWeeksAgo.toISOString().slice(0,10))
-    .map(e => ({ date: e.date, title: e.title || e.theme || '' }));
+  // PDCA（上位3件のみ）
+  const pdcaEntries = cal.filter(e => e.charId === char.id && e.perf?.views > 0)
+    .sort((a,b) => (b.perf.views||0) - (a.perf.views||0)).slice(0, 3)
+    .map(e => `${e.title||e.theme}:${e.perf.views}回(${e.perf.sentiment==='good'?'好評':e.perf.sentiment==='bad'?'不評':''})`).join('、');
 
-  // 今週すでにカレンダーに登録済みの日を取得（重複防止）
-  const thisWeekDates = dates;
-  const alreadyScheduled = cal
-    .filter(e => e.charId === char.id && thisWeekDates.includes(e.date))
-    .map(e => e.date);
-
-  const pastEpsText = pastEps.length
-    ? '【過去動画（直近）】\n' + pastEps.map(e => `・${e.title}（パターン:${e.pattern}）`).join('\n')
-    : '（過去動画なし・初回投稿）';
-
-  const pastCalText = pastCalEntries.length
-    ? '【過去4週のカレンダー】\n' + pastCalEntries.map(e => `・${e.date} ${e.title}`).join('\n')
-    : '';
-
-  const scheduledText = alreadyScheduled.length
-    ? `【今週すでに登録済みの日（この日を避ける）】: ${alreadyScheduled.join(', ')}`
-    : '';
-
-  // PDCA 実績データ
-  const pdcaEntries = cal.filter(e => e.charId === char.id && e.perf && (e.perf.views > 0 || e.perf.sentiment));
-  pdcaEntries.sort((a,b) => (b.perf.views||0) - (a.perf.views||0));
-  const pdcaTopText = pdcaEntries.length
-    ? '【実績データ（PDCA）】\n' +
-      pdcaEntries.slice(0, 10).map(e => {
-        const s = e.perf.sentiment === 'good' ? '好評' : e.perf.sentiment === 'bad' ? '不評' : '普通';
-        const note = e.perf.notes ? ` ／ 備考:${e.perf.notes}` : '';
-        return `・${e.title||e.theme||'−'}（再生${(e.perf.views||0).toLocaleString()}回・${s}・パターン:${e.pattern||'−'}）${note}`;
-      }).join('\n') +
-      '\n【PDCA 指示】\n' +
-      (pdcaEntries.length ? `再生数TOP: ${pdcaEntries[0].title||pdcaEntries[0].theme}（パターン:${pdcaEntries[0].pattern}）→ 類似パターンを今週も取り入れる\n` : '') +
-      (pdcaEntries.length > 1 ? `低パフォーマンス: ${pdcaEntries[pdcaEntries.length-1].title||pdcaEntries[pdcaEntries.length-1].theme}（パターン:${pdcaEntries[pdcaEntries.length-1].pattern}）→ 改善策を reason に明記する\n` : '') +
-      '不評・低再生のパターンは繰り返さず、好評パターンを軸に展開する'
-    : '';
-
-  const prompt = `あなたはYouTubeチャンネルの長期戦略コンサルタントです。
-キャラクター「${char.name}」（テーマ:${char.theme}、口調:${char.tone||'未設定'}、個性:${char.ai_personality||'未設定'}）の今週の投稿プランを${count}本提案してください。
-
-【今週の日付】${dates.join(', ')}
-【形式】${fmtDesc}
-${scheduledText}
-${request ? '【今週の要望】' + request : ''}
-
-${pastEpsText}
-
-${pastCalText}
-
-${pdcaTopText}
-
-【戦略的要件（必ず守ること）】
-1. 過去動画と同じタイトル・テーマ・パターンを繰り返さない
-2. 視聴者が飽きないよう、今週7本の中でパターン（explanation/ranking/story/drama/howto/secret/challenge）を分散させる
-3. 連続性を意識する：前後の動画でシリーズ感・伏線・続きを作れる場合はreasonに明記
-4. 週の前半（月〜水）は入門・広め、後半（木〜日）は深掘り・コア向けにして新規とリピーターを両立
-5. チャンネルの長期成長を考え、${char.theme}の中で未開拓のサブテーマを優先する
-
-JSONのみ出力（他テキスト不要）:
-[
-  {"date":"YYYY-MM-DD","format":"shorts","pattern":"explanation|ranking|story|drama|dialogue|howto|secret|challenge","title":"","theme":"","reason":"この案をおすすめする・差別化の理由（40字以内）","recommended":false},
-  ...
-]`;
+  const prompt = `YouTube「${char.name}」（${char.theme}）の${count}本投稿プランをJSONで出力。
+日付:${dates.join(',')} 形式:${fmtDesc}${alreadyScheduled.length?` 除外日:${alreadyScheduled.join(',')}`:''} ${request?'要望:'+request:''}
+過去動画:${pastEps||'なし'} PDCA好調:${pdcaEntries||'なし'}
+パターンを分散させ、重複なく、視聴者を引きつけるタイトルにする。
+JSONのみ（説明不要）:
+[{"date":"YYYY-MM-DD","format":"shorts","pattern":"explanation|ranking|story|drama|dialogue|howto|secret|challenge","title":"","theme":"","reason":"推薦理由20字","recommended":false}]`;
 
   aiStart('週間プランを生成中...');
   try {
