@@ -2716,10 +2716,10 @@ function renderMain() {
 
     <div class="tabs" id="mainTabs">
       ${(() => {
-        const allTabs = ['plan','script','meta','scene','assets','publish','distribute','comments'];
-        // シンプルモード: 3タブのみ（plan=作成 / scene=絵コンテ / distribute=配信）
-        const simpleTabs = ['plan','scene','distribute'];
-        const labels = {plan:'🚀 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',publish:'📦 投稿',distribute:'📡 配信',comments:'💬 コメント'};
+        const allTabs = ['plan','script','meta','scene','assets','calendar','post','distribute','comments'];
+        // シンプルモード: 3タブのみ（plan=作成 / calendar=カレンダー / distribute=配信）
+        const simpleTabs = ['plan','calendar','distribute'];
+        const labels = {plan:'🚀 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',calendar:'📅 カレンダー',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
         const tabs = simpleMode ? simpleTabs : allTabs;
         return tabs.map(t => {
           const badge = _getTabBadge(t);
@@ -2735,7 +2735,8 @@ function renderMain() {
     ${renderScenePanel()}
     ${renderRadioPanel()}
     ${renderAssetsPanel()}
-    ${renderPublishPanel()}
+    ${renderCalendarPanel()}
+    ${renderPostPanel()}
     ${renderDistributePanel()}
     ${renderCommentsPanel()}
     ${renderSettingsPanel()}
@@ -2782,11 +2783,14 @@ function _getTabBadge(tab) {
     const done = [hasBulk, !!(ep.thumbnailDataUrl || ep.thumbnailSDataUrl), !!ep.youtubeUrl, cl.xPosted, cl.notePosted].filter(Boolean).length;
     return total - done > 0 ? total - done : 0;
   }
-  if (tab === 'publish') return (ep.thumbnailDataUrl || ep.thumbnailSDataUrl) ? 0 : 1;
+  if (tab === 'post') return (ep.thumbnailDataUrl || ep.thumbnailSDataUrl) ? 0 : 1;
   if (tab === 'script') return ep.script ? 0 : (ep.plan ? 1 : 0);
   if (tab === 'meta') return ep.meta ? 0 : (ep.script ? 1 : 0);
   return 0;
 }
+
+// 全パネルID一覧（追加時ここにも足す）
+const ALL_PANELS = ['plan','script','meta','scene','assets','calendar','post','distribute','comments','settings'];
 
 function switchTab(tab) {
   currentTab = tab;
@@ -2799,41 +2803,35 @@ function switchTab(tab) {
     } else {
       const el = document.getElementById('panelSettings');
       if (el) el.outerHTML = renderSettingsPanel();
-      ['plan','script','meta','scene','assets','publish','comments','settings'].forEach(t => {
-        const p = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
-        if (p) p.classList.toggle('active', t === 'settings');
-      });
-      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      setTimeout(() => { renderMemberList(); loadGoogleTtsKey(); }, 100);
     }
-    setTimeout(() => { renderMemberList(); loadGoogleTtsKey(); }, 100);
-    return;
-  }
-
-  // 各パネルを最新状態で再描画してからアクティブ化
-  if (char) {
+  } else if (char) {
     const renders = {
-      plan:     () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); setTimeout(showStrategyHint, 0); },
-      script:   () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
-      meta:     () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
-      assets:   () => { loadDriveAssets(); },
-      scene:    () => { setTimeout(initCanvas, 50); },
-      publish:     () => { setTimeout(renderCalendar, 0); },
-      distribute:  () => { const el = document.getElementById('panelDistribute'); if (el) el.outerHTML = renderDistributePanel(); },
-      comments:    () => { setTimeout(renderCommentsPanel, 0); },
+      plan:       () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); setTimeout(showStrategyHint, 0); },
+      script:     () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
+      meta:       () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
+      assets:     () => { loadDriveAssets(); },
+      scene:      () => { setTimeout(initCanvas, 50); },
+      calendar:   () => { setTimeout(renderCalendar, 0); },
+      post:       () => { const el = document.getElementById('panelPost'); if (el) el.outerHTML = renderPostPanel(); },
+      distribute: () => { const el = document.getElementById('panelDistribute'); if (el) el.outerHTML = renderDistributePanel(); },
+      comments:   () => { setTimeout(renderCommentsPanel, 0); },
     };
     if (renders[tab]) renders[tab]();
   }
 
-  // タブのバッジをクリア
+  // バッジクリア
   const tabEl = document.getElementById('tab_' + tab);
   if (tabEl) tabEl.classList.remove('has-notif');
 
-  // タブボタンactive
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active',
-    b.textContent.includes({plan:'企画',script:'台本',meta:'概要欄',scene:'絵コンテ',assets:'素材',publish:'投稿',distribute:'配信',comments:'コメント'}[tab]||'__none__')
-  ));
-  // パネルactive
-  ['plan','script','meta','scene','assets','publish','distribute','settings'].forEach(t => {
+  // タブボタンactive（id で判定・テキスト依存しない）
+  document.querySelectorAll('.tab[id^="tab_"]').forEach(b => {
+    const tid = b.id.replace('tab_','');
+    b.classList.toggle('active', tid === tab);
+  });
+
+  // パネルactive（全パネル一括制御）
+  ALL_PANELS.forEach(t => {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
     if (el) el.classList.toggle('active', t === tab);
   });
@@ -4822,7 +4820,7 @@ function renderRadioResult(res) {
 
   <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn btn-primary" onclick="switchTab('scene')">🎨 絵コンテタブへ</button>
-    <button class="btn btn-primary" onclick="switchTab('publish')">📦 投稿タブへ</button>
+    <button class="btn btn-primary" onclick="switchTab('post')">📦 投稿準備タブへ</button>
   </div>`;
 }
 
@@ -6331,7 +6329,7 @@ function renderDistributePanel() {
         <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;">📡 投稿フロー</div>
         <div style="font-size:.75rem;color:var(--text-muted);">チェックを順番にこなすだけ。AI自動化済み項目は押さなくてOK。</div>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="toggleSimpleMode();setTimeout(()=>switchTab('publish'),50);" title="投稿カレンダーを見る">📅 カレンダー</button>
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('calendar');" title="投稿カレンダーを見る">📅 カレンダー</button>
     </div>
 
     <!-- チェックリスト -->
@@ -6347,7 +6345,7 @@ function renderDistributePanel() {
         hasThumb
           ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <img src="${escHtml(thumbSrc)}" style="height:54px;border-radius:4px;object-fit:cover;border:1px solid var(--border);">
-              <button class="btn btn-secondary btn-sm" onclick="switchTab('publish')">投稿タブで確認</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchTab('post')">投稿準備タブで確認</button>
               <button class="btn btn-secondary btn-sm" onclick="buildThumbnailForPublish('${ep?.inputFormat||'horizontal'}')">🔄 再生成</button>
             </div>`
           : `<button class="btn btn-secondary btn-sm" onclick="buildThumbnailForPublish('${ep?.inputFormat||'horizontal'}')">🎨 今すぐ生成</button>`
@@ -7288,8 +7286,8 @@ async function _saveThumbToEp(field, dataUrl) {
   if (ep) { ep[field] = value; saveData(d); }
   if (dataUrl) showToast(value?.startsWith('drive:') ? '✅ サムネイルをDriveに保存しました' : '✅ サムネイルを保存しました');
   // パネル再描画
-  const panel = document.getElementById('panelPublish');
-  if (panel) { panel.outerHTML = renderPublishPanel(); document.getElementById('panelPublish').classList.add('active'); }
+  const panel = document.getElementById('panelPost');
+  if (panel) { panel.outerHTML = renderPostPanel(); document.getElementById('panelPost').classList.add('active'); }
 }
 
 async function getThumbDataUrl(ep, field) {
@@ -7327,8 +7325,8 @@ function togglePublishCheck(key, checked) {
   ep.manualChecks = ep.manualChecks || {};
   ep.manualChecks[key] = checked;
   saveData(d);
-  document.getElementById('panelPublish').outerHTML = renderPublishPanel();
-  document.getElementById('panelPublish').classList.add('active');
+  document.getElementById('panelPost').outerHTML = renderPostPanel();
+  document.getElementById('panelPost').classList.add('active');
 }
 
 function ytLogout(charId) {
@@ -7347,9 +7345,36 @@ function getYtToken(charId) {
 }
 
 // ════════════════════════════════════
-//  Publish Panel
+//  Calendar Panel（独立タブ）
 // ════════════════════════════════════
-function renderPublishPanel() {
+function renderCalendarPanel() {
+  return `
+  <div class="panel ${currentTab==='calendar'?'active':''}" id="panelCalendar">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:.95rem;">📅 投稿カレンダー</div>
+        <button class="btn btn-sm" style="background:#4a9edd;color:#fff;font-size:.78rem;" onclick="switchTab('plan');document.getElementById('weeklyPlanRequest')?.focus();">＋ 週間プラン作成</button>
+      </div>
+      <div class="cal-header">
+        <button class="cal-nav" onclick="calPrev()">‹</button>
+        <span id="calTitle" style="font-weight:700;font-size:.95rem;"></span>
+        <button class="cal-nav" onclick="calNext()">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;font-size:.72rem;color:var(--text-muted);">
+        <span>日をクリック → 予定追加</span>
+        <span>予定クリック → 編集・制作開始</span>
+        <button class="btn btn-sm" style="background:#c0392b;color:#fff;margin-left:auto;font-size:.72rem;" onclick="importPostedVideos()">📥 投稿済み取得</button>
+      </div>
+      <div id="importVideosStatus" style="font-size:.75rem;color:var(--text-muted);margin-top:6px;display:none;"></div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════
+//  Post Panel（投稿準備）
+// ════════════════════════════════════
+function renderPostPanel() {
   const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
   const meta = ep?.meta || ep?.generatedMeta || {};
   const hasPlan      = !!(ep?.theme || ep?.plan);
@@ -7385,23 +7410,7 @@ function renderPublishPanel() {
   };
 
   return `
-  <div class="panel ${currentTab==='publish'?'active':''}" id="panelPublish">
-    <!-- 共通カレンダー -->
-    <div class="card">
-      <div class="cal-header">
-        <button class="cal-nav" onclick="calPrev()">‹</button>
-        <span id="calTitle" style="font-weight:700;font-size:.95rem;"></span>
-        <button class="cal-nav" onclick="calNext()">›</button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:.72rem;color:var(--text-muted);">日をクリック→予定追加 / 予定クリック→編集</span>
-        <input type="text" id="weeklyPlanRequest" placeholder="要望（例: 今週は筋トレネタ多め）" style="font-size:.78rem;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:200px;">
-        <button class="btn btn-sm" style="background:#27ae60;color:#fff;" onclick="generateWeeklyPlan()">📅 1週間自動プラン</button>
-        <button class="btn btn-sm" style="background:#c0392b;color:#fff;margin-left:auto;" onclick="importPostedVideos()">📥 投稿済み動画を取得</button>
-      </div>
-      <div id="importVideosStatus" style="font-size:.75rem;color:var(--text-muted);margin-top:6px;display:none;"></div>
-    </div>
+  <div class="panel ${currentTab==='post'?'active':''}" id="panelPost">
 
     <!-- チェックリスト -->
     <div class="card">
@@ -7620,7 +7629,7 @@ async function buildThumbnailForPublish(orientation) {
     const epIdx = d.episodes.findIndex(e => e.id === currentEpisodeId);
     if (epIdx >= 0) { d.episodes[epIdx][field] = value; saveData(d); }
     showToast(value?.startsWith('drive:') ? '✅ サムネイル生成・Drive保存完了' : '✅ サムネイル生成完了');
-    switchTab('publish');
+    switchTab('post');
   } catch (e) {
     showToast('❌ Gemini サムネイル生成失敗: ' + e.message);
   }
