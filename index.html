@@ -397,13 +397,28 @@
       <button class="btn btn-secondary btn-sm" style="margin-top:10px;font-size:.72rem;" onclick="autoFillStrategy()">✨ AIが戦略を自動提案</button>
     </div>
 
-    <!-- ═══ BLOCK 4: 音声＋AI連携（折りたたみ） ═══ -->
-    <details style="margin-bottom:16px;">
-      <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;padding:8px 0;">⚙️ 詳細設定（VOICEVOX・AI連携URL）</summary>
-      <div style="padding:12px 0;display:flex;flex-direction:column;gap:10px;">
-        <input type="hidden" id="newCharVoicevox" value="13">
-        <div><label style="font-size:.74rem;">声優名</label><input type="text" id="newCharVoiceName" placeholder="例: 青山龍星（熱血）" style="margin-top:3px;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+    <!-- ═══ BLOCK 4: 音声設定 ═══ -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px;">🎙 音声設定（VOICEVOX）</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">PCでVOICEVOXアプリを起動した状態でボタンを押すと話者一覧が自動取得できます。</div>
+      <input type="hidden" id="newCharVoicevox" value="13">
+      <!-- 話者選択UI -->
+      <div id="vvPickerArea" style="margin-bottom:10px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="newCharVoiceSelect" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
+            <option value="">── まずVOICEVOXを起動してから取得 ──</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="fetchVvSpeakers()" id="vvFetchBtn">🔄 話者取得</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="testVvVoice()" id="vvTestBtn">▶ テスト再生</button>
+        </div>
+        <div id="vvPickerStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+      </div>
+      <!-- 現在選択中 -->
+      <div style="font-size:.8rem;color:var(--text-muted);">選択中: <span id="vvSelectedName" style="color:var(--text);font-weight:700;">未選択</span></div>
+      <!-- 詳細パラメーター（折りたたみ） -->
+      <details style="margin-top:10px;">
+        <summary style="font-size:.72rem;color:var(--text-muted);cursor:pointer;">⚙ 音声パラメーター詳細（任意）</summary>
+        <div style="padding:10px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <div><label style="font-size:.72rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
           <div><label style="font-size:.72rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
           <div><label style="font-size:.72rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
@@ -411,6 +426,15 @@
           <div><label style="font-size:.72rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
           <div><label style="font-size:.72rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
         </div>
+      </details>
+    </div>
+    <!-- hidden: 声優名テキスト（後方互換） -->
+    <input type="hidden" id="newCharVoiceName">
+
+    <!-- ═══ BLOCK 5: AI連携URL（折りたたみ） ═══ -->
+    <details style="margin-bottom:16px;">
+      <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;padding:8px 0;">🤖 AI連携URL（任意）</summary>
+      <div style="padding:8px 0;display:flex;flex-direction:column;gap:8px;">
         <div><label style="font-size:.74rem;">ChatGPT カスタムGPT URL</label><input type="text" id="newCharGptUrl" placeholder="https://chatgpt.com/g/g-..." style="margin-top:3px;"></div>
         <div><label style="font-size:.74rem;">Gemini Gem URL</label><input type="text" id="newCharGemUrl" placeholder="https://gemini.google.com/gem/..." style="margin-top:3px;"></div>
       </div>
@@ -5854,6 +5878,104 @@ function wizYtAuth()  { closeModal('addCharModal'); ytAuth(editingCharId || '_wi
 function wizXAuth()   { if (!localStorage.getItem(X_CLIENT_SK)) { showToast('先に設定タブでX Client IDを入力してください'); return; } xAuth(editingCharId || '_wizard_'); }
 function wizIgAuth()  { if (!localStorage.getItem(IG_APP_ID_SK)) { showToast('先に設定タブでIG App IDを入力してください'); return; } igAuth(editingCharId || '_wizard_'); }
 
+// VOICEVOX話者取得・選択
+async function fetchVvSpeakers() {
+  const btn = document.getElementById('vvFetchBtn');
+  const status = document.getElementById('vvPickerStatus');
+  const sel = document.getElementById('newCharVoiceSelect');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = '🔄 VOICEVOX（localhost:50021）に接続中...';
+  try {
+    const res = await fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error('接続失敗');
+    const speakers = await res.json();
+    if (status) status.textContent = `✅ ${speakers.length}人の話者を取得しました`;
+    // 現在選択中のIDを保持
+    const curId = parseInt(document.getElementById('newCharVoicevox').value) || -1;
+    sel.innerHTML = '<option value="">── 話者を選んでください ──</option>';
+    speakers.forEach(sp => {
+      sp.styles.forEach(st => {
+        const opt = document.createElement('option');
+        opt.value = st.id;
+        opt.textContent = `${sp.name}（${st.name}）`;
+        if (st.id === curId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    });
+    sel.onchange = () => {
+      const v = sel.value;
+      const label = sel.options[sel.selectedIndex]?.text || '';
+      document.getElementById('newCharVoicevox').value = v;
+      document.getElementById('newCharVoiceName').value = label;
+      const nm = document.getElementById('vvSelectedName');
+      if (nm) nm.textContent = label || '未選択';
+    };
+    // 既存値があれば表示
+    if (curId >= 0) {
+      const found = Array.from(sel.options).find(o => parseInt(o.value) === curId);
+      const nm = document.getElementById('vvSelectedName');
+      if (nm) nm.textContent = found?.text || '未選択';
+    }
+  } catch(e) {
+    if (status) status.textContent = '❌ VOICEVOXが起動していないか接続できません。PCでVOICEVOXを起動してから再試行してください。';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function testVvVoice() {
+  const speakerId = parseInt(document.getElementById('newCharVoicevox').value);
+  if (!speakerId) { showToast('話者を選択してください'); return; }
+  const name = document.getElementById('newCharName')?.value || 'キャラ';
+  const text = `こんにちは、${name}です。よろしくお願いします！`;
+  const btn = document.getElementById('vvTestBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🎵 生成中...'; }
+  try {
+    const qRes = await fetch(`http://localhost:50021/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST', signal: AbortSignal.timeout(8000) });
+    if (!qRes.ok) throw new Error('audio_query失敗');
+    const query = await qRes.json();
+    // 話速パラメーター適用
+    const speed = parseFloat(document.getElementById('newCharSpeedScale')?.value) || 1.0;
+    const pitch = parseFloat(document.getElementById('newCharPitchScale')?.value) || 0.0;
+    const intonation = parseFloat(document.getElementById('newCharIntonationScale')?.value) || 1.0;
+    query.speedScale = speed; query.pitchScale = pitch; query.intonationScale = intonation;
+    const sRes = await fetch(`http://localhost:50021/synthesis?speaker=${speakerId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(query), signal: AbortSignal.timeout(15000)
+    });
+    if (!sRes.ok) throw new Error('synthesis失敗');
+    const blob = await sRes.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.play();
+    showToast('▶ テスト再生中');
+  } catch(e) {
+    showToast('❌ テスト失敗: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '▶ テスト再生'; }
+  }
+}
+
+function _afterCharSave() {
+  // 保存後に全関連パネルを最新キャラ情報で再描画
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) return;
+  // シンボルカラーを即時反映
+  document.documentElement.style.setProperty('--char-color', char.color || '#c9a84c');
+  // 各パネルを再描画
+  const tabRefresh = {
+    panelSettings:  () => renderSettingsPanel(),
+    panelDistribute:() => renderDistributePanel(),
+    panelPlan:      () => renderPlanPanel(char),
+  };
+  Object.entries(tabRefresh).forEach(([id, fn]) => {
+    const el = document.getElementById(id);
+    if (el) el.outerHTML = fn();
+  });
+  showToast(`✅ ${char.name} の設定を保存しました`);
+}
+
 async function autoFillStrategy() {
   const name  = document.getElementById('newCharName')?.value || '';
   const theme = document.getElementById('newCharTheme')?.value || '';
@@ -5923,6 +6045,13 @@ function openEditChar(id) {
   _sf('newCharXStrategy',    char.x_strategy);
   _sf('newCharIgStrategy',   char.ig_strategy);
   _sf('newCharNoteUsername', char.note_username);
+  // VOICEVOX: 現在の話者IDをhiddenとselectedNameに反映
+  document.getElementById('newCharVoicevox').value = char.voicevox_speaker ?? 13;
+  const vvNm = document.getElementById('vvSelectedName');
+  if (vvNm) vvNm.textContent = char.voicevox_name || '未選択（「話者取得」で選択）';
+  // VOICEVOXが既に起動していれば話者一覧を自動取得
+  fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(1500) })
+    .then(r => r.ok ? fetchVvSpeakers() : null).catch(() => null);
   _updateWizardStatus(id);
   openModal('addCharModal');
 }
@@ -6024,10 +6153,8 @@ function saveNewChar() {
   saveData(data);
   closeModal('addCharModal');
   renderSidebar();
-  // 設定パネルが開いていたら再描画してフォルダID欄を反映
-  const sp = document.getElementById('panelSettings');
-  if (sp) sp.outerHTML = renderSettingsPanel();
   selectChar(data.characters[data.characters.length-1].id);
+  _afterCharSave();
 }
 
 function updateChar() {
@@ -6065,6 +6192,7 @@ function updateChar() {
   closeModal('addCharModal');
   renderSidebar();
   renderMain();
+  _afterCharSave();
 }
 
 // ════════════════════════════════════
