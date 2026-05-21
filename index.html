@@ -540,7 +540,7 @@
       <!-- 音声モード切替タブ -->
       <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;">
         <button type="button" id="voiceTabBrowser" onclick="switchVoiceTab('browser')" style="flex:1;padding:8px 6px;border:none;background:var(--char-color,#c9a84c);color:#0d0d0d;font-size:.75rem;font-weight:700;cursor:pointer;">🌐 ブラウザ音声<br><span style="font-size:.65rem;font-weight:400;">設定不要・即使える</span></button>
-        <button type="button" id="voiceTabVv" onclick="switchVoiceTab('voicevox')" style="flex:1;padding:8px 6px;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;">🎤 VOICEVOX<br><span style="font-size:.65rem;font-weight:400;">高品質・PC起動必要</span></button>
+        <button type="button" id="voiceTabVv" onclick="switchVoiceTab('google_tts')" style="flex:1;padding:8px 6px;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;">☁️ Google TTS<br><span style="font-size:.65rem;font-weight:400;">高品質・チーム共有</span></button>
       </div>
       <input type="hidden" id="newCharVoiceMode" value="browser">
       <!-- ブラウザ音声パネル -->
@@ -564,36 +564,33 @@
         <div id="browserVoiceStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
         <input type="hidden" id="newCharBrowserVoice" value="">
       </div>
-      <!-- VOICEVOX パネル -->
+      <!-- Google TTS パネル -->
       <div id="voicePanelVv" style="display:none;margin-bottom:10px;">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:.7rem;color:var(--text-muted);">
-          <b>📌 GitHub Pages版から使う手順：</b><br>
-          ① PCで <code>voicevox.exe --allow-origin "https://rainybrainch.github.io"</code> で起動<br>
-          ② 「🔄 話者取得」を押す → ③ 話者を選択 → ④ 「▶ テスト再生」で確認
+          ☁️ Google Cloud TTSを使います。設定画面でAPIキーを入力するとチーム全員が使えます。
         </div>
-        <input type="hidden" id="newCharVoicevox" value="13">
-        <div id="vvPickerArea" style="margin-bottom:10px;">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <select id="newCharVoiceSelect" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
-              <option value="">── まずVOICEVOXを起動してから取得 ──</option>
-            </select>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="fetchVvSpeakers()" id="vvFetchBtn">🔄 話者取得</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="testVvVoice()" id="vvTestBtn">▶ テスト再生</button>
-          </div>
-          <div id="vvPickerStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+        <input type="hidden" id="newCharVoicevox" value="">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <select id="newCharGoogleTtsVoice" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);" onchange="document.getElementById('newCharVoicevox').value=this.value">
+            <option value="ja-JP-Neural2-B">ずんだもん風・女性（Neural2-B）</option>
+            <option value="ja-JP-Neural2-C">落ち着いた女性（Neural2-C）</option>
+            <option value="ja-JP-Neural2-D">男性（Neural2-D）</option>
+            <option value="ja-JP-Neural2-A">明るい女性（Neural2-A）</option>
+            <option value="ja-JP-Wavenet-B">女性WaveNet（高品質）</option>
+            <option value="ja-JP-Wavenet-D">男性WaveNet（高品質）</option>
+            <option value="ja-JP-Standard-A">標準女性（無料枠大）</option>
+            <option value="ja-JP-Standard-B">標準男性（無料枠大）</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="testGoogleTtsVoice()" id="googleTtsTestBtn">▶ テスト</button>
         </div>
-        <div style="font-size:.8rem;color:var(--text-muted);">選択中: <span id="vvSelectedName" style="color:var(--text);font-weight:700;">未選択</span></div>
-        <details style="margin-top:10px;">
-          <summary style="font-size:.72rem;color:var(--text-muted);cursor:pointer;">⚙ 音声パラメーター詳細（任意）</summary>
-          <div style="padding:10px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-            <div><label style="font-size:.72rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-            <div><label style="font-size:.72rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
-            <div><label style="font-size:.72rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-            <div><label style="font-size:.72rem;">音量</label><input type="number" id="newCharVolumeScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-            <div><label style="font-size:.72rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
-            <div><label style="font-size:.72rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
-          </div>
-        </details>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label style="font-size:.72rem;flex-shrink:0;">話速</label>
+          <input type="range" id="googleTtsRate" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;accent-color:var(--char-color,#c9a84c);" oninput="document.getElementById('googleTtsRateVal').textContent=this.value">
+          <span id="googleTtsRateVal" style="font-size:.72rem;width:30px;">1.0</span>
+          <label style="font-size:.72rem;flex-shrink:0;margin-left:6px;">音高</label>
+          <input type="range" id="googleTtsPitch" min="-10" max="10" step="1" value="0" style="flex:1;accent-color:var(--char-color,#c9a84c);" oninput="document.getElementById('googleTtsPitchVal').textContent=this.value">
+          <span id="googleTtsPitchVal" style="font-size:.72rem;width:30px;">0</span>
+        </div>
       </div>
     </div>
     <!-- hidden: 声優名テキスト（後方互換） -->
@@ -2771,7 +2768,7 @@ function switchTab(tab) {
       });
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     }
-    setTimeout(renderMemberList, 100);
+    setTimeout(() => { renderMemberList(); loadGoogleTtsKey(); }, 100);
     return;
   }
 
@@ -4254,55 +4251,51 @@ async function generateVoicevox(sceneIdx) {
   const sceneLines = sb.scenes[sceneIdx].lines.filter(l => l.trim());
   if (!sceneLines.length) { showToast('台詞がありません'); return; }
 
-  // 対談モード: キャラごとにまとめて音声生成→結合は複雑なのでまず先頭キャラで生成
-  // 将来的にはラインごとに音声を連結する。現在は行ごとに最初のキャラを使用
   const firstLine = sceneLines[0];
   const char = _resolveCharForLine(firstLine);
-  const speakerId = char?.voicevox_speaker ?? 13;
   const lines = sceneLines.map(l => _stripCharPrefix(l)).join('。');
   if (!lines) { showToast('台詞がありません'); return; }
 
   const statusEl = document.getElementById(`vvStatus_${sceneIdx}`);
   if (statusEl) statusEl.textContent = '生成中...';
 
-  const base = 'http://localhost:50021';
+  const mode = char?.voice_mode || 'browser';
+
   try {
-    const qRes = await fetch(`${base}/audio_query?text=${encodeURIComponent(lines)}&speaker=${speakerId}`, { method: 'POST' });
-    if (!qRes.ok) throw new Error('VOICEVOXに接続できません。アプリが起動しているか確認してください。');
-    const query = await qRes.json();
+    let dataUrl;
+    if (mode === 'google_tts') {
+      dataUrl = await generateGoogleTTS(lines, char?.google_tts_voice, char?.google_tts_rate, char?.google_tts_pitch);
+    } else {
+      // VOICEVOX（ローカル）
+      const speakerId = char?.voicevox_speaker ?? 13;
+      const base = 'http://localhost:50021';
+      const qRes = await fetch(`${base}/audio_query?text=${encodeURIComponent(lines)}&speaker=${speakerId}`, { method: 'POST' });
+      if (!qRes.ok) throw new Error('VOICEVOXに接続できません。アプリが起動しているか確認してください。');
+      const query = await qRes.json();
+      if (char?.voicevox_speed != null)               query.speedScale      = char.voicevox_speed;
+      if (char?.voicevox_pitch != null)               query.pitchScale      = char.voicevox_pitch;
+      if (char?.voicevox_intonation != null)          query.intonationScale = char.voicevox_intonation;
+      if (char?.voicevox_volume != null)              query.volumeScale     = char.voicevox_volume;
+      const sRes = await fetch(`${base}/synthesis?speaker=${speakerId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query)
+      });
+      if (!sRes.ok) throw new Error('音声合成に失敗しました');
+      const blob = await sRes.blob();
+      dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(blob); });
+    }
 
-    if (char?.voicevox_speed != null)               query.speedScale              = char.voicevox_speed;
-    if (char?.voicevox_pitch != null)               query.pitchScale              = char.voicevox_pitch;
-    if (char?.voicevox_intonation != null)          query.intonationScale         = char.voicevox_intonation;
-    if (char?.voicevox_volume != null)              query.volumeScale             = char.voicevox_volume;
-    if (char?.voicevox_pre_phoneme_length != null)  query.prePhonemeLength        = char.voicevox_pre_phoneme_length;
-    if (char?.voicevox_post_phoneme_length != null) query.postPhonemeLength       = char.voicevox_post_phoneme_length;
-    if (char?.voicevox_pause_length_scale != null)  query.pauseLengthScale        = char.voicevox_pause_length_scale;
-
-    const sRes = await fetch(`${base}/synthesis?speaker=${speakerId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(query)
-    });
-    if (!sRes.ok) throw new Error('音声合成に失敗しました');
-    const blob = await sRes.blob();
-
-    const reader = new FileReader();
-    reader.onload = e => {
-      const audio = new Audio();
-      audio.onloadedmetadata = () => {
-        sb.scenes[sceneIdx].audioDataUrl  = e.target.result;
-        sb.scenes[sceneIdx].audioName     = `voicevox_scene${sceneIdx + 1}.wav`;
-        sb.scenes[sceneIdx].audioDuration = audio.duration;
-        saveStoryboard();
-        const char2 = data.characters.find(c => c.id === currentCharId);
-        const scenePanel = document.getElementById('panelScene');
-        if (scenePanel) scenePanel.outerHTML = renderScenePanel(char2);
-        showToast('🎙 VOICEVOX音声を生成しました');
-      };
-      audio.src = e.target.result;
+    const audio = new Audio();
+    audio.onloadedmetadata = () => {
+      sb.scenes[sceneIdx].audioDataUrl  = dataUrl;
+      sb.scenes[sceneIdx].audioName     = `scene${sceneIdx + 1}_tts.mp3`;
+      sb.scenes[sceneIdx].audioDuration = audio.duration;
+      saveStoryboard();
+      const char2 = data.characters.find(c => c.id === currentCharId);
+      const scenePanel = document.getElementById('panelScene');
+      if (scenePanel) scenePanel.outerHTML = renderScenePanel(char2);
+      showToast('🎙 音声を生成しました');
     };
-    reader.readAsDataURL(blob);
+    audio.src = dataUrl;
   } catch(e) {
     if (statusEl) statusEl.textContent = '❌ ' + e.message;
     showToast('❌ ' + e.message);
@@ -6325,23 +6318,17 @@ function renderSettingsPanel() {
       </div>
     </details>
 
-    <!-- VOICEVOX接続（折りたたみ・任意） -->
-    <details style="margin-top:4px;" id="settingsVvCard">
+    <!-- Google Cloud TTS APIキー（折りたたみ） -->
+    <details style="margin-top:4px;" id="settingsGoogleTtsCard">
       <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;list-style:none;">
-        🎙 VOICEVOX（音声生成・任意）<span style="margin-left:8px;font-size:.72rem;">— 使わない場合は不要</span>
+        ☁️ Google Cloud TTS（高品質音声生成）<span style="margin-left:8px;font-size:.72rem;">— チーム全員が使えるクラウド音声</span>
       </summary>
       <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-size:.76rem;color:var(--text-muted);">
-        PCでVOICEVOXを起動している場合のみ使用可。GitHub Pages版では起動コマンドが必要。
-        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-          <button class="btn btn-secondary btn-sm" onclick="checkVvConnection()">🔄 接続確認</button>
-          <span id="settingsVvStatus" style="font-size:.8rem;color:var(--text-muted);">未確認</span>
-        </div>
-        <div id="settingsVvCmd" style="display:none;margin-top:8px;background:var(--surface2);border-radius:6px;padding:10px;font-size:.75rem;">
-          <div style="display:flex;gap:6px;align-items:center;">
-            <code id="vvCmdText" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:.72rem;word-break:break-all;"></code>
-            <button class="btn btn-primary btn-sm" style="flex-shrink:0;" onclick="navigator.clipboard.writeText(document.getElementById('vvCmdText').textContent).then(()=>showToast('📋 コピーしました'))">📋</button>
-          </div>
-          <div style="margin-top:4px;font-size:.68rem;">Win+R → コマンド貼り付け → Enter → VOICEVOXが起動したら「接続確認」</div>
+        <div style="margin-bottom:8px;">APIキーを1つ設定すればチーム全員が使えます。<a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent);">Google Cloud Console</a>で取得してください（月100万文字まで無料）。</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="password" id="settingsGoogleTtsKey" placeholder="AIza..." style="flex:1;font-size:.82rem;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);" oninput="saveGoogleTtsKey(this.value)">
+          <button class="btn btn-secondary btn-sm" onclick="testGoogleTtsKey()">🔄 確認</button>
+          <span id="settingsGoogleTtsStatus" style="font-size:.8rem;color:var(--text-muted);">未設定</span>
         </div>
       </div>
     </details>
@@ -8068,7 +8055,14 @@ async function playSceneDialogue(sceneIdx) {
     const text = _stripCharPrefix(line);
     if (!text) continue;
     const mode = char?.voice_mode || 'browser';
-    if (mode === 'voicevox') {
+    if (mode === 'google_tts') {
+      try {
+        const dataUrl = await generateGoogleTTS(text, char?.google_tts_voice, char?.google_tts_rate, char?.google_tts_pitch);
+        await new Promise(res => { const a = new Audio(dataUrl); a.onended = res; a.play(); });
+      } catch(e) {
+        await speakWithBrowserVoice(text, char).catch(()=>{});
+      }
+    } else if (mode === 'voicevox') {
       try {
         const speakerId = char?.voicevox_speaker ?? 13;
         const base = 'http://localhost:50021';
@@ -8090,6 +8084,62 @@ async function playSceneDialogue(sceneIdx) {
     }
   }
   showToast('✅ 対談音声再生完了');
+}
+
+// ════════════════════════════════════
+//  Google Cloud TTS
+// ════════════════════════════════════
+function saveGoogleTtsKey(val) {
+  localStorage.setItem('channelos_google_tts_key', val.trim());
+}
+function loadGoogleTtsKey() {
+  const k = localStorage.getItem('channelos_google_tts_key') || '';
+  const el = document.getElementById('settingsGoogleTtsKey');
+  if (el) el.value = k;
+  return k;
+}
+async function testGoogleTtsKey() {
+  const key = document.getElementById('settingsGoogleTtsKey')?.value.trim() || loadGoogleTtsKey();
+  const st = document.getElementById('settingsGoogleTtsStatus');
+  if (!key) { if (st) { st.textContent = '❌ APIキー未入力'; st.style.color = '#e55'; } return; }
+  if (st) { st.textContent = '🔄 確認中...'; st.style.color = 'var(--text-muted)'; }
+  try {
+    const res = await fetch(`https://texttospeech.googleapis.com/v1/voices?languageCode=ja-JP&key=${key}`);
+    if (!res.ok) throw new Error('status ' + res.status);
+    if (st) { st.textContent = '✅ OK'; st.style.color = '#4caf50'; }
+  } catch(e) {
+    if (st) { st.textContent = '❌ 無効なキー'; st.style.color = '#e55'; }
+  }
+}
+async function generateGoogleTTS(text, voice, rate, pitch) {
+  const key = loadGoogleTtsKey();
+  if (!key) throw new Error('Google TTS APIキーが未設定です。設定画面で入力してください。');
+  const body = {
+    input: { text },
+    voice: { languageCode: 'ja-JP', name: voice || 'ja-JP-Neural2-B' },
+    audioConfig: { audioEncoding: 'MP3', speakingRate: rate || 1.0, pitch: pitch || 0 }
+  };
+  const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${key}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'TTS生成失敗'); }
+  const json = await res.json();
+  return 'data:audio/mp3;base64,' + json.audioContent;
+}
+async function testGoogleTtsVoice() {
+  const voice = document.getElementById('newCharGoogleTtsVoice')?.value || 'ja-JP-Neural2-B';
+  const rate  = parseFloat(document.getElementById('googleTtsRate')?.value) || 1.0;
+  const pitch = parseFloat(document.getElementById('googleTtsPitch')?.value) || 0;
+  const name  = document.getElementById('newCharName')?.value || 'キャラ';
+  const btn   = document.getElementById('googleTtsTestBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🎵 生成中...'; }
+  try {
+    const dataUrl = await generateGoogleTTS(`こんにちは、${name}です。よろしくお願いします！`, voice, rate, pitch);
+    const audio = new Audio(dataUrl);
+    audio.play();
+    showToast('▶ テスト再生中');
+  } catch(e) { showToast('❌ ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '▶ テスト'; } }
 }
 
 // VOICEVOX話者取得・選択
@@ -8454,13 +8504,10 @@ function saveNewChar() {
     browser_voice_name:  document.getElementById('newCharBrowserVoice')?.value || '',
     browser_voice_rate:  parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0,
     browser_voice_pitch: parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0,
-    voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || 3,
-    vv_speed:       parseFloat(document.getElementById('newCharSpeedScale').value) || null,
-    vv_pitch:       parseFloat(document.getElementById('newCharPitchScale').value) || null,
-    vv_intonation:  parseFloat(document.getElementById('newCharIntonationScale').value) || null,
-    vv_volume:      parseFloat(document.getElementById('newCharVolumeScale').value) || null,
-    vv_pause:       parseFloat(document.getElementById('newCharPauseScale').value) || null,
-    vv_silence:     parseFloat(document.getElementById('newCharPreSilence').value) || null,
+    voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || null,
+    google_tts_voice: document.getElementById('newCharGoogleTtsVoice')?.value || 'ja-JP-Neural2-B',
+    google_tts_rate:  parseFloat(document.getElementById('googleTtsRate')?.value) || 1.0,
+    google_tts_pitch: parseFloat(document.getElementById('googleTtsPitch')?.value) || 0,
     gpt_url: document.getElementById('newCharGptUrl').value.trim(),
     gem_url: document.getElementById('newCharGemUrl').value.trim(),
     yt_url:  document.getElementById('newCharYtUrl')?.value.trim() || '',
@@ -8493,13 +8540,10 @@ function updateChar() {
   char.browser_voice_name  = document.getElementById('newCharBrowserVoice')?.value || '';
   char.browser_voice_rate  = parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0;
   char.browser_voice_pitch = parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0;
-  char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || 3;
-  char.vv_speed        = parseFloat(document.getElementById('newCharSpeedScale').value) || null;
-  char.vv_pitch        = parseFloat(document.getElementById('newCharPitchScale').value) || null;
-  char.vv_intonation   = parseFloat(document.getElementById('newCharIntonationScale').value) || null;
-  char.vv_volume       = parseFloat(document.getElementById('newCharVolumeScale').value) || null;
-  char.vv_pause        = parseFloat(document.getElementById('newCharPauseScale').value) || null;
-  char.vv_silence      = parseFloat(document.getElementById('newCharPreSilence').value) || null;
+  char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || null;
+  char.google_tts_voice = document.getElementById('newCharGoogleTtsVoice')?.value || 'ja-JP-Neural2-B';
+  char.google_tts_rate  = parseFloat(document.getElementById('googleTtsRate')?.value) || 1.0;
+  char.google_tts_pitch = parseFloat(document.getElementById('googleTtsPitch')?.value) || 0;
   char.gpt_url          = document.getElementById('newCharGptUrl').value.trim();
   char.gem_url          = document.getElementById('newCharGemUrl').value.trim();
   char.yt_url           = document.getElementById('newCharYtUrl')?.value.trim() || '';
