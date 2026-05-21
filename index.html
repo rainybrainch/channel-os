@@ -7913,10 +7913,9 @@ async function uploadVideoToYouTube() {
 // ════════════════════════════════════
 function _clearCharModal() {
   ['newCharName','newCharSpecies','newCharTheme','newCharTone','newCharChannelId','newCharPersonality','newCharAppearance','newCharVoiceName','newCharFolderId',
-   'newCharSpeedScale','newCharPitchScale','newCharIntonationScale','newCharVolumeScale','newCharPauseScale','newCharPreSilence',
    'newCharGptUrl','newCharGemUrl','newCharYtStrategy','newCharNoteStrategy','newCharXStrategy','newCharIgStrategy','newCharNoteUsername']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('newCharVoicevox').value = '3';
+  document.getElementById('newCharVoicevox').value = '';
   document.getElementById('newCharColor').value = '#c9a84c';
   document.getElementById('newCharAvatarDataUrl').value = '';
   const prev = document.getElementById('charIconPreview');
@@ -8381,13 +8380,7 @@ function openEditChar(id) {
   else { if(refPrev){refPrev.src='';refPrev.style.display='none';} if(refPh)refPh.style.display='flex'; }
   document.getElementById('newCharVoiceName').value        = char.voicevox_name || '';
   document.getElementById('newCharFolderId').value         = char.drive_folder_id || '';
-  document.getElementById('newCharVoicevox').value         = char.voicevox_speaker ?? 3;
-  document.getElementById('newCharSpeedScale').value       = char.vv_speed ?? '';
-  document.getElementById('newCharPitchScale').value       = char.vv_pitch ?? '';
-  document.getElementById('newCharIntonationScale').value  = char.vv_intonation ?? '';
-  document.getElementById('newCharVolumeScale').value      = char.vv_volume ?? '';
-  document.getElementById('newCharPauseScale').value       = char.vv_pause ?? '';
-  document.getElementById('newCharPreSilence').value       = char.vv_silence ?? '';
+  document.getElementById('newCharVoicevox').value         = char.voicevox_speaker ?? '';
   document.getElementById('newCharGptUrl').value      = char.gpt_url || '';
   document.getElementById('newCharGemUrl').value      = char.gem_url || '';
   const ytUrlEl = document.getElementById('newCharYtUrl');
@@ -8410,14 +8403,13 @@ function openEditChar(id) {
   if (brEl) { brEl.value = char.browser_voice_rate || 1.0; const rv = document.getElementById('browserVoiceRateVal'); if (rv) rv.textContent = brEl.value; }
   const bpEl = document.getElementById('browserVoicePitch');
   if (bpEl) { bpEl.value = char.browser_voice_pitch || 1.0; const pv = document.getElementById('browserVoicePitchVal'); if (pv) pv.textContent = bpEl.value; }
-  // VOICEVOX
-  document.getElementById('newCharVoicevox').value = char.voicevox_speaker ?? 13;
-  const vvNm = document.getElementById('vvSelectedName');
-  if (vvNm) vvNm.textContent = char.voicevox_name || '未選択（「話者取得」で選択）';
-  if (vMode === 'voicevox') {
-    fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(1500) })
-      .then(r => r.ok ? fetchVvSpeakers() : null).catch(() => null);
-  }
+  // Google TTS 設定復元
+  const gtVoiceEl = document.getElementById('newCharGoogleTtsVoice');
+  if (gtVoiceEl) gtVoiceEl.value = char.google_tts_voice || 'ja-JP-Neural2-B';
+  const gtRateEl = document.getElementById('googleTtsRate');
+  if (gtRateEl) { gtRateEl.value = char.google_tts_rate || 1.0; const rv = document.getElementById('googleTtsRateVal'); if (rv) rv.textContent = gtRateEl.value; }
+  const gtPitchEl = document.getElementById('googleTtsPitch');
+  if (gtPitchEl) { gtPitchEl.value = char.google_tts_pitch || 0; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = gtPitchEl.value; }
   _updateWizardStatus(id);
   openModal('addCharModal');
 }
