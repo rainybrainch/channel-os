@@ -231,7 +231,7 @@
   <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
   <button id="simpleModeBtn" onclick="toggleSimpleMode()" style="margin-left:auto;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;font-weight:700;flex-shrink:0;">シンプル</button>
   <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
-  <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（常時表示）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
+  <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（画面内常時表示 / 別窓で最前面表示も可）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
   <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
 </header>
 
@@ -1455,12 +1455,23 @@ function showSaveIndicator() {
   setTimeout(() => { el.style.opacity = '0'; }, 2000);
 }
 
-function showToast(msg) {
+function _desktopNotify(msg) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification('📺 Channel OS', { body: msg, icon: '/favicon.ico' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => { if (p === 'granted') new Notification('📺 Channel OS', { body: msg }); });
+  }
+}
+
+function showToast(msg, notify = false) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;z-index:9999;';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
+  // 完了・エラー通知はデスクトップ通知も発火
+  if (notify || msg.startsWith('✅') || msg.startsWith('🎉')) _desktopNotify(msg);
 }
 
 // Scene state
@@ -1730,7 +1741,7 @@ async function analyzeVideoForStoryboard() {
       return;
     }
 
-    const result = JSON.parse(analysisText.match(/\{[\s\S]*\}/)[0]);
+    const result = safeParseJSON(analysisText, {});
     const scenes = (result.scenes || []).map(s => ({
       label: s.label || 'シーン',
       time: s.time || '',
@@ -1933,6 +1944,103 @@ async function exportScenesZip() {
   showToast(`✅ ${count}ファイルをダウンロードしました`);
 }
 
+// ════════════════════════════════════
+//  絵コンテ ドラッグ&ドロップ 並び替え
+// ════════════════════════════════════
+let _sbDragFrom = -1;
+
+function sbDragStart(e, idx) {
+  _sbDragFrom = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.5';
+}
+function sbDragOver(e, idx) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const el = e.currentTarget;
+  el.style.borderTop = idx < _sbDragFrom ? '2px solid var(--accent)' : '';
+  el.style.borderBottom = idx > _sbDragFrom ? '2px solid var(--accent)' : '';
+}
+function sbDrop(e, idx) {
+  e.preventDefault();
+  if (_sbDragFrom === idx) return;
+  const sb = storyboardData[sbKey()];
+  if (!sb) return;
+  const scenes = sb.scenes;
+  const [moved] = scenes.splice(_sbDragFrom, 1);
+  scenes.splice(idx, 0, moved);
+  saveStoryboard();
+  document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
+  showToast(`シーンを移動しました（${_sbDragFrom+1} → ${idx+1}）`);
+}
+function sbDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('.sb-scene').forEach(el => { el.style.borderTop=''; el.style.borderBottom=''; });
+  _sbDragFrom = -1;
+}
+
+// ════════════════════════════════════
+//  ⌨️ キーボードショートカット（Ctrl/Cmd + 修飾キー）
+// ════════════════════════════════════
+document.addEventListener('keydown', e => {
+  // テキスト入力中は無視
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (!ctrl) return;
+
+  switch (e.key) {
+    case 'Enter': // Ctrl+Enter: 一括生成
+      e.preventDefault();
+      if (currentCharId && currentEpisodeId) generateAll();
+      break;
+    case 'ArrowRight': // Ctrl+→: 次のキャラ
+      e.preventDefault();
+      _switchCharByOffset(1);
+      break;
+    case 'ArrowLeft': // Ctrl+←: 前のキャラ
+      e.preventDefault();
+      _switchCharByOffset(-1);
+      break;
+    case 'ArrowDown': // Ctrl+↓: 次のエピソード
+      e.preventDefault();
+      _switchEpByOffset(1);
+      break;
+    case 'ArrowUp': // Ctrl+↑: 前のエピソード
+      e.preventDefault();
+      _switchEpByOffset(-1);
+      break;
+    case 'n': // Ctrl+N: 新しい動画
+      e.preventDefault();
+      if (currentCharId) newEpisode();
+      break;
+    case 'd': // Ctrl+D: デイリーダッシュボード
+      e.preventDefault();
+      openDailyDashboard();
+      break;
+    case 'w': // Ctrl+W: ウィジェット切替
+      e.preventDefault();
+      toggleStatusWidget();
+      break;
+  }
+});
+
+function _switchCharByOffset(offset) {
+  const chars = data.characters;
+  if (!chars.length) return;
+  const idx = chars.findIndex(c => c.id === currentCharId);
+  const next = chars[(idx + offset + chars.length) % chars.length];
+  if (next) selectChar(next.id);
+}
+function _switchEpByOffset(offset) {
+  const eps = getEpisodes();
+  if (!eps.length) return;
+  const idx = eps.findIndex(e => e.id === currentEpisodeId);
+  const next = eps[(idx + offset + eps.length) % eps.length];
+  if (next) loadEpisode(next.id);
+}
+
 function previewReverseVideo(input) {
   const file = input?.files[0];
   if (!file) return;
@@ -1948,6 +2056,12 @@ function previewReverseVideo(input) {
 // ════════════════════════════════════
 let _widgetVisible = false;
 
+function openWidgetPopup() {
+  // 別ウィンドウでウィジェットを開く（PWA対応・他アプリ上に表示可能）
+  const url = location.href + (location.href.includes('?') ? '&' : '?') + 'widget=1';
+  window.open(url, 'channelos_widget', 'width=280,height=220,top=20,right=20,alwaysOnTop=1,toolbar=no,menubar=no,scrollbars=no');
+}
+
 function toggleStatusWidget() {
   _widgetVisible = !_widgetVisible;
   let w = document.getElementById('statusWidget');
@@ -1955,15 +2069,16 @@ function toggleStatusWidget() {
     w = document.createElement('div');
     w.id = 'statusWidget';
     w.style.cssText = `
-      position:fixed;bottom:20px;right:20px;z-index:9999;
-      background:rgba(13,13,13,.95);border:1px solid var(--border);border-radius:12px;
+      position:fixed;bottom:20px;right:20px;z-index:2147483647;
+      background:rgba(13,13,13,.97);border:1px solid var(--border);border-radius:12px;
       padding:12px 14px;min-width:220px;max-width:280px;
-      box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(8px);
+      box-shadow:0 8px 32px rgba(0,0,0,.8);backdrop-filter:blur(12px);
       font-family:inherit;cursor:move;user-select:none;
     `;
     w.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <span style="font-size:.78rem;font-weight:700;color:var(--accent);flex:1;">📺 Channel OS</span>
+        <button onclick="openWidgetPopup()" style="background:none;border:1px solid #444;border-radius:4px;color:#aaa;cursor:pointer;font-size:.65rem;padding:2px 5px;" title="別ウィンドウで開く（最前面表示可）">⬡ 別窓</button>
         <button onclick="toggleStatusWidget()" style="background:none;border:none;color:#888;cursor:pointer;font-size:.9rem;padding:0;">✕</button>
       </div>
       <div id="widgetContent" style="font-size:.74rem;line-height:1.6;color:var(--text);"></div>
@@ -2571,7 +2686,7 @@ JSONのみ出力:
 
   try {
     const text = await callClaude(prompt);
-    const suggestions = JSON.parse(text.match(/\[[\s\S]*\]/)[0]);
+    const suggestions = safeParseArr(text, []);
     area.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:6px;">
         ${suggestions.map((s, i) => `
@@ -2796,7 +2911,7 @@ ${strategy}
     s2.textContent = '🔄 [2/3] 結果を反映中...';
     s2.style.color = 'var(--char-color)';
 
-    const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const result = safeParseJSON(text, {});
 
     // 企画を反映
     const plans = result.plans || [];
@@ -2931,7 +3046,7 @@ AI人格: ${char.ai_personality}
 [{"label":"案A（王道）","title":"","description":"","hook":""},{"label":"案B（連携）","title":"","description":"","hook":""},{"label":"案C（枠超え）","title":"","description":"","hook":""}]`;
   try {
     const text = await callClaude(prompt);
-    const plans = JSON.parse(text.match(/\[[\s\S]*\]/)[0]);
+    const plans = safeParseArr(text, []);
     generatedPlans = plans;
     saveCurrentEpisode();
     aiEnd('plan');
@@ -3377,11 +3492,13 @@ function renderStoryboard() {
   const sb = storyboardData[sbKey()];
   if (!sb || !sb.scenes) return '<p style="font-size:.82rem;color:var(--text-muted);">「横動画で生成」または「ショートで生成」ボタンを押してください。</p>';
   return sb.scenes.map((scene, i) => `
-  <div class="sb-scene">
+  <div class="sb-scene" draggable="true" data-scene-idx="${i}"
+       ondragstart="sbDragStart(event,${i})" ondragover="sbDragOver(event,${i})" ondrop="sbDrop(event,${i})" ondragend="sbDragEnd(event)">
     <div class="sb-scene-header">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-right:4px;" title="一括生成の対象に含める">
         <input type="checkbox" id="sbCheck${i}" ${scene.skipBulk ? '' : 'checked'} onchange="toggleSceneCheck(${i},this.checked)" style="accent-color:var(--char-color);width:15px;height:15px;">
       </label>
+      <span style="cursor:grab;color:#555;font-size:.8rem;margin-right:2px;" title="ドラッグで並び替え">⠿</span>
       <span class="sb-scene-badge">${escHtml(scene.label)}</span>
       <span class="sb-scene-time">${escHtml(scene.time)}</span>
       ${scene.imageDataUrl ? '<span style="font-size:.7rem;color:#4caf50;margin-left:auto;">✅ 生成済</span>' : ''}
@@ -3854,7 +3971,7 @@ async function generateScenePrompt(sceneIdx) {
 JSON形式のみ: {"ja":"このシーンのポーズ・表情を日本語1文で","en":"English prompt for image generation"}`;
   try {
     const text = await callClaude(prompt);
-    const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const result = safeParseJSON(text, {});
     sb.scenes[sceneIdx].prompt = result.en || result.ja;
     saveStoryboard();
     const el = document.getElementById('storyboardContainer');
@@ -4062,7 +4179,7 @@ async function generateMeta() {
 }`;
   try {
     const text = await callClaude(prompt);
-    generatedMeta = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    generatedMeta = safeParseJSON(text, {});
     aiEnd('meta');
     document.getElementById('metaLoading').style.display = 'none';
     saveCurrentEpisode();
@@ -4300,7 +4417,7 @@ ${transcript.slice(0, 4000)}${transcript.length > 4000 ? '\n...(以下省略)' :
 
   try {
     const text = await callClaude(prompt);
-    const result = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const result = safeParseJSON(text, {});
     window._radioResult = result;
 
     // 整理済み台本を反映
@@ -5422,7 +5539,7 @@ async function generateSchedule() {
 JSONのみ出力: [{"date":"YYYY-MM-DD","episode":1,"format":"horizontal|shorts","theme":"","title_idea":""}]`;
   try {
     const text = await callClaude(prompt);
-    const schedule = JSON.parse(text.match(/\[[\s\S]*\]/)[0]);
+    const schedule = safeParseArr(text, []);
     _lastGeneratedSchedule = schedule;
     document.getElementById('scheduleLoading').style.display = 'none';
     document.getElementById('scheduleResult').innerHTML = `
@@ -5631,14 +5748,34 @@ function renderSettingsPanel() {
   return `
   <div class="panel ${currentTab==='settings'?'active':''}" id="panelSettings">
 
+    <!-- 📋 アカウント構成の説明 -->
+    <div class="card" style="margin-bottom:8px;border:1px solid #4a9edd44;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);">
+      <div class="card-title" style="color:#4a9edd;">📋 アカウント構成（2アカウント運用）</div>
+      <div style="font-size:.78rem;line-height:1.8;color:var(--text-muted);">
+        <div style="margin-bottom:6px;">
+          <span style="color:var(--accent);font-weight:700;">① Drive・API管理アカウント</span><br>
+          <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:.75rem;">FukuiSho0603@gmail.com</code>
+          <span style="font-size:.72rem;"> → Google Cloud Console / APIキー / Driveデータ保管</span>
+        </div>
+        <div>
+          <span style="color:#4caf50;font-weight:700;">② チャンネル運用アカウント</span><br>
+          <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:.75rem;">rainybrain.ch@gmail.com</code>
+          <span style="font-size:.72rem;"> → YouTube投稿・SNS・視聴者への顔</span>
+        </div>
+        <div style="margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:6px;font-size:.72rem;color:#aaa;">
+          💡 Googleログインは <b>FukuiSho0603</b> でOK（DriveとAPI管理のため）。YouTubeアップロードのみ <b>rainybrain.ch</b> で別途認証します。
+        </div>
+      </div>
+    </div>
+
     <!-- 🚀 初期設定ウィザード -->
     <div class="card" style="border:2px solid ${allDone ? '#4caf50' : 'var(--accent)'};">
       <div class="card-title" style="color:${allDone?'#4caf50':'var(--accent)'};">${allDone ? '✅ 初期設定完了' : '🚀 初期設定（初回のみ）'}</div>
       ${allDone ? '<p style="font-size:.78rem;color:#4caf50;">すべての設定が完了しています。Drive同期・自動認証が有効です。</p>' : '<p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">以下を上から順に設定してください。一度やれば次回以降は自動で繋がります。</p>'}
-      ${step(gdToken && gdRefresh, `① Google Drive ログイン${gdRefresh?' (自動更新ON ✓)':' → ログインするとDrive/共有が使えます'}`, "gdAuth()")}
+      ${step(gdToken && gdRefresh, `① Google Drive ログイン (FukuiSho0603@gmail.com)${gdRefresh?' ✅ 自動更新ON':' → Drive/API管理用アカウント'}`, "gdAuth()")}
       ${step(hasKey, '② Gemini APIキー → AI生成の核心。必須です', "document.getElementById('geminiApiKey')?.focus()")}
       ${step(hasFoldr, '③ DriveフォルダID → チームで同じIDを使うと全員でデータ共有できます', "document.getElementById('gdFolderInput')?.focus()")}
-      ${step(ytDone > 0, `④ YouTubeキャラ認証 → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
+      ${step(ytDone > 0, `④ YouTube認証 (rainybrain.ch) → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
       ${!allDone ? `<div style="margin-top:10px;padding:8px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.7;">
         💡 <b>永続ログインにするための前提条件（1回だけ）：</b><br>
         Google Cloud Console → 認証情報 → OAuthクライアントID →<br>
@@ -7298,7 +7435,7 @@ async function autoFillStrategy() {
 {"yt":"YouTube戦略（視聴者層・差別化・NGを30字以内）","note":"Note戦略（スタイルを30字以内）","x":"X戦略（投稿スタイルを30字以内）","ig":"IG方針（30字以内）"}`;
   try {
     const text = await callClaude(prompt);
-    const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const r = safeParseJSON(text, {});
     const _fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
     _fill('newCharYtStrategy',   r.yt);
     _fill('newCharNoteStrategy', r.note);
@@ -7335,7 +7472,8 @@ async function generateCharFromDesc() {
 
   try {
     const text = await callClaude(prompt);
-    const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const r = safeParseJSON(text, {});
+    if (!r.name) throw new Error('AIの返答を解析できませんでした');
     // フォームに反映
     const _set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
     _set('newCharName', r.name);
@@ -7921,6 +8059,28 @@ async function generateVideo() {
 //  Utils
 // ════════════════════════════════════
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// AI レスポンスから JSON を安全に抽出（クラッシュ防止）
+function safeParseJSON(text, fallback = null) {
+  if (!text) return fallback;
+  // ```json ブロック対応
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = fenced ? fenced[1] : text;
+  // オブジェクト or 配列を抽出
+  const objMatch = raw.match(/\{[\s\S]*\}/);
+  const arrMatch = raw.match(/\[[\s\S]*\]/);
+  const candidate = objMatch ? objMatch[0] : arrMatch ? arrMatch[0] : null;
+  if (!candidate) return fallback;
+  try { return JSON.parse(candidate); } catch { return fallback; }
+}
+function safeParseArr(text, fallback = []) {
+  if (!text) return fallback;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = fenced ? fenced[1] : text;
+  const m = raw.match(/\[[\s\S]*\]/);
+  if (!m) return fallback;
+  try { return JSON.parse(m[0]); } catch { return fallback; }
+}
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function copyText(text) {
@@ -8987,7 +9147,7 @@ if __name__ == "__main__":
 
 function parseScript(raw) {
   try {
-    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+    const json = safeParseJSON(raw, null); if (!json) throw new Error('parse fail');
     return { info: json.info || '', lines: json.lines || '' };
   } catch(e) {
     // JSON失敗時は全文をlinesとして表示
