@@ -1791,11 +1791,62 @@ ${strategy}
     saveCurrentEpisode();
 
     s2.textContent = '✅ [2/3] 反映完了';
-    s3.textContent = '✅ [3/3] 完了！';
+    s3.textContent = '🔄 [3/3] サムネイル自動生成中...';
+    s3.style.color = 'var(--char-color)';
+
+    // サムネイル自動生成（Gemini）
+    try {
+      const _thumbMeta = result.meta || {};
+      const _thumbFmt  = format;
+      const _thumbPromptH = _thumbMeta.thumb_horizontal || `YouTube thumbnail, horizontal 16:9, vibrant, eye-catching, cinematic: ${theme}`;
+      const _thumbPromptS = _thumbMeta.thumb_shorts    || `YouTube Shorts thumbnail, vertical 9:16, bold, vibrant: ${theme}`;
+      const _genPrompt = _thumbFmt === 'shorts' ? _thumbPromptS : _thumbPromptH;
+      const _ar        = _thumbFmt === 'shorts' ? '9:16' : '16:9';
+      const _W         = _thumbFmt === 'shorts' ? 720 : 1280;
+      const _H         = _thumbFmt === 'shorts' ? 1280 : 720;
+      const _overlayTx = _thumbFmt === 'shorts' ? (_thumbMeta.thumb_text_shorts || '') : (_thumbMeta.thumb_text_horizontal || '');
+
+      // Gemini → Stability fallbackで画像生成
+      let _imgDataUrl = null;
+      try {
+        _imgDataUrl = await generateGeminiImage(_genPrompt + ' High resolution, dramatic lighting, no text.', null);
+      } catch(_ge) {
+        const _stKey = localStorage.getItem(STABILITY_KEY_SK);
+        if (_stKey) _imgDataUrl = await generateStabilityImage(_genPrompt, _ar);
+        else throw _ge;
+      }
+
+      const _canvas = document.createElement('canvas');
+      _canvas.width = _W; _canvas.height = _H;
+      const _ctx = _canvas.getContext('2d');
+      const _img = new Image();
+      await new Promise((res, rej) => { _img.onload = res; _img.onerror = rej; _img.src = _imgDataUrl; });
+      _ctx.drawImage(_img, 0, 0, _W, _H);
+      if (_overlayTx) {
+        const _fs = _thumbFmt === 'shorts' ? 72 : 60;
+        _ctx.font = `bold ${_fs}px 'Noto Sans JP', sans-serif`;
+        _ctx.textAlign = 'center';
+        _ctx.shadowColor = '#000'; _ctx.shadowBlur = 12;
+        _ctx.fillStyle = '#ffffff';
+        const _lines = wrapText(_ctx, _overlayTx, _W - 80);
+        let _y = _thumbFmt === 'shorts' ? _H * 0.75 : _H * 0.8;
+        _lines.forEach(l => { _ctx.fillText(l, _W / 2, _y); _y += _fs * 1.3; });
+      }
+      const _dataUrl = _canvas.toDataURL('image/jpeg', 0.92);
+      const _field = _thumbFmt === 'shorts' ? 'thumbnailSDataUrl' : 'thumbnailDataUrl';
+      const _saved = await saveThumbValue(currentEpisodeId, _field, _dataUrl);
+      const _d2 = loadData();
+      const _ei = _d2.episodes.findIndex(e => e.id === currentEpisodeId);
+      if (_ei >= 0) { _d2.episodes[_ei][_field] = _saved; saveData(_d2); }
+      s3.textContent = '✅ [3/3] 完了！（サムネイル生成済）';
+    } catch (_te) {
+      s3.textContent = '✅ [3/3] 完了（サムネイル生成スキップ: ' + _te.message.slice(0,40) + '）';
+    }
+
     s3.style.color = '#4caf50';
     aiEnd(null);
     renderSidebar();
-    showToast(`✅ 一括生成完了 — 台本・概要欄・X/Note/IG/コメント文も全部揃いました`);
+    showToast(`✅ 一括生成完了 — 台本・概要欄・X/Note/IG/コメント文・サムネイルまで全部揃いました`);
     // 他タブへの通知
     ['script','meta','scene','distribute'].forEach(t => {
       const el = document.getElementById('tab_' + t);
@@ -5120,8 +5171,6 @@ async function buildThumbnailForPublish(orientation) {
   const ep = currentEpisodeId ? (loadData().episodes || []).find(e => e.id === currentEpisodeId) : null;
   if (!ep) { showToast('エピソードを選択してください'); return; }
   const meta = ep.meta || ep.generatedMeta || {};
-  if (!localStorage.getItem(STABILITY_KEY_SK)) { showToast('設定タブでStability AI APIキーを入力してください'); return; }
-
   const isShorts = orientation === 'shorts';
   const W = isShorts ? 720 : 1280;
   const H = isShorts ? 1280 : 720;
@@ -5132,9 +5181,16 @@ async function buildThumbnailForPublish(orientation) {
     ? (meta.thumb_text_shorts || meta.title || '')
     : (meta.thumb_text_horizontal || meta.title || '');
 
-  showToast('🎨 Stability AI で画像生成中...');
+  showToast('🎨 サムネイル生成中（Gemini）...');
   try {
-    const imgDataUrl = await generateStabilityImage(promptText, isShorts ? '9:16' : '16:9');
+    let imgDataUrl = null;
+    try {
+      imgDataUrl = await generateGeminiImage(promptText + ' High resolution, dramatic lighting, no text.', null);
+    } catch (_ge) {
+      if (!localStorage.getItem(STABILITY_KEY_SK)) throw _ge;
+      showToast('🎨 Gemini失敗→Stability AIで再試行...');
+      imgDataUrl = await generateStabilityImage(promptText, isShorts ? '9:16' : '16:9');
+    }
 
     // Canvas合成
     const canvas = document.createElement('canvas');
