@@ -4254,129 +4254,128 @@ function renderDistributePanel() {
   const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
   const meta = ep?.meta || ep?.generatedMeta || {};
   const videoUrl = ep?.youtubeUrl || '';
-
   const xToken = localStorage.getItem(X_TOKEN_PFX + charId);
   const xUser  = localStorage.getItem(X_UNAME_PFX + charId);
   const igToken= localStorage.getItem(IG_TOKEN_PFX + charId);
   const igUser = localStorage.getItem(IG_UNAME_PFX + charId);
-  const xClientId = localStorage.getItem(X_CLIENT_SK);
-  const igAppId   = localStorage.getItem(IG_APP_ID_SK);
-
-  const platBadge = (ok, name, icon) =>
-    `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:1rem;">${icon}</span>
-      <span style="flex:1;font-size:.85rem;color:${ok?'var(--text)':'var(--text-muted)'};">${name}</span>
-      <span style="font-size:.72rem;color:${ok?'#4caf50':'#aaa'};">${ok?'✅ 接続済':'未接続'}</span>
-    </div>`;
-
   const hashtags = (meta.hashtags||[]).join(' ');
-  // 一括生成で作成済みのテキストを優先、なければフォールバック
   const tweetText = ep?.xTweet || (meta.title ? `${meta.title}\n[YT_URL]\n\n${hashtags.slice(0,80)}` : '');
   const igCaptionText = ep?.igCaption || (meta.title ? `${meta.title}\n\n${meta.description?.slice(0,200)||''}\n\n${hashtags}` : '');
   const noteText = ep?.notePost || ep?.noteArticle || '';
-  const firstCommentSaved = ep?.firstComment || '';
-  // [YT_URL] プレースホルダーを実際のURLに置換
   const replaceUrl = (txt) => videoUrl ? txt.replace(/\[YT_URL\]/g, videoUrl) : txt;
+
+  // チェックリスト進行状態
+  const cl = ep?.postingChecklist || {};
+  const hasBulkGen = !!(ep?.xTweet || ep?.notePost);
+  const hasThumb   = !!(ep?.thumbnailDataUrl || ep?.thumbnailSDataUrl);
+  const hasUrl     = !!videoUrl;
+
+  const clItem = (done, step, label, sub, actionHtml) =>
+    `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:1.4rem;margin-top:2px;">${done ? '✅' : '⬜'}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.88rem;font-weight:${done?'400':'700'};color:${done?'var(--text-muted)':'var(--text)'};text-decoration:${done?'line-through':''}">${step}. ${label}</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:2px;">${sub}</div>
+        ${actionHtml ? `<div style="margin-top:8px;">${actionHtml}</div>` : ''}
+      </div>
+    </div>`;
+
+  const thumbSrc = ep?.thumbnailDataUrl || ep?.thumbnailSDataUrl || '';
 
   return `
   <div class="panel ${currentTab==='distribute'?'active':''}" id="panelDistribute">
 
-    <!-- 状態バナー -->
-    ${(ep?.xTweet || ep?.notePost) ? `<div style="background:linear-gradient(135deg,rgba(74,158,221,.12),rgba(201,168,76,.08));border:1px solid #4a9edd44;border-radius:8px;padding:12px 16px;font-size:.8rem;color:#4a9edd;display:flex;align-items:center;gap:8px;">
-      ✅ 一括生成済み — 各プラットフォームの文章が揃っています。URLを入れて「一括配信」を押すだけです。
-    </div>` : `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:.8rem;color:var(--text-muted);">
-      💡 「企画」タブの「🚀 一括生成」を押すと、X・Note・Instagram・ファーストコメントの文章が全部自動で生成されます。
-    </div>`}
-
-    <!-- プラットフォーム接続状況 -->
-    <div class="card">
-      <div class="card-title">📡 プラットフォーム接続状況</div>
-      ${platBadge(!!xToken, `X (Twitter)${xUser?' — @'+xUser:''}`, '🐦')}
-      ${platBadge(!!igToken, `Instagram${igUser?' — @'+igUser:''}`, '📸')}
-      ${platBadge(true, 'YouTube（メインアカウントで接続済）', '🎥')}
-      ${platBadge(true, 'Note（コピー配信）', '📒')}
-      <div style="margin-top:10px;font-size:.74rem;color:var(--text-muted);">X・Instagramの接続は設定タブ →「配信アカウント設定」から</div>
+    <!-- ヘッダー -->
+    <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--char-color,#c9a84c)44;border-radius:10px;padding:14px 16px;margin-bottom:4px;">
+      <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;">📡 投稿フロー</div>
+      <div style="font-size:.75rem;color:var(--text-muted);">チェックを順番にこなすだけ。AI自動化済み項目は押さなくてOK。</div>
     </div>
 
-    <!-- 一括配信 -->
-    <div class="card" style="border:2px solid var(--char-color);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
-      <div class="card-title">🚀 一括配信</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">YouTube URLを入れて押すだけ。X投稿 → ファーストコメント → Note誘導まで自動処理。</p>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:.78rem;">YouTube 動画URL（投稿後にここに貼る）</label>
-        <input type="text" id="distVideoUrl" placeholder="https://www.youtube.com/watch?v=..." value="${escHtml(videoUrl)}" style="margin-top:4px;font-size:.9rem;padding:10px 14px;" oninput="applyYtUrl(this.value)">
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" style="flex:1;min-width:160px;padding:12px;" onclick="distributeAll()">🚀 一括配信（X + コメント + Note誘導）</button>
-        <button class="btn btn-secondary" onclick="postFirstComment()">💬 コメントのみ</button>
-      </div>
-      <div id="distributeLog" style="margin-top:12px;font-size:.78rem;display:flex;flex-direction:column;gap:6px;"></div>
-    </div>
+    <!-- チェックリスト -->
+    <div class="card" style="padding:0 16px;">
 
-    <!-- X プレビュー -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div class="card-title" style="margin:0;">🐦 X (Twitter)</div>
-        <div style="display:flex;gap:6px;">
-          ${xToken
-            ? `<button class="btn btn-primary btn-sm" onclick="postToX()">投稿する</button>`
-            : `<button class="btn btn-secondary btn-sm" onclick="xAuth('${charId}')">X に接続</button>`}
-          <button class="btn btn-secondary btn-sm" onclick="copyXText()">📋 コピー</button>
-        </div>
-      </div>
-      <textarea id="xTweetText" style="margin-top:4px;min-height:110px;font-size:.88rem;line-height:1.7;">${escHtml(replaceUrl(tweetText))}</textarea>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-        <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="generateXThread()">🧵 スレッド生成（AI）</button>
-        <span id="xCharCount" style="font-size:.72rem;color:var(--text-muted);">${replaceUrl(tweetText).length}/280</span>
-      </div>
-      <script>document.getElementById('xTweetText')?.addEventListener('input',function(){document.getElementById('xCharCount').textContent=this.value.length+'/280';});<\/script>
-      <div id="xThreadResult" style="margin-top:10px;font-size:.82rem;line-height:1.7;"></div>
-    </div>
+      ${clItem(hasBulkGen, 'STEP 1', '🚀 一括生成（AI自動）',
+        hasBulkGen ? 'X・Note・IG・コメント文が生成済みです' : '「企画」タブの一括生成ボタンを押してください',
+        hasBulkGen ? '' : `<button class="btn btn-primary btn-sm" onclick="switchTab('plan')">企画タブへ →</button>`
+      )}
 
-    <!-- Note -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div class="card-title" style="margin:0;">📒 Note（添え書き）</div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="generateNoteArticle()">✨ 再生成</button>
-          <button class="btn btn-primary btn-sm" onclick="copyNoteAndOpen()">📋 コピー＆Note開く</button>
-        </div>
-      </div>
-      <p style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;">「今回の動画はこういう意味です」スタイルの添え書き。Note.comに貼り付けるだけ。</p>
-      <textarea id="noteArticleArea" style="min-height:140px;font-size:.85rem;line-height:1.8;">${escHtml(replaceUrl(noteText||'（企画タブの「一括生成」で自動生成されます）'))}</textarea>
-      <div id="noteLoading" class="loading" style="display:none;margin-top:8px;"><div class="spinner"></div><span>Note投稿文を生成中...</span></div>
-    </div>
+      ${clItem(hasThumb, 'STEP 2', '🖼 サムネイル生成（AI自動）',
+        hasThumb ? 'サムネイルが生成済みです' : '一括生成時に自動生成。または投稿タブで手動生成。',
+        hasThumb
+          ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <img src="${escHtml(thumbSrc)}" style="height:54px;border-radius:4px;object-fit:cover;border:1px solid var(--border);">
+              <button class="btn btn-secondary btn-sm" onclick="switchTab('publish')">投稿タブで確認</button>
+              <button class="btn btn-secondary btn-sm" onclick="buildThumbnailForPublish('${ep?.inputFormat||'horizontal'}')">🔄 再生成</button>
+            </div>`
+          : `<button class="btn btn-secondary btn-sm" onclick="buildThumbnailForPublish('${ep?.inputFormat||'horizontal'}')">🎨 今すぐ生成</button>`
+      )}
 
-    <!-- Instagram -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div class="card-title" style="margin:0;">📸 Instagram</div>
-        <div style="display:flex;gap:6px;">
-          ${igToken
-            ? `<button class="btn btn-primary btn-sm" onclick="postToInstagram()">投稿する</button>`
-            : `<button class="btn btn-secondary btn-sm" onclick="igAuth('${charId}')">接続</button>`}
-          <button class="btn btn-secondary btn-sm" onclick="copyText(document.getElementById('igCaption').value)">📋 コピー</button>
-        </div>
-      </div>
-      <p style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;">Business/Creatorアカウント必須。画像URLまたはサムネを使用。</p>
-      <textarea id="igCaption" style="margin-top:4px;min-height:110px;font-size:.85rem;line-height:1.7;">${escHtml(igCaptionText)}</textarea>
-      <div style="margin-top:8px;">
-        <label style="font-size:.78rem;">投稿する画像URL</label>
-        <input type="text" id="igImageUrl" placeholder="https://... （空の場合はMidjourneyプロンプトを参照）" style="margin-top:4px;font-size:.82rem;">
-      </div>
-    </div>
+      ${clItem(hasUrl, 'STEP 3', '🎥 YouTube動画URLを貼る（手動）',
+        hasUrl ? `設定済: ${videoUrl}` : 'YouTubeにアップロード後、URLをここに貼ってください',
+        `<input type="text" id="distVideoUrl" placeholder="https://www.youtube.com/watch?v=..." value="${escHtml(videoUrl)}"
+          style="font-size:.9rem;padding:10px 14px;" oninput="applyYtUrl(this.value)"
+          onchange="if(this.value){const _ep=currentEpisodeId?(data.episodes||[]).find(e=>e.id===currentEpisodeId):null;if(_ep){_ep.postingChecklist=_ep.postingChecklist||{};saveData(data);}renderDistributePanel&&(document.getElementById('panelDistribute').outerHTML=renderDistributePanel());}">`
+      )}
 
-    <!-- ファーストコメント設定 -->
-    <div class="card">
-      <div class="card-title">💬 ファーストコメント</div>
-      <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:10px;">YouTube投稿後、自動でチャンネル主からコメントを入れます。固定コメントにも使えます。</p>
-      <label style="font-size:.78rem;">コメント文${ep?.firstComment?'（一括生成済み）':'（AI生成 or 手動入力）'}</label>
-      <textarea id="firstCommentText" style="margin-top:4px;min-height:80px;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-        <button class="btn btn-secondary btn-sm" onclick="generateFirstComment()">✨ AIで生成</button>
-        <button class="btn btn-primary btn-sm" onclick="postFirstComment()">💬 今すぐ投稿</button>
+      ${clItem(!!cl.xPosted, 'STEP 4', '🐦 X (Twitter) 投稿',
+        xToken ? (cl.xPosted ? '投稿済み' : 'ワンクリックで投稿できます') : 'X連携が必要です（設定タブ）',
+        `<div style="display:flex;flex-direction:column;gap:8px;">
+          <textarea id="xTweetText" style="min-height:90px;font-size:.84rem;line-height:1.7;">${escHtml(replaceUrl(tweetText))}</textarea>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${xToken
+              ? `<button class="btn btn-primary btn-sm" onclick="postToX().then(()=>_markChecklist('xPosted'))">🐦 今すぐ投稿</button>`
+              : `<button class="btn btn-secondary btn-sm" onclick="xAuth('${charId}')">X に接続</button>`}
+            <button class="btn btn-secondary btn-sm" onclick="copyXText()">📋 コピー</button>
+            <span id="xCharCount" style="font-size:.72rem;color:var(--text-muted);margin-left:auto;">${replaceUrl(tweetText).length}/280</span>
+          </div>
+          <script>document.getElementById('xTweetText')?.addEventListener('input',function(){document.getElementById('xCharCount').textContent=this.value.length+'/280';});<\/script>
+        </div>`
+      )}
+
+      ${clItem(!!cl.notePosted, 'STEP 5', '📒 Note 投稿',
+        cl.notePosted ? '投稿済み（コピー完了）' : 'コピーしてNote.comに貼るだけ（1クリック）',
+        `<div style="display:flex;flex-direction:column;gap:8px;">
+          <textarea id="noteArticleArea" style="min-height:120px;font-size:.82rem;line-height:1.8;">${escHtml(replaceUrl(noteText||'（一括生成で自動生成されます）'))}</textarea>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="copyNoteAndOpen().then(()=>_markChecklist('notePosted'))">📋 コピー＆Note開く</button>
+            <button class="btn btn-secondary btn-sm" onclick="generateNoteArticle()">✨ 再生成</button>
+          </div>
+          <div id="noteLoading" class="loading" style="display:none;margin-top:4px;"><div class="spinner"></div><span>生成中...</span></div>
+        </div>`
+      )}
+
+      ${clItem(!!cl.igPosted, 'STEP 6', '📸 Instagram 投稿',
+        igToken ? (cl.igPosted ? '投稿済み' : 'キャプションを確認して投稿') : 'IG連携が必要です（設定タブ）',
+        `<div style="display:flex;flex-direction:column;gap:8px;">
+          <textarea id="igCaption" style="min-height:90px;font-size:.82rem;line-height:1.7;">${escHtml(igCaptionText)}</textarea>
+          ${hasThumb ? `<div style="font-size:.72rem;color:var(--text-muted);">📎 サムネイル画像を使用します</div>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${igToken
+              ? `<button class="btn btn-primary btn-sm" onclick="postToInstagram().then(()=>_markChecklist('igPosted'))">📸 投稿する</button>`
+              : `<button class="btn btn-secondary btn-sm" onclick="igAuth('${charId}')">IG に接続</button>`}
+            <button class="btn btn-secondary btn-sm" onclick="copyText(document.getElementById('igCaption').value)">📋 コピー</button>
+          </div>
+        </div>`
+      )}
+
+      ${clItem(!!cl.commentPosted, 'STEP 7', '💬 ファーストコメント投稿',
+        cl.commentPosted ? 'コメント投稿済み' : 'YouTube動画にコメントを投稿します',
+        `<div style="display:flex;flex-direction:column;gap:8px;">
+          <textarea id="firstCommentText" style="min-height:70px;font-size:.82rem;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="postFirstComment().then(()=>_markChecklist('commentPosted'))">💬 投稿する</button>
+            <button class="btn btn-secondary btn-sm" onclick="generateFirstComment()">✨ AIで再生成</button>
+          </div>
+          <div id="firstCommentStatus" style="font-size:.78rem;"></div>
+        </div>`
+      )}
+
+      <div style="padding:14px 0;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" style="flex:1;min-width:160px;padding:12px;font-size:.9rem;font-weight:700;"
+          onclick="distributeAll()">⚡ X+Note+コメント 一括実行</button>
+        <button class="btn btn-secondary btn-sm" onclick="_resetChecklist()" style="color:#e55;border-color:#e55;">🔄 チェックリストをリセット</button>
       </div>
-      <div id="firstCommentStatus" style="margin-top:8px;font-size:.78rem;"></div>
+      <div id="distributeLog" style="font-size:.78rem;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
     </div>
 
   </div>`;
@@ -6756,11 +6755,33 @@ async function generateNoteArticle() {
 function copyNoteAndOpen() {
   const el = document.getElementById('noteArticleArea');
   const text = el?.value || el?.textContent || '';
-  if (!text || text.includes('一括生成') || text.includes('AI生成')) { showToast('先にNote投稿文を生成してください'); return; }
-  navigator.clipboard.writeText(text).then(() => {
+  if (!text || text.includes('一括生成') || text.includes('AI生成')) { showToast('先にNote投稿文を生成してください'); return Promise.resolve(); }
+  return navigator.clipboard.writeText(text).then(() => {
     showToast('📋 記事をコピーしました。Note.comに貼り付けてください');
     setTimeout(() => window.open('https://note.com/new', '_blank'), 800);
   }).catch(() => { copyText(text); window.open('https://note.com/new', '_blank'); });
+}
+
+function _markChecklist(key) {
+  if (!currentEpisodeId) return;
+  const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return;
+  ep.postingChecklist = ep.postingChecklist || {};
+  ep.postingChecklist[key] = true;
+  saveData(data);
+  const panel = document.getElementById('panelDistribute');
+  if (panel) panel.outerHTML = renderDistributePanel();
+}
+
+function _resetChecklist() {
+  if (!currentEpisodeId) return;
+  const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return;
+  ep.postingChecklist = {};
+  saveData(data);
+  const panel = document.getElementById('panelDistribute');
+  if (panel) panel.outerHTML = renderDistributePanel();
+  showToast('チェックリストをリセットしました');
 }
 
 // ════════════════════════════════════
@@ -6775,24 +6796,23 @@ async function distributeAll() {
   const xToken = await getXToken(currentCharId);
   if (xToken) {
     _distLog('🐦 X投稿中...', 'info');
-    await postToX(currentCharId);
+    try { await postToX(currentCharId); _markChecklist('xPosted'); _distLog('🐦 X投稿完了', 'success'); }
+    catch(e) { _distLog('🐦 X投稿失敗: ' + e.message, 'error'); }
   } else {
     _distLog('🐦 X: 未接続のためスキップ', 'warn');
   }
 
-  // 2. ファーストコメント
+  // 2. Note（コピー案内）
+  _distLog('📒 Note: コピー＆Note.com を開きます...', 'info');
+  try { await copyNoteAndOpen(); _markChecklist('notePosted'); _distLog('📒 Note: コピー完了。貼り付けて投稿してください', 'warn'); }
+  catch(e) { _distLog('📒 Note: ' + e.message, 'warn'); }
+
+  // 3. ファーストコメント
   _distLog('💬 ファーストコメント投稿中...', 'info');
-  await postFirstComment();
+  try { await postFirstComment(); _markChecklist('commentPosted'); _distLog('💬 コメント投稿完了', 'success'); }
+  catch(e) { _distLog('💬 コメント失敗: ' + e.message, 'error'); }
 
-  // 3. Note（コピー案内）
-  const noteText = document.getElementById('noteArticleArea')?.textContent || '';
-  if (noteText && !noteText.includes('AI生成')) {
-    _distLog('📒 Note: 記事生成済み。「コピー＆Note開く」で投稿してください', 'warn');
-  } else {
-    _distLog('📒 Note: 記事未生成。「AI生成」ボタンで作成してください', 'warn');
-  }
-
-  _distLog('✅ 配信処理が完了しました', 'success');
+  _distLog('✅ 一括実行完了', 'success');
 }
 
 function _distLog(msg, type='info') {
