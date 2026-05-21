@@ -2941,10 +2941,9 @@ function renderPlanPanel(char) {
             </div>
           </div>`;
         }).join('') : `<div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:.84rem;">
-          今週の予定がまだありません<br>
-          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="const wb=document.getElementById('weeklyPlanBox');const ic=document.getElementById('weeklyPlanToggleIcon');if(wb&&wb.style.display==='none'){wb.style.display='block';if(ic)ic.textContent='▲';}setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">📅 週間プランを作る</button>
+          今週の予定がまだありません。上の「＋ 週間プランを作成」を押してください。
         </div>`}
-      </div>
+      </div><!-- /今週の予定カード -->
 
       <!-- 週間プラン作成 -->
       <div id="weeklyPlanSection" class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.05),transparent);">
