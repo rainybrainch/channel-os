@@ -8957,6 +8957,13 @@ function handleAvatarUpload(input) {
     const placeholder = document.getElementById('charIconPlaceholder');
     if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
+    // 編集モードなら即座にlocalStorageへ保存（リロード対策）
+    if (editingCharId) {
+      saveCharAvatar(editingCharId, dataUrl);
+      const char = data.characters.find(c => c.id === editingCharId);
+      if (char) { char.avatar_url = dataUrl; saveData(data); }
+      showToast('✅ アイコンを保存しました');
+    }
   });
 }
 
@@ -8984,6 +8991,12 @@ async function generateCharIconInModal() {
     const placeholder = document.getElementById('charIconPlaceholder');
     if (placeholder) placeholder.style.display = 'none';
     if (statusEl) statusEl.textContent = '✅ 生成完了';
+    // 編集モードなら即座に保存
+    if (editingCharId) {
+      saveCharAvatar(editingCharId, dataUrl);
+      const char = data.characters.find(c => c.id === editingCharId);
+      if (char) { char.avatar_url = dataUrl; saveData(data); }
+    }
   } catch(e) {
     if (statusEl) statusEl.textContent = '❌ ' + e.message;
   }
@@ -9057,27 +9070,29 @@ function saveNewChar() {
 }
 
 function updateChar() {
+  try {
   const char = data.characters.find(c => c.id === editingCharId);
-  char.name           = document.getElementById('newCharName').value.trim();
-  char.species        = document.getElementById('newCharSpecies').value.trim();
-  char.theme          = document.getElementById('newCharTheme').value.trim();
-  char.tone           = document.getElementById('newCharTone').value.trim();
-  char.color          = document.getElementById('newCharColor').value;
-  char.channel_id     = document.getElementById('newCharChannelId').value.trim();
-  char.ai_personality   = document.getElementById('newCharPersonality').value.trim();
-  char.appearance       = document.getElementById('newCharAppearance').value.trim();
-  char.voicevox_name    = document.getElementById('newCharVoiceName').value.trim();
-  char.drive_folder_id  = document.getElementById('newCharFolderId').value.trim();
+  if (!char) { showToast('❌ キャラクターが見つかりません'); return; }
+  char.name           = document.getElementById('newCharName')?.value.trim() || char.name;
+  char.species        = document.getElementById('newCharSpecies')?.value.trim() || '';
+  char.theme          = document.getElementById('newCharTheme')?.value.trim() || '';
+  char.tone           = document.getElementById('newCharTone')?.value.trim() || '';
+  char.color          = document.getElementById('newCharColor')?.value || char.color;
+  char.channel_id     = document.getElementById('newCharChannelId')?.value.trim() || '';
+  char.ai_personality   = document.getElementById('newCharPersonality')?.value.trim() || '';
+  char.appearance       = document.getElementById('newCharAppearance')?.value.trim() || '';
+  char.voicevox_name    = document.getElementById('newCharVoiceName')?.value.trim() || '';
+  char.drive_folder_id  = document.getElementById('newCharFolderId')?.value.trim() || '';
   char.voice_mode       = document.getElementById('newCharVoiceMode')?.value || 'browser';
   char.browser_voice_name  = document.getElementById('newCharBrowserVoice')?.value || '';
   char.browser_voice_rate  = parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0;
   char.browser_voice_pitch = parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0;
-  char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || null;
+  char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox')?.value) || null;
   char.google_tts_voice = document.getElementById('newCharGoogleTtsVoice')?.value || 'ja-JP-Neural2-B';
   char.google_tts_rate  = parseFloat(document.getElementById('googleTtsRate')?.value) || 1.0;
   char.google_tts_pitch = parseFloat(document.getElementById('googleTtsPitch')?.value) || 0;
-  char.gpt_url          = document.getElementById('newCharGptUrl').value.trim();
-  char.gem_url          = document.getElementById('newCharGemUrl').value.trim();
+  char.gpt_url          = document.getElementById('newCharGptUrl')?.value.trim() || '';
+  char.gem_url          = document.getElementById('newCharGemUrl')?.value.trim() || '';
   char.yt_url           = document.getElementById('newCharYtUrl')?.value.trim() || '';
   char.yt_strategy      = document.getElementById('newCharYtStrategy')?.value.trim() || '';
   char.note_strategy    = document.getElementById('newCharNoteStrategy')?.value.trim() || '';
@@ -9094,6 +9109,10 @@ function updateChar() {
   renderSidebar();
   renderMain();
   _afterCharSave();
+  } catch(e) {
+    console.error('updateChar error:', e);
+    showToast('❌ 保存エラー: ' + e.message);
+  }
 }
 
 // ════════════════════════════════════
