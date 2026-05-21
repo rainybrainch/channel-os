@@ -400,7 +400,12 @@
     <!-- ═══ BLOCK 4: 音声設定 ═══ -->
     <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
       <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px;">🎙 音声設定（VOICEVOX）</div>
-      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">PCでVOICEVOXアプリを起動した状態でボタンを押すと話者一覧が自動取得できます。</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:6px;">PCでVOICEVOXを起動 → 「🔄 話者取得」を押すだけ。</div>
+      <div id="vvGuideBox" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:.7rem;color:var(--text-muted);">
+        <div style="font-weight:700;margin-bottom:3px;">📌 GitHub Pages版（チーム共有）から使う場合</div>
+        <div>VOICEVOXを通常起動すると接続できない場合があります。その場合は「話者取得」ボタンを押すと<b>起動コマンドが表示</b>されます。そのコマンドで起動し直してください。</div>
+        <div style="margin-top:3px;">チームメンバーへ共有: <b>VOICEVOXをダウンロード → コマンドで起動 → 話者取得</b> の3ステップのみ</div>
+      </div>
       <input type="hidden" id="newCharVoicevox" value="13">
       <!-- 話者選択UI -->
       <div id="vvPickerArea" style="margin-bottom:10px;">
@@ -4531,6 +4536,29 @@ function renderSettingsPanel() {
       </div>` : ''}
     </div>
 
+    <!-- VOICEVOX接続 -->
+    <div class="card" style="margin-top:8px;" id="settingsVvCard">
+      <div class="card-title">🎙 VOICEVOX 接続確認</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">音声を使う場合はVOICEVOXをPCで起動してください。GitHub Pages版では<b>起動コマンドが必要</b>です。</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="checkVvConnection()">🔄 接続確認</button>
+        <span id="settingsVvStatus" style="font-size:.8rem;color:var(--text-muted);">未確認</span>
+      </div>
+      <div id="settingsVvCmd" style="display:none;background:var(--surface2);border-radius:6px;padding:10px;font-size:.75rem;">
+        <div style="font-weight:700;margin-bottom:4px;color:var(--text);">📌 GitHub Pages版での起動コマンド（1回コピーして実行するだけ）</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+          <code id="vvCmdText" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:.72rem;word-break:break-all;"></code>
+          <button class="btn btn-primary btn-sm" style="flex-shrink:0;" onclick="navigator.clipboard.writeText(document.getElementById('vvCmdText').textContent).then(()=>showToast('📋 コマンドをコピーしました'))">📋 コピー</button>
+        </div>
+        <div style="margin-top:6px;color:var(--text-muted);font-size:.68rem;">
+          ① このコマンドをコピー → ② Windowsの「ファイル名を指定して実行（Win+R）」に貼り付けてEnter → ③ VOICEVOXが起動したら「接続確認」を再クリック
+        </div>
+        <div style="margin-top:4px;color:var(--text-muted);font-size:.68rem;">
+          チームメンバーへの共有: このコマンドをLINE/Slackで送るだけ
+        </div>
+      </div>
+    </div>
+
     <!-- チームメンバー管理 -->
     <div class="card" style="margin-top:8px;">
       <div class="card-title">👥 チームメンバー管理</div>
@@ -5879,6 +5907,13 @@ function wizXAuth()   { if (!localStorage.getItem(X_CLIENT_SK)) { showToast('先
 function wizIgAuth()  { if (!localStorage.getItem(IG_APP_ID_SK)) { showToast('先に設定タブでIG App IDを入力してください'); return; } igAuth(editingCharId || '_wizard_'); }
 
 // VOICEVOX話者取得・選択
+const VOICEVOX_URL = 'http://localhost:50021';
+// GitHub PagesのoriginをVOICEVOX --allow-originに渡す起動コマンド
+function _vvStartCmd() {
+  const origin = location.origin;
+  return `voicevox.exe --allow-origin "${origin}"`;
+}
+
 async function fetchVvSpeakers() {
   const btn = document.getElementById('vvFetchBtn');
   const status = document.getElementById('vvPickerStatus');
@@ -5886,11 +5921,10 @@ async function fetchVvSpeakers() {
   if (btn) btn.disabled = true;
   if (status) status.textContent = '🔄 VOICEVOX（localhost:50021）に接続中...';
   try {
-    const res = await fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error('接続失敗');
+    const res = await fetch(`${VOICEVOX_URL}/speakers`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error('status ' + res.status);
     const speakers = await res.json();
     if (status) status.textContent = `✅ ${speakers.length}人の話者を取得しました`;
-    // 現在選択中のIDを保持
     const curId = parseInt(document.getElementById('newCharVoicevox').value) || -1;
     sel.innerHTML = '<option value="">── 話者を選んでください ──</option>';
     speakers.forEach(sp => {
@@ -5910,14 +5944,21 @@ async function fetchVvSpeakers() {
       const nm = document.getElementById('vvSelectedName');
       if (nm) nm.textContent = label || '未選択';
     };
-    // 既存値があれば表示
     if (curId >= 0) {
       const found = Array.from(sel.options).find(o => parseInt(o.value) === curId);
       const nm = document.getElementById('vvSelectedName');
       if (nm) nm.textContent = found?.text || '未選択';
     }
   } catch(e) {
-    if (status) status.textContent = '❌ VOICEVOXが起動していないか接続できません。PCでVOICEVOXを起動してから再試行してください。';
+    // 接続失敗時: 起動コマンドをコピーできるUIを表示
+    if (status) status.innerHTML = `
+      <span style="color:#e55;">❌ VOICEVOXに接続できませんでした。</span><br>
+      <span style="color:var(--text-muted);">以下のコマンドで起動するとGitHub Pagesから接続できます：</span><br>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+        <code style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:.72rem;flex:1;word-break:break-all;">${escHtml(_vvStartCmd())}</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0;font-size:.72rem;" onclick="navigator.clipboard.writeText('${escHtml(_vvStartCmd())}').then(()=>showToast('📋 コマンドをコピーしました'))">📋 コピー</button>
+      </div>
+      <div style="margin-top:4px;font-size:.68rem;color:var(--text-muted);">💡 Windowsなら「ファイル名を指定して実行」に貼り付けてもOK</div>`;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -5954,6 +5995,24 @@ async function testVvVoice() {
     showToast('❌ テスト失敗: ' + e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '▶ テスト再生'; }
+  }
+}
+
+async function checkVvConnection() {
+  const status = document.getElementById('settingsVvStatus');
+  const cmdBox = document.getElementById('settingsVvCmd');
+  const cmdText = document.getElementById('vvCmdText');
+  if (status) status.textContent = '🔄 確認中...';
+  try {
+    const res = await fetch(`${VOICEVOX_URL}/version`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const ver = await res.text();
+    if (status) { status.textContent = `✅ 接続OK（v${ver.replace(/"/g,'')}）`; status.style.color = '#4caf50'; }
+    if (cmdBox) cmdBox.style.display = 'none';
+  } catch(e) {
+    if (status) { status.textContent = '❌ 未接続 — 下のコマンドで起動してください'; status.style.color = '#e55'; }
+    if (cmdBox) cmdBox.style.display = 'block';
+    if (cmdText) cmdText.textContent = _vvStartCmd();
   }
 }
 
