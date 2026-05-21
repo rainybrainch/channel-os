@@ -8331,11 +8331,15 @@ JSON形式のみで出力（他テキスト不要）:
     _set('newCharYtStrategy',  r.yt_strategy);
     _set('newCharNoteStrategy',r.note_strategy);
     _set('newCharXStrategy',   r.x_strategy);
-    // 音声設定を反映
+    // 音声設定を反映（Google TTSタブに切り替えてから設定）
+    switchVoiceTab('google_tts');
     if (r.voice_name) {
       const voiceSel = document.getElementById('newCharGoogleTtsVoice');
-      if (voiceSel) voiceSel.value = r.voice_name;
-      switchVoiceTab('google_tts');
+      if (voiceSel) {
+        voiceSel.value = r.voice_name;
+        // 該当optionがなければ最初のoptionを選択
+        if (!voiceSel.value) voiceSel.selectedIndex = 0;
+      }
     }
     if (r.voice_rate != null) {
       const rateEl = document.getElementById('googleTtsRate');
