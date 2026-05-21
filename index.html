@@ -8517,18 +8517,41 @@ function openEditChar(id) {
   openModal('addCharModal');
 }
 
+// 画像を指定サイズ・品質に圧縮してdataURLを返す
+function compressImage(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else       { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function handleAvatarUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('newCharAvatarDataUrl').value = e.target.result;
+  compressImage(file, 200, 0.75).then(dataUrl => {
+    document.getElementById('newCharAvatarDataUrl').value = dataUrl;
     const preview = document.getElementById('charIconPreview');
     const placeholder = document.getElementById('charIconPlaceholder');
-    if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+    if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 async function generateCharIconInModal() {
@@ -8543,7 +8566,11 @@ async function generateCharIconInModal() {
   if (statusEl) statusEl.textContent = '生成中…';
 
   try {
-    const dataUrl = await generateGeminiImage(prompt);
+    const rawUrl = await generateGeminiImage(prompt);
+    // base64画像をBlobに変換して圧縮
+    const res = await fetch(rawUrl);
+    const blob = await res.blob();
+    const dataUrl = await compressImage(new File([blob], 'icon.jpg', {type:'image/jpeg'}), 200, 0.75);
 
     document.getElementById('newCharAvatarDataUrl').value = dataUrl;
     const preview = document.getElementById('charIconPreview');
@@ -8559,12 +8586,11 @@ async function generateCharIconInModal() {
 function handleRefImageUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('newCharRefImage').value = e.target.result;
+  compressImage(file, 512, 0.8).then(dataUrl => {
+    document.getElementById('newCharRefImage').value = dataUrl;
     const prev = document.getElementById('refImagePreview');
     const ph   = document.getElementById('refImagePlaceholder');
-    if (prev) { prev.src = e.target.result; prev.style.display = 'block'; }
+    if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
     if (ph)   ph.style.display = 'none';
   };
   reader.readAsDataURL(file);
