@@ -406,7 +406,13 @@
       </div>
       <div id="aiCharGenStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
     </div>
-    <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:12px;">または以下に手動で入力してください。</p>
+    <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">または以下に手動で入力してください。</p>
+    <!-- 編集モード: AI改良ボタン -->
+    <div id="aiImproveBar" style="display:none;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:.76rem;color:var(--text-muted);flex:1;">🤖 名前・ジャンルを元にAIが口調・パーソナリティ・戦略を改善します</span>
+      <button type="button" class="btn btn-primary btn-sm" onclick="aiImproveChar()">✨ AIで改良</button>
+      <span id="aiImproveStatus" style="font-size:.72rem;color:var(--text-muted);"></span>
+    </div>
 
     <!-- ═══ BLOCK 1: キャラクター＆立ち絵 ═══ -->
     <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
@@ -8285,6 +8291,50 @@ function _afterCharSave() {
   showToast(`✅ ${char.name} の設定を保存しました`);
 }
 
+async function aiImproveChar() {
+  const name    = document.getElementById('newCharName')?.value.trim() || '';
+  const species = document.getElementById('newCharSpecies')?.value.trim() || '';
+  const theme   = document.getElementById('newCharTheme')?.value.trim() || '';
+  const tone    = document.getElementById('newCharTone')?.value.trim() || '';
+  const persona = document.getElementById('newCharPersonality')?.value.trim() || '';
+  if (!name || !theme) { showToast('名前とジャンルを入力してください'); return; }
+  const btn = document.querySelector('[onclick="aiImproveChar()"]');
+  const st  = document.getElementById('aiImproveStatus');
+  if (btn) btn.disabled = true;
+  if (st)  st.textContent = '🔄 生成中...';
+  const prompt = `YouTubeキャラクター「${name}」（${species || 'キャラ'}）の設定を改良してください。
+テーマ: ${theme}
+現在の口調: ${tone || '未設定'}
+現在のパーソナリティ: ${persona || '未設定'}
+
+以下の項目をキャラクターに最適な内容で提案してください。アイコン画像は変更しません。
+JSON形式のみで出力（他テキスト不要）:
+{
+  "tone": "口調・話し方（20字以内）",
+  "ai_personality": "AIが使うキャラ設定（100字以内・視聴者への価値・特徴を含む）",
+  "yt_strategy": "YouTube戦略（視聴者層・差別化・NGを30字以内）",
+  "note_strategy": "Note戦略（30字以内）",
+  "x_strategy": "X投稿スタイル（30字以内）"
+}`;
+  try {
+    const text = await callClaude(prompt);
+    const r = safeParseJSON(text, {});
+    const _set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    _set('newCharTone',        r.tone);
+    _set('newCharPersonality', r.ai_personality);
+    _set('newCharYtStrategy',  r.yt_strategy);
+    _set('newCharNoteStrategy',r.note_strategy);
+    _set('newCharXStrategy',   r.x_strategy);
+    if (st) st.textContent = '✅ 改良しました。確認して保存してください';
+    showToast('✅ AI改良完了');
+  } catch(e) {
+    if (st) st.textContent = '❌ ' + e.message;
+    showToast('❌ ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function autoFillStrategy() {
   const name  = document.getElementById('newCharName')?.value || '';
   const theme = document.getElementById('newCharTheme')?.value || '';
@@ -8372,6 +8422,8 @@ function openAddCharModal() {
   setTimeout(() => loadBrowserVoices(), 100);
   const d = document.getElementById('aiCharDesc'); if (d) d.value = '';
   const s = document.getElementById('aiCharGenStatus'); if (s) s.textContent = '';
+  const improveBar = document.getElementById('aiImproveBar');
+  if (improveBar) improveBar.style.display = 'none';
   openModal('addCharModal');
 }
 
@@ -8431,6 +8483,8 @@ function openEditChar(id) {
   if (gtRateEl) { gtRateEl.value = char.google_tts_rate || 1.0; const rv = document.getElementById('googleTtsRateVal'); if (rv) rv.textContent = gtRateEl.value; }
   const gtPitchEl = document.getElementById('googleTtsPitch');
   if (gtPitchEl) { gtPitchEl.value = char.google_tts_pitch || 0; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = gtPitchEl.value; }
+  const improveBar = document.getElementById('aiImproveBar');
+  if (improveBar) improveBar.style.display = 'flex';
   _updateWizardStatus(id);
   openModal('addCharModal');
 }
