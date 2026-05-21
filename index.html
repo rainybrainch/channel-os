@@ -3674,13 +3674,50 @@ function renderCreatePanel(char) {
   const generatedPlans = _epInput?.generatedPlans || [];
   const selectedPlan   = _epInput?.plan || null;
 
+  // 今日以降のカレンダーエントリ（週間プラン分）
+  const _calPlanned = (() => {
+    const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayStr = _ld(new Date());
+    return loadCalendar()
+      .filter(e => e.charId === char.id && e.date >= todayStr && e.episodeId && !e.posted)
+      .sort((a,b) => a.date.localeCompare(b.date))
+      .slice(0, 7);
+  })();
+
   return `
   <div class="panel ${currentTab==='create'?'active':''}" id="panelCreate">
+
+    <!-- 週間プランから選ぶ -->
+    ${_calPlanned.length ? `
+    <div class="card" style="border:1px solid #27ae6055;background:linear-gradient(135deg,rgba(39,174,96,.06),transparent);">
+      <div style="font-weight:700;font-size:.88rem;color:#27ae60;margin-bottom:10px;">📅 今週のプラン — 作る動画を選ぶ</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${_calPlanned.map(e => {
+          const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
+          const isActive = e.episodeId === currentEpisodeId;
+          const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const todayStr = _ld(new Date());
+          const isToday = e.date === todayStr;
+          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId}')"
+            style="cursor:pointer;padding:10px 12px;border-radius:8px;border:2px solid ${isActive?'#27ae60':isToday?'#27ae6066':'var(--border)'};background:${isActive?'rgba(39,174,96,.12)':'var(--surface2)'};display:flex;align-items:center;gap:10px;">
+            <div style="text-align:center;min-width:32px;">
+              <div style="font-size:.62rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
+              <div style="font-size:1.1rem;font-weight:700;color:${isToday?'#27ae60':'var(--text)'};">${parseInt(e.date.slice(8))}</div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:2px;">${e.format==='shorts'?'📱':'📺'} ${isToday?'<span style="color:#27ae60;font-weight:700;">今日</span>':''}</div>
+              <div style="font-size:.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(e.title||e.theme||'')}</div>
+            </div>
+            ${isActive ? '<span style="font-size:.72rem;color:#27ae60;font-weight:700;flex-shrink:0;">▶ 編集中</span>' : '<span style="font-size:.7rem;color:var(--text-muted);flex-shrink:0;">タップ</span>'}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
 
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div class="card-title" style="margin:0;">🎬 動画を作る</div>
-        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
+        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
       </div>
 
       <!-- 制作モード切替 -->
