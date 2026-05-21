@@ -2508,26 +2508,37 @@ function renderSidebar() {
       ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showEpManageModal()" title="プロジェクト管理・削除">📋</button>` : ''}
     </div>
     ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
-    ${eps.slice().reverse().map(ep => {
-      const cl = ep.postingChecklist || {};
-      const posted = ep.status === 'posted' || !!ep.youtubeUrl;
-      const doneCount = [cl.xPosted,cl.notePosted,cl.igPosted,cl.commentPosted,cl.urlFetched].filter(Boolean).length;
-      const col = statusColor[ep.status] || '#888';
-      const postedBadge = posted ? `<span style="font-size:.6rem;background:#9b59b622;color:#9b59b6;border-radius:4px;padding:1px 5px;margin-left:4px;">投稿済</span>` : (doneCount > 0 ? `<span style="font-size:.6rem;background:#e67e2222;color:#e67e22;border-radius:4px;padding:1px 5px;margin-left:4px;">${doneCount}/5</span>` : '');
-      return `
-    <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px 8px 14px;position:relative;">
-      <div style="display:flex;align-items:center;width:100%;gap:4px;">
-        <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;" ondblclick="event.stopPropagation();renameEpisode('${ep.id}',this)" title="ダブルクリックで名前変更">${escHtml(ep.title)}</div>
-        <button onclick="event.stopPropagation();showEpEditModal('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="編集・削除" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✏️</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-        <span style="font-size:.65rem;color:${col};">●</span>
-        <span style="font-size:.65rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'}</span>
-        ${postedBadge}
-        <span style="font-size:.62rem;color:var(--text-muted);margin-left:auto;">${(ep.updatedAt||ep.createdAt||'').slice(5,10)}</span>
-      </div>
-    </div>`;
-    }).join('')}`;
+    ${(() => {
+      const calAll = loadCalendar();
+      const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const todayLocal = _ld(new Date());
+      return eps.slice().reverse().map(ep => {
+        const cl = ep.postingChecklist || {};
+        const posted = ep.status === 'posted' || !!ep.youtubeUrl;
+        const doneCount = [cl.xPosted,cl.notePosted,cl.igPosted,cl.commentPosted,cl.urlFetched].filter(Boolean).length;
+        const col = statusColor[ep.status] || '#888';
+        const calEntry = calAll.find(c => c.episodeId === ep.id);
+        const schedDate = calEntry?.date;
+        const isToday = schedDate === todayLocal;
+        const isPast = schedDate && schedDate < todayLocal;
+        const schedBadge = schedDate
+          ? `<span style="font-size:.6rem;background:${isToday?'#27ae60':isPast?'#e5393522':'#27ae6022'};color:${isToday?'#fff':isPast?'#e53935':'#27ae60'};border-radius:4px;padding:1px 6px;font-weight:700;">📅 ${schedDate.slice(5).replace('-','/')}</span>`
+          : '';
+        const postedBadge = posted ? `<span style="font-size:.6rem;background:#9b59b622;color:#9b59b6;border-radius:4px;padding:1px 5px;">投稿済</span>` : (doneCount > 0 ? `<span style="font-size:.6rem;background:#e67e2222;color:#e67e22;border-radius:4px;padding:1px 5px;">${doneCount}/5</span>` : '');
+        return `
+      <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px 8px 14px;position:relative;${schedDate&&!isPast?'border-left:3px solid #27ae60;':isPast&&!posted?'border-left:3px solid #e5393555;':''}">
+        <div style="display:flex;align-items:center;width:100%;gap:4px;">
+          <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;" ondblclick="event.stopPropagation();renameEpisode('${ep.id}',this)" title="ダブルクリックで名前変更">${escHtml(ep.title)}</div>
+          <button onclick="event.stopPropagation();showEpEditModal('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="編集・削除" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✏️</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+          <span style="font-size:.65rem;color:${col};">●</span>
+          <span style="font-size:.65rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'}</span>
+          ${schedBadge}${postedBadge}
+        </div>
+      </div>`;
+      }).join('');
+    })()}`;
 }
 
 function renameEpisode(id, el) {
