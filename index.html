@@ -4310,11 +4310,15 @@ function renderDistributePanel() {
           : `<button class="btn btn-secondary btn-sm" onclick="buildThumbnailForPublish('${ep?.inputFormat||'horizontal'}')">🎨 今すぐ生成</button>`
       )}
 
-      ${clItem(hasUrl, 'STEP 3', '🎥 YouTube動画URLを貼る（手動）',
-        hasUrl ? `設定済: ${videoUrl}` : 'YouTubeにアップロード後、URLをここに貼ってください',
-        `<input type="text" id="distVideoUrl" placeholder="https://www.youtube.com/watch?v=..." value="${escHtml(videoUrl)}"
-          style="font-size:.9rem;padding:10px 14px;" oninput="applyYtUrl(this.value)"
-          onchange="if(this.value){const _ep=currentEpisodeId?(data.episodes||[]).find(e=>e.id===currentEpisodeId):null;if(_ep){_ep.postingChecklist=_ep.postingChecklist||{};saveData(data);}renderDistributePanel&&(document.getElementById('panelDistribute').outerHTML=renderDistributePanel());}">`
+      ${clItem(hasUrl || !!cl.urlFetched, 'STEP 3', '🎥 YouTube動画URL（自動取得）',
+        (hasUrl || cl.urlFetched) ? `✅ ${videoUrl || '取得済み'} — ファーストコメントも自動投稿` : 'YouTube Studioにアップロード後、ボタン1つでURL取得＋コメント自動投稿',
+        `<div style="display:flex;flex-direction:column;gap:8px;">
+          <button id="fetchLatestUrlBtn" class="btn btn-primary btn-sm" style="align-self:flex-start;padding:9px 16px;"
+            onclick="fetchLatestVideoUrl()">📡 最新動画URLを自動取得（＋コメント自動投稿）</button>
+          <div style="font-size:.72rem;color:var(--text-muted);">または手動で貼る：</div>
+          <input type="text" id="distVideoUrl" placeholder="https://www.youtube.com/watch?v=..." value="${escHtml(videoUrl)}"
+            style="font-size:.88rem;padding:9px 14px;" oninput="applyYtUrl(this.value)">
+        </div>`
       )}
 
       ${clItem(!!cl.xPosted, 'STEP 4', '🐦 X (Twitter) 投稿',
@@ -4359,7 +4363,7 @@ function renderDistributePanel() {
       )}
 
       ${clItem(!!cl.commentPosted, 'STEP 7', '💬 ファーストコメント投稿',
-        cl.commentPosted ? 'コメント投稿済み' : 'YouTube動画にコメントを投稿します',
+        cl.commentPosted ? 'コメント投稿済み' : 'STEP 3の自動取得時に連動して自動投稿されます。または手動でここから投稿。',
         `<div style="display:flex;flex-direction:column;gap:8px;">
           <textarea id="firstCommentText" style="min-height:70px;font-size:.82rem;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -6760,6 +6764,60 @@ function copyNoteAndOpen() {
     showToast('📋 記事をコピーしました。Note.comに貼り付けてください');
     setTimeout(() => window.open('https://note.com/new', '_blank'), 800);
   }).catch(() => { copyText(text); window.open('https://note.com/new', '_blank'); });
+}
+
+async function fetchLatestVideoUrl() {
+  const btn = document.getElementById('fetchLatestUrlBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 取得中...'; }
+  try {
+    const token = await getYtTokenAsync(currentCharId);
+    if (!token) { showToast('YouTube認証が必要です'); ytAuth(currentCharId); return; }
+    // チャンネル情報取得（my uploads playlist）
+    const chRes = await fetch(
+      'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true',
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const chJson = await chRes.json();
+    const uploadsId = chJson.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsId) throw new Error('チャンネル情報が取得できませんでした');
+    // 最新動画取得
+    const plRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=1`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const plJson = await plRes.json();
+    const videoId = plJson.items?.[0]?.snippet?.resourceId?.videoId;
+    if (!videoId) throw new Error('動画が見つかりませんでした');
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    // URLを入力欄に設定してapplyYtUrlで全テキスト置換
+    const inp = document.getElementById('distVideoUrl');
+    if (inp) inp.value = videoUrl;
+    applyYtUrl(videoUrl);
+    // 最新動画のタイトルも取得して表示
+    const vidRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const vidJson = await vidRes.json();
+    const vidTitle = vidJson.items?.[0]?.snippet?.title || '';
+    showToast(`✅ 最新動画URL取得: ${vidTitle || videoUrl}`);
+    // チェックリストのSTEP3も完了マーク
+    _markChecklist('urlFetched');
+    // ファーストコメントを自動投稿
+    const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+    if (ep?.firstComment) {
+      showToast('💬 ファーストコメントを自動投稿中...');
+      // video IDをfirstCommentVideoIdにセット
+      const fcIdEl = document.getElementById('firstCommentVideoId') || document.getElementById('ytVideoId');
+      if (fcIdEl) fcIdEl.value = videoId;
+      await postFirstComment();
+      _markChecklist('commentPosted');
+    }
+  } catch(e) {
+    showToast('❌ 最新動画取得失敗: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📡 最新動画URLを自動取得'; }
+  }
 }
 
 function _markChecklist(key) {
