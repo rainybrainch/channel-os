@@ -261,6 +261,30 @@
   </div>
 </div>
 
+<!-- Welcome Overlay（初回のみ） -->
+<div id="welcomeOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:16px;padding:36px 32px;max-width:480px;width:90%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.5);">
+    <div style="font-size:3rem;margin-bottom:12px;">📺</div>
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;color:var(--accent);">Channel OS へようこそ</h2>
+    <p style="font-size:.84rem;color:var(--text-muted);line-height:1.7;margin-bottom:24px;">
+      YouTube・X・Instagram・Noteの投稿を一括管理できます。<br>
+      Googleでログインするだけで全設定が自動で読み込まれます。
+    </p>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:700;border-radius:10px;margin-bottom:10px;"
+      onclick="_hideWelcomeScreen();gdAuth();">
+      🔑 Googleでログイン（初回設定）
+    </button>
+    <button class="btn btn-secondary" style="width:100%;padding:10px;font-size:.85rem;"
+      onclick="_hideWelcomeScreen()">
+      スキップ（後で設定する）
+    </button>
+    <p style="font-size:.72rem;color:var(--text-muted);margin-top:16px;line-height:1.6;">
+      ✅ 2回目以降は自動でログイン — 毎回の設定は不要です<br>
+      ✅ チームで共有する場合はオーナーが「チーム設定を保存」するだけ
+    </p>
+  </div>
+</div>
+
 <!-- Image Zoom Modal -->
 <div id="imageZoomModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;cursor:zoom-out;display:none;align-items:center;justify-content:center;" onclick="closeImageModal()">
   <img id="imageZoomImg" src="" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;">
@@ -984,6 +1008,25 @@ async function saveTeamConfig() {
     if (e) ytExpiry[c.id]  = e;
   });
 
+  // X/IGトークンを全キャラ分収集
+  const xTokens = {};
+  const igTokens = {};
+  (loadData().characters || []).forEach(c => {
+    [X_TOKEN_PFX, X_REFRESH_PFX, X_EXPIRY_PFX, X_USERID_PFX, X_UNAME_PFX].forEach(pfx => {
+      const v = localStorage.getItem(pfx + c.id);
+      if (v) xTokens[pfx + c.id] = v;
+    });
+    [IG_TOKEN_PFX, IG_USERID_PFX, IG_UNAME_PFX, IG_EXPIRY_PFX].forEach(pfx => {
+      const v = localStorage.getItem(pfx + c.id);
+      if (v) igTokens[pfx + c.id] = v;
+    });
+  });
+  // X/IG App設定
+  [X_CLIENT_SK, IG_APP_ID_SK, IG_APP_SEC_SK].forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v) xTokens[k] = v;
+  });
+
   const config = {
     allowedEmails,
     apiKeys: {
@@ -995,11 +1038,12 @@ async function saveTeamConfig() {
     folderId:   localStorage.getItem(GD_FOLDER_SK) || '',
     characters: (loadData().characters || []),
     ytTokens, ytRefresh, ytExpiry,
+    xTokens, igTokens,
     savedAt: new Date().toISOString()
   };
 
   await _saveDriveFile(token, TEAM_CONFIG_FILE, config);
-  showToast(`✅ チーム設定を保存しました（メンバー${allowedEmails.length}名）`);
+  showToast(`✅ チーム設定を保存しました（YT/X/IG認証込み・メンバー${allowedEmails.length}名）`);
 }
 
 async function _loadTeamConfigRaw(token) {
@@ -1102,6 +1146,9 @@ async function autoLoadTeamConfig(token) {
     Object.entries(config.ytTokens  || {}).forEach(([id, t]) => localStorage.setItem(`${YT_TOKEN_SK}_${id}`, t));
     Object.entries(config.ytRefresh || {}).forEach(([id, r]) => localStorage.setItem(YT_REFRESH_PFX + id, r));
     Object.entries(config.ytExpiry  || {}).forEach(([id, e]) => localStorage.setItem(YT_EXPIRY_PFX + id, e));
+    // X/IGトークン自動設定
+    Object.entries(config.xTokens   || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+    Object.entries(config.igTokens  || {}).forEach(([k, v]) => localStorage.setItem(k, v));
 
     // キャラデータ（ローカルが空の場合のみ）
     if (config.characters?.length && (!loadData().characters?.length || loadData().characters.length <= 1)) {
@@ -1111,7 +1158,9 @@ async function autoLoadTeamConfig(token) {
     }
 
     data = loadData();
-    showToast(`✅ チーム設定を自動読み込みしました（${email}）`);
+    _hideWelcomeScreen();
+    showToast(`✅ ${email} — 全設定を自動復元しました`);
+    renderSidebar();
     renderMain();
   } catch(e) { autoLoadKeysFromDrive(token); }
 }
@@ -1303,6 +1352,64 @@ let sceneCanvas, sceneCtx;
 let driveAssets   = [];  // [{id, name, url, type:'char'|'bg'|'other', mimeType}]
 
 window.addEventListener('message', handleOAuthCallback);
+
+// ════════════════════════════════════
+//  起動時自動セッション復元
+// ════════════════════════════════════
+(async function _startupRestore() {
+  // OAuth callbackの場合はスキップ（URLにcodeパラメーターがある）
+  const params = new URLSearchParams(location.search);
+  if (params.get('code')) return;
+
+  const gdRefresh = localStorage.getItem(GD_REFRESH_SK);
+  const gdToken   = localStorage.getItem(GD_TOKEN_SK);
+  const hasKey    = !!localStorage.getItem(GEMINI_KEY_SK);
+
+  // ① リフレッシュトークンあり → サイレントでGdトークン更新
+  if (gdRefresh && !gdToken) {
+    try {
+      const clientId = _getClientId();
+      if (clientId) {
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `client_id=${encodeURIComponent(clientId)}&refresh_token=${encodeURIComponent(gdRefresh)}&grant_type=refresh_token`
+        });
+        if (res.ok) {
+          const j = await res.json();
+          localStorage.setItem(GD_TOKEN_SK, j.access_token);
+          localStorage.setItem(GD_EXPIRY_SK, Date.now() + (j.expires_in || 3600) * 1000);
+        }
+      }
+    } catch(_e) { /* サイレント失敗 */ }
+  }
+
+  // ② トークンあり・Geminiキー未設定 → チーム設定を自動復元
+  const freshToken = localStorage.getItem(GD_TOKEN_SK);
+  if (freshToken && !hasKey) {
+    try {
+      await autoLoadTeamConfig(freshToken);
+    } catch(_e) { /* サイレント失敗 */ }
+  }
+
+  // ③ 何も設定されていない → ウェルカム画面を表示
+  const isFirstRun = !freshToken && !gdRefresh && !hasKey && !(loadData().characters?.some(c => c.id.startsWith('char_')));
+  if (isFirstRun) {
+    setTimeout(() => _showWelcomeScreen(), 300);
+  }
+})();
+
+function _showWelcomeScreen() {
+  // 既に通常キャラがいる場合はスキップ
+  if (loadData().characters?.some(c => c.id.startsWith('char_'))) return;
+  const el = document.getElementById('welcomeOverlay');
+  if (el) el.style.display = 'flex';
+}
+
+function _hideWelcomeScreen() {
+  const el = document.getElementById('welcomeOverlay');
+  if (el) el.style.display = 'none';
+}
 
 // ════════════════════════════════════
 //  Sidebar
