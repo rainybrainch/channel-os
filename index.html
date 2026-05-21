@@ -231,6 +231,7 @@
   <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
   <button id="simpleModeBtn" onclick="toggleSimpleMode()" style="margin-left:auto;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;font-weight:700;flex-shrink:0;">シンプル</button>
   <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
+  <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（常時表示）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
   <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
 </header>
 
@@ -264,6 +265,48 @@
       </div>
     </div>
     <div id="dailyDashContent"></div>
+  </div>
+</div>
+
+<!-- 逆台本モーダル -->
+<div class="modal-overlay" id="reverseStoryboardModal" style="display:none;align-items:center;">
+  <div class="modal" style="max-width:520px;">
+    <h2>🎬 逆台本：動画から絵コンテを生成</h2>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:14px;">スマホで撮影した動画をアップロードするとAIがシーン分割して絵コンテを自動生成します。</p>
+    <label class="btn btn-secondary" style="cursor:pointer;display:block;text-align:center;padding:16px;border:2px dashed var(--border);border-radius:8px;margin-bottom:12px;">
+      📱 動画を選択（スマホカメラロールからも可）
+      <input type="file" id="reverseVideoFile" accept="video/*" capture="environment" style="display:none" onchange="previewReverseVideo(this)">
+    </label>
+    <div id="reverseVideoPreview" style="margin-bottom:10px;"></div>
+    <div id="reverseStatus" style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;min-height:20px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal('reverseStoryboardModal')">キャンセル</button>
+      <button class="btn btn-primary" id="reverseAnalyzeBtn" onclick="analyzeVideoForStoryboard()">🤖 AIで解析してシーン生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ラジオ録音モーダル -->
+<div class="modal-overlay" id="radioRecordModal" style="display:none;align-items:center;">
+  <div class="modal" style="max-width:480px;">
+    <h2>🎙 ラジオ録音 → Channel OS</h2>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:16px;">スマホで録音したラジオ音声を直接アップロード。台本・絵コンテを自動生成します。</p>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:10px;">① ブラウザで直接録音</div>
+      <button class="btn btn-primary" id="radioRecBtn" onclick="toggleRadioRec()" style="width:100%;padding:12px;font-size:.95rem;">🎤 録音開始</button>
+      <div id="radioRecStatus" style="font-size:.78rem;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
+      <audio id="radioRecPreview" controls style="width:100%;margin-top:8px;display:none;"></audio>
+      <button id="radioRecSaveBtn" class="btn btn-secondary btn-sm" style="width:100%;margin-top:6px;display:none;" onclick="saveRadioRecording()">✅ この録音をラジオタブに送る</button>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:10px;">② ファイルからアップロード</div>
+      <label class="btn btn-secondary" style="cursor:pointer;display:block;text-align:center;">
+        📂 音声ファイルを選択（mp3/m4a/wav/webm）
+        <input type="file" id="radioUploadFile" accept="audio/*" style="display:none" onchange="handleRadioUpload(this)">
+      </label>
+      <div id="radioUploadStatus" style="font-size:.78rem;color:var(--text-muted);margin-top:6px;"></div>
+    </div>
+    <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="closeModal('radioRecordModal')">閉じる</button>
   </div>
 </div>
 
@@ -1583,6 +1626,385 @@ function _renderDailyDash() {
       </div>
     </div>
     ${html}`;
+}
+
+// ════════════════════════════════════
+//  📱 スマホ対応: マイク録音
+// ════════════════════════════════════
+let _micRecorder = null;
+let _micChunks   = [];
+let _micTargetIdx = -1;
+
+async function toggleMicRecording(sceneIdx) {
+  const btn = document.getElementById(`micBtn${sceneIdx}`);
+  const status = document.getElementById(`micStatus${sceneIdx}`);
+  if (_micRecorder && _micRecorder.state === 'recording') {
+    _micRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _micChunks = [];
+    _micTargetIdx = sceneIdx;
+    _micRecorder = new MediaRecorder(stream);
+    _micRecorder.ondataavailable = e => { if (e.data.size > 0) _micChunks.push(e.data); };
+    _micRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(_micChunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const audio = new Audio();
+        audio.onloadedmetadata = () => {
+          const sb = storyboardData[sbKey()];
+          if (!sb) return;
+          sb.scenes[_micTargetIdx].audioDataUrl  = ev.target.result;
+          sb.scenes[_micTargetIdx].audioName     = `mic_scene${_micTargetIdx+1}.webm`;
+          sb.scenes[_micTargetIdx].audioDuration = audio.duration;
+          saveStoryboard();
+          const el = document.getElementById('storyboardContainer');
+          if (el) el.innerHTML = renderStoryboard();
+          showToast('🎤 録音を保存しました');
+        };
+        audio.src = ev.target.result;
+      };
+      reader.readAsDataURL(blob);
+      if (btn) { btn.textContent = '🎤 録音'; btn.style.background = '#1a1a3a'; }
+      if (status) status.textContent = '';
+    };
+    _micRecorder.start();
+    if (btn) { btn.textContent = '⏹ 停止'; btn.style.background = '#8B0000'; }
+    if (status) status.textContent = '● 録音中...';
+    showToast('🎤 録音開始 — 「停止」で保存');
+  } catch(e) {
+    showToast('❌ マイクへのアクセスを許可してください');
+  }
+}
+
+// ════════════════════════════════════
+//  🎬 逆台本: 動画/音声ファイルからシーン分割
+// ════════════════════════════════════
+async function openReverseStoryboard() {
+  openModal('reverseStoryboardModal');
+}
+
+async function analyzeVideoForStoryboard() {
+  const fileInput = document.getElementById('reverseVideoFile');
+  const file = fileInput?.files[0];
+  if (!file) { showToast('ファイルを選択してください'); return; }
+  const statusEl = document.getElementById('reverseStatus');
+  const btn = document.getElementById('reverseAnalyzeBtn');
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = '🔄 AIが内容を解析中...';
+
+  try {
+    // ファイルをbase64に変換（動画は最大30秒 / 画像・音声ならそのまま）
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    let analysisText = '';
+
+    if (isVideo) {
+      // 動画サムネイルをキャプチャしてGeminiで解析
+      const thumbDataUrl = await _captureVideoThumbnail(file);
+      // 画像付きでGemini呼び出し
+      const key = localStorage.getItem(GEMINI_KEY_SK);
+      if (!key) throw new Error('Gemini APIキーを設定してください');
+      const model = await getGeminiTextModel(key);
+      const match = thumbDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      const parts = match
+        ? [{ inlineData: { mimeType: match[1], data: match[2] } }, { text: `この動画のサムネイル画像を見て内容を推測してください。ファイル名: ${file.name}\n以下のJSON形式のみで出力:\n{"summary":"概要2行","scenes":[{"label":"シーン1","time":"0:00","lines":["推測セリフ"],"prompt":"英語描写"}],"title":"タイトル案"}\nシーンは5〜8個。JSONのみ出力。` }]
+        : [{ text: `動画「${file.name}」の内容を想定して絵コンテを生成してください。{"summary":"","scenes":[{"label":"シーン1","time":"0:00","lines":["セリフ"],"prompt":"英語描写"}],"title":"タイトル案"}` }];
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ contents: [{ parts }] })
+      });
+      const j = await res.json();
+      analysisText = j.candidates?.[0]?.content?.parts?.find(p=>p.text)?.text || '{}';
+    } else if (isAudio) {
+      // 音声は字幕として扱う（テキスト変換はブラウザでは不可のため説明を促す）
+      if (statusEl) statusEl.textContent = '⚠️ 音声ファイルはテキスト内容を入力してください';
+      if (btn) btn.disabled = false;
+      return;
+    } else {
+      showToast('動画ファイルを選択してください');
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    const result = JSON.parse(analysisText.match(/\{[\s\S]*\}/)[0]);
+    const scenes = (result.scenes || []).map(s => ({
+      label: s.label || 'シーン',
+      time: s.time || '',
+      lines: Array.isArray(s.lines) ? s.lines : [s.lines||''],
+      prompt: s.prompt || '',
+      imageDataUrl: '', audioDataUrl: '', audioName: '', audioDuration: 0, skipBulk: false
+    }));
+
+    storyboardData[sbKey()] = { format: getEpisodeFormat(), scenes };
+    saveStoryboard();
+
+    // タイトルも自動設定
+    if (result.title && currentEpisodeId) {
+      const d = loadData();
+      const ep = d.episodes.find(e => e.id === currentEpisodeId);
+      if (ep && !ep.title.startsWith('新しい動画')) { /* keep existing */ }
+      else if (ep) { ep.title = result.title; saveData(d); renderSidebar(); }
+    }
+
+    closeModal('reverseStoryboardModal');
+    const el = document.getElementById('storyboardContainer');
+    if (el) el.innerHTML = renderStoryboard();
+    showToast(`✅ ${scenes.length}シーンで逆台本を生成しました`);
+    if (statusEl) statusEl.textContent = '';
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '❌ ' + e.message;
+    showToast('❌ ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function _captureVideoThumbnail(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.currentTime = 1;
+    video.onloadeddata = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640; canvas.height = 360;
+      canvas.getContext('2d').drawImage(video, 0, 0, 640, 360);
+      URL.revokeObjectURL(video.src);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    video.onerror = reject;
+  });
+}
+
+// ════════════════════════════════════
+//  📤 CapCut / 動画編集アプリ向けJSON書き出し
+// ════════════════════════════════════
+function exportCapCutProject() {
+  const sb = storyboardData[sbKey()];
+  if (!sb || !sb.scenes?.length) { showToast('絵コンテがありません'); return; }
+  const ep = currentEpisodeId ? loadData().episodes.find(e=>e.id===currentEpisodeId) : null;
+  const char = data.characters.find(c=>c.id===currentCharId);
+  const isShorts = (ep?.inputFormat || sb.format) === 'shorts';
+
+  const project = {
+    title: ep?.title || 'Channel OS Export',
+    character: char?.name || '',
+    format: isShorts ? 'vertical_9x16' : 'horizontal_16x9',
+    fps: 30,
+    scenes: sb.scenes.map((s, i) => ({
+      index: i + 1,
+      label: s.label,
+      duration_sec: s.audioDuration || 3,
+      script: s.lines.join(' '),
+      image_file: s.imageDataUrl ? `scene_${String(i+1).padStart(2,'0')}.jpg` : null,
+      audio_file: s.audioDataUrl ? `scene_${String(i+1).padStart(2,'0')}.webm` : null,
+      caption: s.lines.map(l => _stripCharPrefix(l)).join('\n'),
+      prompt: s.prompt || '',
+    })),
+    bgm: ep?.bgmName || null,
+    total_duration_sec: sb.scenes.reduce((sum, s) => sum + (s.audioDuration||3), 0),
+    export_note: 'CapCut / DaVinci / Premiere のタイムラインに手動で配置してください。各シーンのキャプションは字幕として使用してください。'
+  };
+
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(ep?.title||'project').replace(/[^\w぀-鿿]/g,'_')}_capcut.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('✅ CapCut用プロジェクトJSONを書き出しました');
+}
+
+// ════════════════════════════════════
+//  🎙 ラジオ録音
+// ════════════════════════════════════
+let _radioRecorder = null;
+let _radioChunks   = [];
+let _radioBlob     = null;
+
+async function toggleRadioRec() {
+  const btn = document.getElementById('radioRecBtn');
+  const status = document.getElementById('radioRecStatus');
+  if (_radioRecorder?.state === 'recording') {
+    _radioRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _radioChunks = []; _radioBlob = null;
+    _radioRecorder = new MediaRecorder(stream);
+    _radioRecorder.ondataavailable = e => { if (e.data.size > 0) _radioChunks.push(e.data); };
+    _radioRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      _radioBlob = new Blob(_radioChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(_radioBlob);
+      const preview = document.getElementById('radioRecPreview');
+      const saveBtn = document.getElementById('radioRecSaveBtn');
+      if (preview) { preview.src = url; preview.style.display = 'block'; }
+      if (saveBtn) saveBtn.style.display = 'block';
+      if (btn) { btn.textContent = '🎤 録音開始'; btn.style.background = ''; }
+      if (status) status.textContent = '✅ 録音完了 — 下でラジオタブに送れます';
+    };
+    _radioRecorder.start();
+    if (btn) { btn.textContent = '⏹ 停止して保存'; btn.style.background = '#8B0000'; }
+    if (status) status.textContent = '● 録音中...';
+  } catch(e) { showToast('❌ マイクへのアクセスを許可してください'); }
+}
+
+function saveRadioRecording() {
+  if (!_radioBlob) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // ラジオタブの収録メモ欄に流し込む
+    const textArea = document.getElementById('radioSourceText');
+    if (textArea) {
+      textArea.value = '[録音済み音声 — 以下の説明から台本を生成してください]\n収録内容を補足してください';
+      switchTab('script'); // ラジオタブへ
+    }
+    // 音声データを現在のエピソードのラジオ素材として保存
+    if (currentEpisodeId) {
+      const d = loadData();
+      const ep = d.episodes.find(e2 => e2.id === currentEpisodeId);
+      if (ep) {
+        ep.radioAudioDataUrl = e.target.result;
+        ep.radioAudioName = `radio_rec_${Date.now()}.webm`;
+        saveData(d);
+        showToast('✅ 録音をラジオ素材として保存しました。台本タブで台本を生成してください');
+        closeModal('radioRecordModal');
+      }
+    }
+  };
+  reader.readAsDataURL(_radioBlob);
+}
+
+function handleRadioUpload(input) {
+  const file = input?.files[0];
+  if (!file) return;
+  const status = document.getElementById('radioUploadStatus');
+  if (status) status.textContent = `✅ ${file.name} を読み込みました`;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!currentEpisodeId) { showToast('エピソードを選択してください'); return; }
+    const d = loadData();
+    const ep = d.episodes.find(ep2 => ep2.id === currentEpisodeId);
+    if (ep) {
+      ep.radioAudioDataUrl = e.target.result;
+      ep.radioAudioName = file.name;
+      saveData(d);
+      showToast('✅ 音声をラジオ素材として保存しました');
+      closeModal('radioRecordModal');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ════════════════════════════════════
+//  💾 シーン素材一括ダウンロード
+// ════════════════════════════════════
+async function exportScenesZip() {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes?.length) { showToast('絵コンテがありません'); return; }
+  showToast('💾 素材をダウンロード中...');
+  // ZIPライブラリなしのためファイルを個別ダウンロード
+  let count = 0;
+  for (let i = 0; i < sb.scenes.length; i++) {
+    const s = sb.scenes[i];
+    if (s.imageDataUrl && !s.imageDataUrl.startsWith('drive:')) {
+      const a = document.createElement('a');
+      a.href = s.imageDataUrl;
+      a.download = `scene_${String(i+1).padStart(2,'0')}.jpg`;
+      a.click();
+      count++;
+      await new Promise(r => setTimeout(r, 300));
+    }
+    if (s.audioDataUrl) {
+      const a = document.createElement('a');
+      a.href = s.audioDataUrl;
+      a.download = s.audioName || `scene_${String(i+1).padStart(2,'0')}.webm`;
+      a.click();
+      count++;
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+  showToast(`✅ ${count}ファイルをダウンロードしました`);
+}
+
+function previewReverseVideo(input) {
+  const file = input?.files[0];
+  if (!file) return;
+  const el = document.getElementById('reverseVideoPreview');
+  if (!el) return;
+  const url = URL.createObjectURL(file);
+  el.innerHTML = `<video src="${url}" controls style="width:100%;max-height:160px;border-radius:6px;"></video>
+    <div style="font-size:.74rem;color:var(--text-muted);margin-top:4px;">${escHtml(file.name)} (${(file.size/1024/1024).toFixed(1)} MB)</div>`;
+}
+
+// ════════════════════════════════════
+//  🪟 常時表示ポップアップウィジェット（PWA対応）
+// ════════════════════════════════════
+let _widgetVisible = false;
+
+function toggleStatusWidget() {
+  _widgetVisible = !_widgetVisible;
+  let w = document.getElementById('statusWidget');
+  if (!w) {
+    w = document.createElement('div');
+    w.id = 'statusWidget';
+    w.style.cssText = `
+      position:fixed;bottom:20px;right:20px;z-index:9999;
+      background:rgba(13,13,13,.95);border:1px solid var(--border);border-radius:12px;
+      padding:12px 14px;min-width:220px;max-width:280px;
+      box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(8px);
+      font-family:inherit;cursor:move;user-select:none;
+    `;
+    w.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:.78rem;font-weight:700;color:var(--accent);flex:1;">📺 Channel OS</span>
+        <button onclick="toggleStatusWidget()" style="background:none;border:none;color:#888;cursor:pointer;font-size:.9rem;padding:0;">✕</button>
+      </div>
+      <div id="widgetContent" style="font-size:.74rem;line-height:1.6;color:var(--text);"></div>
+    `;
+    document.body.appendChild(w);
+    // ドラッグ対応
+    let ox=0,oy=0,dragging=false;
+    w.addEventListener('mousedown', e => { if (e.target.tagName==='BUTTON') return; dragging=true; ox=e.clientX-w.offsetLeft; oy=e.clientY-w.offsetTop; });
+    document.addEventListener('mousemove', e => { if (dragging) { w.style.left=e.clientX-ox+'px'; w.style.bottom='auto'; w.style.top=e.clientY-oy+'px'; }});
+    document.addEventListener('mouseup', () => dragging=false);
+  }
+  w.style.display = _widgetVisible ? 'block' : 'none';
+  if (_widgetVisible) _updateWidget();
+}
+
+function _updateWidget() {
+  const wc = document.getElementById('widgetContent');
+  if (!wc || !_widgetVisible) return;
+  const char = data.characters.find(c=>c.id===currentCharId);
+  const ep = currentEpisodeId ? loadData().episodes.find(e=>e.id===currentEpisodeId) : null;
+  const sb = storyboardData[sbKey()];
+  const imgDone = sb?.scenes?.filter(s=>s.imageDataUrl).length || 0;
+  const imgTotal = sb?.scenes?.length || 0;
+  const gdOk = !!localStorage.getItem(GD_TOKEN_SK);
+  const ytOk = currentCharId ? !!getYtToken(currentCharId) : false;
+
+  wc.innerHTML = `
+    <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+      <span style="color:${char?'var(--char-color)':'#888'};">🎭 ${char?.name||'未選択'}</span>
+      ${ep ? `<span style="color:var(--text-muted);"> › ${escHtml(ep.title.slice(0,12))}${ep.title.length>12?'…':''}</span>` : ''}
+    </div>
+    ${ep ? `
+      <div>${ep.script?'✅':'⬜'} 台本　${ep.meta?'✅':'⬜'} 概要欄</div>
+      <div>${imgDone>0?'✅':'⬜'} 画像 ${imgDone}/${imgTotal}　${ep.youtubeUrl?'✅':'⬜'} 投稿</div>
+      <div>${(ep.postingChecklist?.xPosted)?'✅':'⬜'} X　${(ep.postingChecklist?.notePosted)?'✅':'⬜'} Note</div>
+    ` : '<div style="color:#888;">動画プロジェクトを選択してください</div>'}
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;gap:6px;">
+      <span style="color:${gdOk?'#4caf50':'#e55'};">${gdOk?'●':'○'} Drive</span>
+      <span style="color:${ytOk?'#4caf50':'#e55'};">${ytOk?'●':'○'} YT</span>
+    </div>`;
+  setTimeout(() => { if (_widgetVisible) _updateWidget(); }, 10000);
 }
 
 function _renderSetupDashboard() {
@@ -2979,6 +3401,10 @@ function renderStoryboard() {
           📁 アップロード
           <input type="file" accept="image/*" style="display:none" onchange="handleSceneImage(${i}, this)">
         </label>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;text-align:center;width:100%;background:#1a3a1a;" title="スマホカメラで撮影して配置">
+          📷 カメラ撮影
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handleSceneImage(${i}, this)">
+        </label>
         ${scene.imageDataUrl ? `<button class="btn btn-secondary btn-sm" onclick="downloadSceneImage(${i})" style="width:100%;">💾 保存</button>` : ''}
         ${scene.imageDataUrl ? `<button class="btn btn-secondary btn-sm" onclick="clearSceneImage(${i})" style="width:100%;">✕ 削除</button>` : ''}
         <div style="margin-top:6px;">
@@ -3017,6 +3443,8 @@ function renderStoryboard() {
           ${scene.lines.some(l => /^\[.+?[:：]/.test(l))
             ? `<button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="playSceneDialogue(${i})">🎭 対談再生</button>`
             : ''}
+          <button class="btn btn-secondary btn-sm" id="micBtn${i}" style="margin-top:4px;background:#1a1a3a;" onclick="toggleMicRecording(${i})" title="マイクで録音してシーン音声に保存">🎤 録音</button>
+          <span id="micStatus${i}" style="font-size:.68rem;color:var(--text-muted);display:block;margin-top:2px;"></span>
         </div>
       </div>
     </div>
@@ -3980,6 +4408,15 @@ function renderScenePanel() {
             ${storyboardData[sbKey()]?.charRefDataUrl ? `<button class="btn btn-secondary btn-sm" style="font-size:.75rem;" onclick="clearCharRef()">✕ 削除</button>` : ''}
           </div>
         </div>
+      </div>
+
+      <!-- スマホ/動画連携ツールバー -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+        <div style="font-size:.74rem;color:var(--text-muted);width:100%;margin-bottom:4px;font-weight:600;">📱 スマホ・動画連携</div>
+        <button class="btn btn-secondary btn-sm" onclick="openReverseStoryboard()" title="動画をアップロードしてシーンを自動生成">🎬 逆台本（動画→絵コンテ）</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportCapCutProject()" title="CapCut/DaVinci用にシーン構成をJSON書き出し">📤 CapCut書き出し</button>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('radioRecordModal')" title="スマホ録音をラジオタブに送る">🎙 ラジオ録音</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL</button>
       </div>
 
       <!-- 一括AI画像生成 -->
