@@ -2054,72 +2054,206 @@ function previewReverseVideo(input) {
 // ════════════════════════════════════
 //  🪟 常時表示ポップアップウィジェット（PWA対応）
 // ════════════════════════════════════
-let _widgetVisible = false;
+// ════════════════════════════════════
+//  🪟 全キャラ状況ウィジェット
+//  ・画面内: 固定DOM（z-index最大）
+//  ・最前面: Picture-in-Picture API で canvas をPiP表示
+//    → OSレベルで他アプリより前面に固定される
+// ════════════════════════════════════
+let _widgetVisible  = false;
+let _pipCanvas      = null;
+let _pipVideo       = null;
+let _pipStream      = null;
+let _pipInterval    = null;
 
-function openWidgetPopup() {
-  // 別ウィンドウでウィジェットを開く（PWA対応・他アプリ上に表示可能）
-  const url = location.href + (location.href.includes('?') ? '&' : '?') + 'widget=1';
-  window.open(url, 'channelos_widget', 'width=280,height=220,top=20,right=20,alwaysOnTop=1,toolbar=no,menubar=no,scrollbars=no');
+// ── 全キャラの今日の状況を計算 ──
+function _calcAllCharStatus() {
+  const d = loadData();
+  const today = new Date().toISOString().slice(0,10);
+  return d.characters.filter(c => c.id.startsWith('char_')).map(char => {
+    const eps = (d.episodes||[]).filter(e => e.charId === char.id);
+    const todayEps = eps.filter(e => (e.updatedAt||e.createdAt||'').startsWith(today));
+    const ep = todayEps[0] || eps.slice(-1)[0] || null;
+    const sb = ep ? storyboardData[char.id + '_' + ep.id] : null;
+    const imgDone = sb?.scenes?.filter(s=>s.imageDataUrl).length || 0;
+    const imgTotal = sb?.scenes?.length || 0;
+    const cl = ep?.postingChecklist || {};
+    const ytOk = !!getYtToken(char.id);
+    const tasks = {
+      script:  !!ep?.script,
+      image:   imgDone > 0,
+      upload:  !!ep?.youtubeUrl,
+      x:       !!cl.xPosted,
+      note:    !!cl.notePosted,
+    };
+    const done  = Object.values(tasks).filter(Boolean).length;
+    const total = Object.keys(tasks).length;
+    const allOk = done === total;
+    const hasEp = !!ep;
+    return { char, ep, tasks, done, total, allOk, hasEp, ytOk, imgDone, imgTotal };
+  });
 }
 
+// ── 画面内ウィジェット（DOM） ──
 function toggleStatusWidget() {
   _widgetVisible = !_widgetVisible;
   let w = document.getElementById('statusWidget');
-  if (!w) {
+  if (!w && _widgetVisible) {
     w = document.createElement('div');
     w.id = 'statusWidget';
     w.style.cssText = `
       position:fixed;bottom:20px;right:20px;z-index:2147483647;
-      background:rgba(13,13,13,.97);border:1px solid var(--border);border-radius:12px;
-      padding:12px 14px;min-width:220px;max-width:280px;
-      box-shadow:0 8px 32px rgba(0,0,0,.8);backdrop-filter:blur(12px);
+      background:rgba(10,10,14,.97);border:1px solid #333;border-radius:14px;
+      padding:10px 12px;min-width:240px;max-width:300px;
+      box-shadow:0 8px 32px rgba(0,0,0,.9);backdrop-filter:blur(16px);
       font-family:inherit;cursor:move;user-select:none;
     `;
-    w.innerHTML = `
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="font-size:.78rem;font-weight:700;color:var(--accent);flex:1;">📺 Channel OS</span>
-        <button onclick="openWidgetPopup()" style="background:none;border:1px solid #444;border-radius:4px;color:#aaa;cursor:pointer;font-size:.65rem;padding:2px 5px;" title="別ウィンドウで開く（最前面表示可）">⬡ 別窓</button>
-        <button onclick="toggleStatusWidget()" style="background:none;border:none;color:#888;cursor:pointer;font-size:.9rem;padding:0;">✕</button>
-      </div>
-      <div id="widgetContent" style="font-size:.74rem;line-height:1.6;color:var(--text);"></div>
-    `;
     document.body.appendChild(w);
-    // ドラッグ対応
-    let ox=0,oy=0,dragging=false;
-    w.addEventListener('mousedown', e => { if (e.target.tagName==='BUTTON') return; dragging=true; ox=e.clientX-w.offsetLeft; oy=e.clientY-w.offsetTop; });
-    document.addEventListener('mousemove', e => { if (dragging) { w.style.left=e.clientX-ox+'px'; w.style.bottom='auto'; w.style.top=e.clientY-oy+'px'; }});
-    document.addEventListener('mouseup', () => dragging=false);
+    let ox=0,oy=0,drag=false;
+    w.addEventListener('mousedown', e => { if (e.target.tagName==='BUTTON') return; drag=true; ox=e.clientX-w.offsetLeft; oy=e.clientY-w.offsetTop; });
+    document.addEventListener('mousemove', e => { if (drag){ w.style.left=e.clientX-ox+'px'; w.style.bottom='auto'; w.style.top=e.clientY-oy+'px'; }});
+    document.addEventListener('mouseup', () => drag=false);
   }
-  w.style.display = _widgetVisible ? 'block' : 'none';
-  if (_widgetVisible) _updateWidget();
+  if (w) w.style.display = _widgetVisible ? 'block' : 'none';
+  if (_widgetVisible) _renderWidgetDOM();
 }
 
-function _updateWidget() {
-  const wc = document.getElementById('widgetContent');
-  if (!wc || !_widgetVisible) return;
-  const char = data.characters.find(c=>c.id===currentCharId);
-  const ep = currentEpisodeId ? loadData().episodes.find(e=>e.id===currentEpisodeId) : null;
-  const sb = storyboardData[sbKey()];
-  const imgDone = sb?.scenes?.filter(s=>s.imageDataUrl).length || 0;
-  const imgTotal = sb?.scenes?.length || 0;
+function _renderWidgetDOM() {
+  const w = document.getElementById('statusWidget');
+  if (!w || !_widgetVisible) return;
+  const statuses = _calcAllCharStatus();
   const gdOk = !!localStorage.getItem(GD_TOKEN_SK);
-  const ytOk = currentCharId ? !!getYtToken(currentCharId) : false;
 
-  wc.innerHTML = `
-    <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
-      <span style="color:${char?'var(--char-color)':'#888'};">🎭 ${char?.name||'未選択'}</span>
-      ${ep ? `<span style="color:var(--text-muted);"> › ${escHtml(ep.title.slice(0,12))}${ep.title.length>12?'…':''}</span>` : ''}
+  const charRows = statuses.length ? statuses.map(s => {
+    const icon = s.allOk ? '✅' : s.done > 0 ? '🔶' : s.hasEp ? '⚠️' : '—';
+    const bar  = `<div style="height:3px;background:#222;border-radius:2px;margin-top:3px;overflow:hidden;"><div style="height:100%;width:${s.total?Math.round(s.done/s.total*100):0}%;background:${s.allOk?'#4caf50':'#e67e22'};"></div></div>`;
+    const warn = !s.ytOk ? '<span style="color:#e55;font-size:.62rem;margin-left:4px;">YT未認証</span>' : '';
+    return `
+      <div onclick="selectChar('${s.char.id}');toggleStatusWidget();toggleStatusWidget();"
+           style="padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid ${s.char.id===currentCharId?'#555':'transparent'};"
+           onmouseover="this.style.background='#1a1a2a'" onmouseout="this.style.background=''">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:${s.char.color}22;color:${s.char.color};display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;">${s.char.icon||'🎭'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.75rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(s.char.name)}${warn}</div>
+            <div style="font-size:.62rem;color:#777;">${s.hasEp?escHtml((s.ep?.title||'').slice(0,14)):'動画なし'}</div>
+          </div>
+          <div style="font-size:.85rem;flex-shrink:0;">${icon}</div>
+          <div style="font-size:.65rem;color:#888;flex-shrink:0;">${s.done}/${s.total}</div>
+        </div>
+        ${bar}
+        <div style="display:flex;gap:4px;margin-top:3px;">
+          ${['script','image','upload','x','note'].map((k,i) => {
+            const labels = ['台本','画像','投稿','X','Note'];
+            return `<span style="font-size:.6rem;padding:1px 4px;border-radius:3px;background:${s.tasks[k]?'#4caf5033':'#e5500022'};color:${s.tasks[k]?'#4caf50':'#e55'};">${labels[i]}</span>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('') : '<div style="font-size:.74rem;color:#666;padding:6px;">キャラクターがいません</div>';
+
+  w.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <span style="font-size:.75rem;font-weight:700;color:#4a9edd;flex:1;">📺 Channel OS</span>
+      <span style="font-size:.62rem;color:${gdOk?'#4caf50':'#e55'};">${gdOk?'●':'○'} Drive</span>
+      <button onclick="startPiPWidget()" style="background:none;border:1px solid #444;border-radius:4px;color:#aaa;cursor:pointer;font-size:.62rem;padding:2px 5px;" title="Picture-in-Picture で最前面表示（他アプリより前に固定）">🖥PiP</button>
+      <button onclick="toggleStatusWidget()" style="background:none;border:none;color:#666;cursor:pointer;font-size:.85rem;padding:0 2px;">✕</button>
     </div>
-    ${ep ? `
-      <div>${ep.script?'✅':'⬜'} 台本　${ep.meta?'✅':'⬜'} 概要欄</div>
-      <div>${imgDone>0?'✅':'⬜'} 画像 ${imgDone}/${imgTotal}　${ep.youtubeUrl?'✅':'⬜'} 投稿</div>
-      <div>${(ep.postingChecklist?.xPosted)?'✅':'⬜'} X　${(ep.postingChecklist?.notePosted)?'✅':'⬜'} Note</div>
-    ` : '<div style="color:#888;">動画プロジェクトを選択してください</div>'}
-    <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;gap:6px;">
-      <span style="color:${gdOk?'#4caf50':'#e55'};">${gdOk?'●':'○'} Drive</span>
-      <span style="color:${ytOk?'#4caf50':'#e55'};">${ytOk?'●':'○'} YT</span>
-    </div>`;
-  setTimeout(() => { if (_widgetVisible) _updateWidget(); }, 10000);
+    <div style="display:flex;flex-direction:column;gap:2px;">${charRows}</div>
+    <div style="margin-top:8px;font-size:.62rem;color:#444;text-align:center;">クリックでキャラ切替 ／ 🖥PiP で最前面固定</div>`;
+
+  setTimeout(() => { if (_widgetVisible) _renderWidgetDOM(); }, 8000);
+}
+
+// ── Picture-in-Picture ウィジェット（OS最前面固定） ──
+async function startPiPWidget() {
+  if (!document.pictureInPictureEnabled) {
+    showToast('❌ このブラウザはPicture-in-Pictureに対応していません（Chrome推奨）');
+    return;
+  }
+  // 既存PiP停止
+  if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(()=>{});
+  if (_pipInterval) clearInterval(_pipInterval);
+
+  // canvas でステータスを描画
+  const W = 360, H_BASE = 60, H_ROW = 64;
+  const statuses = _calcAllCharStatus();
+  const H = H_BASE + statuses.length * H_ROW;
+
+  _pipCanvas = document.createElement('canvas');
+  _pipCanvas.width = W; _pipCanvas.height = H;
+
+  const _draw = () => {
+    const st = _calcAllCharStatus();
+    const ctx = _pipCanvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    // 背景
+    ctx.fillStyle = 'rgba(10,10,16,1)';
+    ctx.beginPath(); ctx.roundRect(0, 0, W, H, 12); ctx.fill();
+    // ヘッダー
+    ctx.fillStyle = '#4a9edd'; ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('📺 Channel OS', 12, 22);
+    const gdOk = !!localStorage.getItem(GD_TOKEN_SK);
+    ctx.fillStyle = gdOk ? '#4caf50' : '#e55';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(gdOk ? '● Drive接続中' : '○ Drive未接続', W - 110, 22);
+    // 区切り線
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(12, 30); ctx.lineTo(W-12, 30); ctx.stroke();
+
+    st.forEach((s, i) => {
+      const y = 42 + i * H_ROW;
+      // キャラ色丸
+      ctx.fillStyle = s.char.color + '33';
+      ctx.beginPath(); ctx.arc(26, y+14, 12, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = s.char.color; ctx.font = '12px sans-serif';
+      ctx.fillText(s.char.icon||'🎭', 20, y+19);
+      // 名前
+      ctx.fillStyle = '#eee'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(s.char.name, 44, y+12);
+      // 状態バッジ
+      const badge = s.allOk ? '✅ 完了' : s.done > 0 ? `🔶 ${s.done}/${s.total}` : s.hasEp ? '⚠️ 未着手' : '— 動画なし';
+      ctx.fillStyle = s.allOk ? '#4caf50' : s.done > 0 ? '#e67e22' : '#888';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(badge, W - 80, y+12);
+      // タスクチップ
+      const taskLabels = ['台本','画像','投稿','X','Note'];
+      const taskKeys   = ['script','image','upload','x','note'];
+      taskKeys.forEach((k, ti) => {
+        const tx = 44 + ti * 54;
+        ctx.fillStyle = s.tasks[k] ? '#4caf5033' : '#55000033';
+        ctx.beginPath(); ctx.roundRect(tx, y+20, 48, 16, 4); ctx.fill();
+        ctx.fillStyle = s.tasks[k] ? '#4caf50' : '#e55';
+        ctx.font = '10px sans-serif';
+        ctx.fillText((s.tasks[k]?'✓ ':' ') + taskLabels[ti], tx+4, y+32);
+      });
+      // 区切り
+      if (i < st.length-1) {
+        ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(12, y+H_ROW-2); ctx.lineTo(W-12, y+H_ROW-2); ctx.stroke();
+      }
+    });
+  };
+  _draw();
+
+  // canvas → video stream → PiP
+  _pipStream = _pipCanvas.captureStream(2); // 2fps で十分
+  _pipVideo = document.createElement('video');
+  _pipVideo.srcObject = _pipStream;
+  _pipVideo.muted = true;
+  document.body.appendChild(_pipVideo);
+  await _pipVideo.play();
+  await _pipVideo.requestPictureInPicture();
+
+  // 8秒ごとに再描画
+  _pipInterval = setInterval(_draw, 8000);
+
+  _pipVideo.addEventListener('leavepictureinpicture', () => {
+    clearInterval(_pipInterval);
+    _pipVideo?.remove();
+    showToast('PiPウィジェットを閉じました');
+  });
+
+  showToast('🖥 PiPウィジェットを起動しました（他のアプリより最前面に固定）');
 }
 
 function _renderSetupDashboard() {
