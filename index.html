@@ -2945,17 +2945,20 @@ function renderPlanPanel(char) {
         <div id="weeklyPlanBox" style="display:none;margin-top:12px;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
             <div>
-              <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">投稿本数</label>
+              <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">投稿ペース</label>
               <select id="weeklyPlanCount" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
-                <option value="2">2本</option><option value="3" selected>3本</option><option value="4">4本</option><option value="5">5本</option>
+                <option value="7" selected>毎日1本（週7本）</option>
+                <option value="5">平日毎日（週5本）</option>
+                <option value="3">週3本</option>
+                <option value="2">週2本</option>
               </select>
             </div>
             <div>
               <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">形式</label>
               <select id="weeklyPlanFormat" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
-                <option value="mix" selected>横＋ショート混合</option>
+                <option value="shorts" selected>ショートのみ（毎日1本）</option>
+                <option value="mix">横＋ショート混合</option>
                 <option value="horizontal">横動画のみ</option>
-                <option value="shorts">ショートのみ</option>
               </select>
             </div>
           </div>
@@ -6319,8 +6322,8 @@ async function generateWeeklyPlan() {
   const char = data.characters.find(c => c.id === currentCharId);
   if (!char) { showToast('キャラクターを選択してください'); return; }
 
-  const count   = parseInt(document.getElementById('weeklyPlanCount')?.value  || '3');
-  const fmt     = document.getElementById('weeklyPlanFormat')?.value || 'mix';
+  const count   = parseInt(document.getElementById('weeklyPlanCount')?.value  || '7');
+  const fmt     = document.getElementById('weeklyPlanFormat')?.value || 'shorts';
   const request = document.getElementById('weeklyPlanRequest')?.value.trim() || '';
 
   const loadEl  = document.getElementById('weeklyPlanLoading');
