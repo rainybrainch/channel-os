@@ -6490,12 +6490,11 @@ async function generateWeeklyPlan() {
   if (loadEl)  { loadEl.style.display = 'flex'; }
   if (resultEl) resultEl.innerHTML = '';
 
-  // 今週の月曜〜日曜を計算
-  const today = new Date();
-  const dow   = today.getDay(); // 0=日
-  const monday= new Date(today); monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-  const dates = Array.from({length: 7}, (_, i) => {
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
+  // 明日から count 日分を生成
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const dates = Array.from({length: count}, (_, i) => {
+    const d = new Date(tomorrow); d.setDate(tomorrow.getDate() + i);
     return d.toISOString().slice(0,10);
   });
 
