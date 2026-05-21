@@ -2957,55 +2957,6 @@ function renderPlanPanel(char) {
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div class="card-title" style="margin:0;">🎬 動画を作る</div>
-    <div class="card" style="border:1px solid #4a9edd88;background:linear-gradient(135deg,rgba(74,158,221,.07),transparent);">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <div style="font-size:1.2rem;">📅</div>
-        <div>
-          <div style="font-weight:700;font-size:.95rem;color:#4a9edd;">今週の投稿プランを作る</div>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:1px;">AIが本数・テーマ・日程を提案。おすすめ1案を★表示します</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div>
-          <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">投稿本数</label>
-          <select id="weeklyPlanCount" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
-            <option value="2">2本</option>
-            <option value="3" selected>3本</option>
-            <option value="4">4本</option>
-            <option value="5">5本</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">形式</label>
-          <select id="weeklyPlanFormat" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;">
-            <option value="mix" selected>横＋ショート混合</option>
-            <option value="horizontal">横動画のみ</option>
-            <option value="shorts">ショートのみ</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <label style="font-size:.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">今週の要望・方向性（任意）</label>
-        <input type="text" id="weeklyPlanRequest" placeholder="例: 初心者向けの内容多め・ダイエット特集・前回の続き…"
-          style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.84rem;"
-          onkeydown="if(event.key==='Enter')generateWeeklyPlan()">
-      </div>
-
-      <button class="btn btn-primary" style="width:100%;padding:10px;font-size:.88rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="generateWeeklyPlan()">
-        ✨ AIがプランを提案する
-      </button>
-      <div id="weeklyPlanLoading" style="display:none;margin-top:10px;font-size:.8rem;color:var(--text-muted);display:none;align-items:center;gap:8px;">
-        <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:#4a9edd;animation:spin360 .8s linear infinite;"></div>
-        <span>AIがプランを考えています...</span>
-      </div>
-      <div id="weeklyPlanResult" style="margin-top:12px;"></div>
-    </div>
-
-    <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div class="card-title" style="margin:0;">🎬 動画を作る</div>
         ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
       </div>
 
@@ -6918,8 +6869,6 @@ function renderSettingsPanel() {
               </div>`;
             }).join('')}
           </div>
-        </div>
-      </details>
 
       <details>
         <summary style="cursor:pointer;font-size:.82rem;color:#e040fb;font-weight:600;padding:6px 0;">📸 Instagram 設定</summary>
