@@ -6191,12 +6191,13 @@ function renderSettingsPanel() {
       ${step(hasKey, '② Gemini APIキー → AI生成の核心。必須です', "document.getElementById('geminiApiKey')?.focus()")}
       ${step(hasFoldr, '③ DriveフォルダID → チームで同じIDを使うと全員でデータ共有できます', "document.getElementById('gdFolderInput')?.focus()")}
       ${step(ytDone > 0, `④ YouTube認証 (rainybrain.ch) → ${ytDone}/${chars.length}キャラ完了（各キャラに1回だけ必要）`, null)}
-      ${!allDone ? `<div style="margin-top:10px;padding:8px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.7;">
-        💡 <b>永続ログインにするための前提条件（1回だけ）：</b><br>
-        Google Cloud Console → 認証情報 → OAuthクライアントID →<br>
-        <b>「承認済みのリダイレクトURI」</b> に以下を追加：<br>
-        <code style="background:#0a1a0a;padding:2px 6px;border-radius:4px;">https://rainybrainch.github.io/channel-os/</code><br>
-        追加後に①のログインボタンを押せば、以後は自動更新されます。
+      ${!allDone ? `<div style="margin-top:10px;padding:10px;background:#1a2a1a;border-radius:6px;font-size:.75rem;color:#aed6a0;line-height:1.9;">
+        💡 <b>Googleログインが通らない場合の確認事項（1回だけ）：</b><br>
+        <b style="color:#ffd700;">① OAuthクライアントの種類を「デスクトップアプリ」にする</b><br>
+        <span style="color:#aaa;">→ Cloud Console → 認証情報 → 「＋作成」→ OAuthクライアントID → <b>デスクトップアプリ</b> を選択</span><br>
+        <span style="color:#aaa;">→ 生成されたクライアントID（client_secretは不要）を下の「OAuth クライアントID」欄に貼る</span><br>
+        <b style="color:#ffd700;">② テストユーザーに追加する（OAuthアプリが未審査の場合）</b><br>
+        <span style="color:#aaa;">→ Cloud Console → OAuth同意画面 → テストユーザー → <code>fukuisho0603@gmail.com</code>（小文字）</span>
       </div>` : ''}
     </div>
 
@@ -6786,6 +6787,9 @@ async function _exchangeCode(code, verifier, clientId, redirect) {
     const msg = err.error_description || err.error || res.status;
     if (err.error === 'redirect_uri_mismatch') {
       throw new Error(`リダイレクトURIが未登録です。Google Cloud Console → 認証情報 → 「承認済みのリダイレクトURI」に https://rainybrainch.github.io/channel-os/ を追加してください`);
+    }
+    if (msg && msg.toString().includes('client_secret')) {
+      throw new Error(`OAuthクライアントの種類を「デスクトップアプリ」に変更してください。Google Cloud Console → 認証情報 → 新しいOAuthクライアントIDを「デスクトップアプリ」タイプで作成し、そのクライアントIDを設定タブに入力してください（client_secretは不要）`);
     }
     throw new Error(`トークン交換失敗: ${msg}`);
   }
