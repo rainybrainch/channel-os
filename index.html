@@ -1653,8 +1653,8 @@ ${strategy}
     "title_alt": "代替タイトル案",
     "description": "概要欄（3〜5段落。冒頭1行フック、チャンネル説明、ハッシュタグ末尾）",
     "tags": ["月間検索数10万以上のビッグキーワード2〜3個","次に検索数の多いミドルキーワード2〜3個","動画内容に直結するロングテール2個","Shorts","shorts"],
-    "hashtags": ["#Shorts","#メガタグ1M以上x2","#ビッグワード100k以上x3","#ミドルワード10k以上x3","#ニッチx2"],
-    "hashtag_strategy": "このジャンルでの戦略的根拠: メガタグ2個で露出保証、ビッグ3個で競合適度、ミドル3個で上位表示狙い、ニッチ2個でコア視聴者獲得。合計10個の最適配合理由を2〜3文で",
+    "hashtags": ["#Shorts","#メガタグ1M以上を2個","#ビッグワード100k以上を3個","#ミドル10k以上を3個","#ニッチ2個"],
+    "hashtag_strategy": "このジャンルの戦略根拠: メガ2個で露出確保・ビッグ3個で適度な競合・ミドル3個で上位表示狙い・ニッチ2個でコア視聴者獲得。2〜3文で具体的に説明",
     "best_post_time": "最適投稿日時",
     "thumb_horizontal": "横サムネ画像プロンプト（英語・16:9・Gemini Imagen向け）",
     "thumb_shorts": "縦サムネ画像プロンプト（英語・9:16・Gemini Imagen向け）",
@@ -2767,8 +2767,8 @@ async function generateMeta() {
   "title_alt": "代替タイトル案",
   "description": "概要欄（3〜5段落。冒頭1行でフック、チャンネル説明、ハッシュタグ末尾）",
   "tags": ["月間検索数10万以上のビッグキーワード2〜3個","次に検索数の多いミドルキーワード","動画内容に直結するロングテール","Shorts","shorts"],
-  "hashtags": ["#Shorts","#メガタグ1M以上x2","#ビッグワード100k以上x3","#ミドルワード10k以上x3","#ニッチx2"],
-  "hashtag_strategy": "このジャンルでの戦略的根拠: メガタグ2個で露出保証、ビッグ3個で競合適度、ミドル3個で上位表示狙い、ニッチ2個でコア視聴者獲得。合計10個の最適配合理由を2〜3文で",
+  "hashtags": ["#Shorts","#メガタグ1M以上を2個","#ビッグワード100k以上を3個","#ミドル10k以上を3個","#ニッチ2個"],
+  "hashtag_strategy": "このジャンルの戦略根拠を2〜3文で具体的に説明",
   "best_post_time": "最適投稿日時（例: 土曜18時）",
   "thumb_horizontal": "横サムネイル用画像生成プロンプト（英語・16:9・高コントラスト・タイトル文字映え・Midjourney形式 --ar 16:9）",
   "thumb_shorts": "縦サムネイル用画像生成プロンプト（英語・9:16・スマホ全画面・インパクト重視・Midjourney形式 --ar 9:16）",
@@ -2823,11 +2823,11 @@ function renderMetaResult(meta) {
       </div>
       <div><label>タグ</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div></div>
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <label>ハッシュタグ（戦略的配合）</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label>ハッシュタグ（戦略的配合 10個）</label>
           ${copyBtn((meta.hashtags||[]).join(' '),'コピー')}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${(meta.hashtags||[]).map(t=>`<span style="background:var(--surface2);border:1px solid var(--char-color);border-radius:4px;padding:3px 8px;font-size:.78rem;color:var(--char-color);">${escHtml(t)}</span>`).join('')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${(meta.hashtags||[]).map(t=>`<span style="background:var(--surface2);border:1px solid var(--char-color);border-radius:4px;padding:3px 8px;font-size:.78rem;color:var(--char-color);">${escHtml(t)}</span>`).join('')}</div>
         ${meta.hashtag_strategy ? `<div style="font-size:.76rem;color:var(--text-muted);background:var(--surface2);border-left:3px solid var(--char-color);padding:8px 12px;border-radius:0 6px 6px 0;line-height:1.6;">💡 ${escHtml(meta.hashtag_strategy)}</div>` : ''}
       </div>
     </div>
@@ -2993,8 +2993,8 @@ ${transcript.slice(0, 4000)}${transcript.length > 4000 ? '\n...(以下省略)' :
   "script_clean": "整理済み台本（読みやすく整理した全文。段落区切りで）",
   "description": "概要欄（冒頭1行フック→内容の要約3〜4行→チャンネル説明→ハッシュタグ末尾）",
   "tags": ["月間検索数10万以上のビッグキーワード2〜3個","次に検索数の多いミドルキーワード","動画内容に直結するロングテール","Shorts","shorts"],
-  "hashtags": ["#Shorts","#メガタグ1M以上x2","#ビッグワード100k以上x3","#ミドルワード10k以上x3","#ニッチx2"],
-  "hashtag_strategy": "このジャンルでの戦略的根拠を2〜3文で",
+  "hashtags": ["#Shorts","#メガタグ1M以上を2個","#ビッグワード100k以上を3個","#ミドル10k以上を3個","#ニッチ2個"],
+  "hashtag_strategy": "このジャンルの戦略根拠を2〜3文で具体的に説明",
   "chapters": "00:00 オープニング\\n02:30 ○○\\n...",
   "scenes": [
     {
@@ -3085,7 +3085,7 @@ function renderScenePanel() {
           <button class="btn btn-sm" style="background:#1a6b3a;color:#fff;" onclick="copyAllSceneLinesTerop()">🎬 全テロップ用コピー</button>
           <button class="btn btn-sm" style="background:#7b2d8b;color:#fff;" onclick="copyAllMidjourneyPrompts()">🎨 MJ全プロンプト</button>
           <button class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="downloadSRT()" title="VOICEVOX音声がある場合は音声秒数でテロップタイミングを生成">${(() => { const sb = storyboardData[sbKey()]; const scenes = sb?.scenes || []; const withAudio = scenes.filter(s => s.audioDuration > 0).length; return withAudio > 0 ? `📝 SRT(🎙${withAudio}/${scenes.length}シーン)` : '📝 SRT字幕DL'; })()}</button>
-          <button class="btn btn-sm" style="background:#4a148c;color:#fff;" onclick="downloadASS()" title="アニメーション付きASS字幕（設定タブでスタイル変更可）">✨ ASS字幕DL</button>
+          <button class="btn btn-sm" style="background:#4a148c;color:#fff;" onclick="downloadASS()" title="フェード/スライドアニメーション付きASS字幕（設定タブでスタイル変更）">✨ ASS字幕DL</button>
           <button class="btn btn-sm" style="background:#2e7d32;color:#fff;" onclick="downloadMaterialList()">📋 素材リストDL</button>
           <button class="btn btn-primary btn-sm" onclick="downloadMaterialPack()">📦 素材パックDL</button>
         </div>
@@ -4241,33 +4241,33 @@ function renderSettingsPanel() {
           <div>
             <label style="font-size:.78rem;">背景スタイル</label>
             <select id="capBgStyle" style="margin-top:4px;">
-              <option value="none" ${(cs.bgStyle||'semi')===('none')?'selected':''}>なし</option>
-              <option value="semi" ${(cs.bgStyle||'semi')===('semi')?'selected':''}>半透明黒（推奨）</option>
-              <option value="solid" ${(cs.bgStyle||'semi')===('solid')?'selected':''}>不透明黒</option>
+              <option value="none" ${(cs.bgStyle||'semi')==='none'?'selected':''}>なし</option>
+              <option value="semi" ${(cs.bgStyle||'semi')==='semi'?'selected':''}>半透明黒（推奨）</option>
+              <option value="solid" ${(cs.bgStyle||'semi')==='solid'?'selected':''}>不透明黒</option>
             </select>
           </div>
           <div>
             <label style="font-size:.78rem;">アニメーション（ASS）</label>
             <select id="capAnimation" style="margin-top:4px;">
-              <option value="none" ${(cs.animation||'fade')===('none')?'selected':''}>なし</option>
-              <option value="fade" ${(cs.animation||'fade')===('fade')?'selected':''}>フェードイン</option>
-              <option value="slide" ${(cs.animation||'fade')===('slide')?'selected':''}>スライドアップ</option>
+              <option value="none" ${(cs.animation||'fade')==='none'?'selected':''}>なし</option>
+              <option value="fade" ${(cs.animation||'fade')==='fade'?'selected':''}>フェードイン</option>
+              <option value="slide" ${(cs.animation||'fade')==='slide'?'selected':''}>スライドアップ</option>
             </select>
           </div>
           <div>
             <label style="font-size:.78rem;">表示位置</label>
             <select id="capPosition" style="margin-top:4px;">
-              <option value="bottom" ${(cs.position||'bottom')===('bottom')?'selected':''}>下部（推奨）</option>
-              <option value="center" ${(cs.position||'bottom')===('center')?'selected':''}>中央下</option>
-              <option value="top" ${(cs.position||'bottom')===('top')?'selected':''}>上部</option>
+              <option value="bottom" ${(cs.position||'bottom')==='bottom'?'selected':''}>下部（推奨）</option>
+              <option value="center" ${(cs.position||'bottom')==='center'?'selected':''}>中央下</option>
+              <option value="top" ${(cs.position||'bottom')==='top'?'selected':''}>上部</option>
             </select>
           </div>
           <div>
             <label style="font-size:.78rem;">フォント</label>
             <select id="capFont" style="margin-top:4px;">
-              <option value="Noto Sans JP" ${(cs.font||'Noto Sans JP')===('Noto Sans JP')?'selected':''}>Noto Sans JP</option>
-              <option value="M PLUS 1p" ${(cs.font||'Noto Sans JP')===('M PLUS 1p')?'selected':''}>M PLUS 1p</option>
-              <option value="Arial" ${(cs.font||'Noto Sans JP')===('Arial')?'selected':''}>Arial</option>
+              <option value="Noto Sans JP" ${(cs.font||'Noto Sans JP')==='Noto Sans JP'?'selected':''}>Noto Sans JP</option>
+              <option value="M PLUS 1p" ${(cs.font||'Noto Sans JP')==='M PLUS 1p'?'selected':''}>M PLUS 1p</option>
+              <option value="Arial" ${(cs.font||'Noto Sans JP')==='Arial'?'selected':''}>Arial</option>
             </select>
           </div>
         </div>
@@ -6205,45 +6205,29 @@ function downloadASS() {
   const CHARS_PER_SEC = 4.5;
   const MIN_DUR = 1.0;
 
-  // ASS color format: &HAABBGGRR (alpha, blue, green, red)
   function hexToAss(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return `&H00${b.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${r.toString(16).padStart(2,'0')}`.toUpperCase();
   }
   function toASSTime(sec) {
-    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60), cs = Math.round((sec%1)*100);
-    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60), cs2 = Math.round((sec%1)*100);
+    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs2).padStart(2,'0')}`;
   }
 
   const primaryColor = hexToAss(cs.textColor);
   const backColor = cs.bgStyle === 'none' ? '&H00000000' : cs.bgStyle === 'solid' ? '&HFF000000' : '&H80000000';
-  const alignment = cs.position === 'top' ? 8 : cs.position === 'center' ? 5 : 2; // ASS alignment
-  const marginV = cs.position === 'top' ? 40 : 40;
+  const alignment = cs.position === 'top' ? 8 : cs.position === 'center' ? 5 : 2;
+  const marginV = 40;
 
-  const header = `[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-ScaledBorderAndShadow: yes
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${cs.font},${cs.fontSize},${primaryColor},${primaryColor},&H00000000,${backColor},-1,0,0,0,100,100,0,0,${cs.bgStyle==='none'?1:3},0,0,${alignment},40,40,${marginV},1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-`;
+  const header = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,${cs.font},${cs.fontSize},${primaryColor},${primaryColor},&H00000000,${backColor},-1,0,0,0,100,100,0,0,${cs.bgStyle==='none'?1:3},0,0,${alignment},40,40,${marginV},1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n`;
 
   let cursor = 0;
   let events = '';
-
   const fadeDur = cs.animation === 'fade' ? 200 : 0;
-  const slideDur = cs.animation === 'slide' ? 200 : 0;
 
   sb.scenes.forEach(scene => {
     const validLines = scene.lines.filter(l => l.trim());
     if (!validLines.length) return;
-
     const totalChars = validLines.reduce((s, l) => s + l.length, 0);
     validLines.forEach(line => {
       let dur;
@@ -6253,11 +6237,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       } else {
         dur = Math.max(MIN_DUR, line.length / CHARS_PER_SEC);
       }
-
       let effect = '';
       if (cs.animation === 'fade') effect = `{\\fad(${fadeDur},${fadeDur})}`;
-      else if (cs.animation === 'slide') effect = `{\\move(540,1820,540,1780,0,${slideDur})}`;
-
+      else if (cs.animation === 'slide') effect = `{\\move(540,1850,540,1780,0,200)}`;
       events += `Dialogue: 0,${toASSTime(cursor)},${toASSTime(cursor+dur)},Default,,0,0,0,,${effect}${line.trim()}\n`;
       cursor += dur;
     });
@@ -6271,7 +6253,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   a.href = URL.createObjectURL(blob);
   a.download = `${title}.ass`;
   a.click();
-  showToast(`✅ ASS字幕をダウンロード（${cs.animation}アニメーション・${cs.fontSize}px）`);
+  showToast(`✅ ASS字幕をダウンロード（${cs.animation}・${cs.fontSize}px・設定タブで変更可）`);
 }
 
 // ════════════════════════════════════
