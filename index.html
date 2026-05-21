@@ -2870,14 +2870,16 @@ function renderPlanPanel(char) {
   const _savedFormat = _epInput?.inputFormat || 'horizontal';
   const planMode = localStorage.getItem('channelos_plan_mode') || 'now';
 
-  // 今週の予定（カレンダーから）
-  const today = new Date(); today.setHours(0,0,0,0);
-  const monday = new Date(today); monday.setDate(today.getDate() - (today.getDay()===0?6:today.getDay()-1));
-  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  // 今日から7日間の予定（カレンダーから）
+  const _todayD = new Date(); _todayD.setHours(0,0,0,0);
+  const _localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const today = _todayD;
+  const todayStr = _localDateStr(today);
+  const sevenDaysLater = new Date(today); sevenDaysLater.setDate(today.getDate()+6);
+  const sevenDaysStr = _localDateStr(sevenDaysLater);
   const calEntries = loadCalendar().filter(e => {
     if (e.charId !== char.id) return false;
-    const d = new Date(e.date); d.setHours(0,0,0,0);
-    return d >= monday && d <= sunday;
+    return e.date >= todayStr && e.date <= sevenDaysStr;
   }).sort((a,b)=>a.date.localeCompare(b.date));
 
   // 習慣テンプレ
@@ -2918,8 +2920,8 @@ function renderPlanPanel(char) {
           const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
           const fmtIcon = e.format==='shorts'?'📱':'📺';
           const patLabel = {explanation:'解説',ranking:'ランキング',story:'ストーリー',drama:'ドラマ',dialogue:'対談',howto:'How-To',secret:'本音暴露',challenge:'チャレンジ',reaction:'リアクション'}[ep?.inputPattern||e.pattern||'']||'';
-          const isToday = e.date === today.toISOString().slice(0,10);
-          const isPast  = e.date < today.toISOString().slice(0,10);
+          const isToday = e.date === todayStr;
+          const isPast  = e.date < todayStr;
           const perf = e.perf;
           const sentIcon = perf?.sentiment==='good'?'👍':perf?.sentiment==='bad'?'👎':'😐';
           return `<div style="border:2px solid ${isToday?'var(--char-color,#c9a84c)':isPast?'var(--border)':'var(--border)33'};border-radius:10px;padding:12px 14px;background:${isToday?'rgba(201,168,76,.08)':'var(--surface2)'};opacity:${isPast&&e.posted&&!perf?'.5':'1'};">
@@ -6490,11 +6492,12 @@ async function generateWeeklyPlan() {
   if (loadEl)  { loadEl.style.display = 'flex'; }
   if (resultEl) resultEl.innerHTML = '';
 
-  // 今日から count 日分を生成
-  const today = new Date(); today.setHours(0,0,0,0);
+  // 今日から count 日分を生成（ローカル日付で計算）
+  const _now = new Date();
+  const _toLocalStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const dates = Array.from({length: count}, (_, i) => {
-    const d = new Date(today); d.setDate(today.getDate() + i);
-    return d.toISOString().slice(0,10);
+    const d = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() + i);
+    return _toLocalStr(d);
   });
 
   const fmtDesc = fmt === 'mix' ? '横動画とショートを混在' : fmt === 'horizontal' ? '横動画のみ' : 'ショートのみ';
@@ -6666,9 +6669,13 @@ async function addWeeklyPlanToCalendar() {
   const checked = [...document.querySelectorAll('.weeklyItemCheck:checked')].map(el => parseInt(el.dataset.idx));
   if (!checked.length) { showToast('少なくとも1案を選択してください'); return; }
 
-  const entries = loadCalendar();
+  let entries = loadCalendar();
   const char    = data.characters.find(c => c.id === currentCharId);
   let added = 0;
+
+  // チェックされた日付の既存エントリを削除（上書き）
+  const checkedDates = checked.map(idx => _weeklyPlanItems[idx]?.date).filter(Boolean);
+  entries = entries.filter(e => !(e.charId === currentCharId && checkedDates.includes(e.date)));
 
   let firstEpIdAdded = null;
   for (const idx of checked) {
