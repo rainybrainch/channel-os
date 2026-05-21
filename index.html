@@ -6442,7 +6442,236 @@ function renderSettingsPanel() {
       })()}
     </div>
 
+    <!-- 🤖 GAS 自動化セクション -->
+    <div class="card" style="margin-top:8px;border:1px solid #27ae6044;background:linear-gradient(135deg,rgba(39,174,96,.06),transparent);">
+      <div class="card-title" style="color:#27ae60;">🤖 GAS 完全自動化（朝6時投稿・ブラウザ不要）</div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;line-height:1.7;">
+        Google Apps Script が毎時 Drive を監視し、予約時刻になったら X に自動投稿します。<br>
+        YouTube 予約投稿は YouTube API が直接処理するため GAS 不要。
+      </p>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:8px;color:var(--text);">① 投稿キューを Drive に書き出す</div>
+        <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">週1回の作業でここを押すだけ。全キャラの予約投稿リストをDriveに保存します。</p>
+        <button class="btn btn-primary btn-sm" onclick="exportPublishQueueToDrive()">📤 投稿キューをDriveに書き出す</button>
+        <div id="queueExportStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:6px;"></div>
+      </div>
+
+      <details style="margin-bottom:8px;">
+        <summary style="cursor:pointer;font-size:.8rem;color:#27ae60;font-weight:700;padding:6px 0;">📋 GAS セットアップ手順（初回1回だけ）</summary>
+        <div style="margin-top:10px;font-size:.76rem;line-height:2;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:12px 14px;">
+          <b style="color:var(--text);">1.</b> <a href="https://script.google.com" target="_blank" style="color:#27ae60;">script.google.com</a> を開く<br>
+          <b style="color:var(--text);">2.</b> 「新しいプロジェクト」→ 下のコードを全選択して貼り付け → 保存<br>
+          <b style="color:var(--text);">3.</b> 「実行」→ Google アカウント (FukuiSho0603) で承認<br>
+          <b style="color:var(--text);">4.</b> 「トリガー」→ 「トリガーを追加」→ 関数: <code>checkAndPost</code> / 時間ベース: 1時間ごと<br>
+          <b style="color:var(--text);">5.</b> Channel OS で「📤 投稿キューをDriveに書き出す」を週1回押すだけ
+        </div>
+      </details>
+
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:.8rem;font-weight:700;">② GAS コードをコピー</span>
+          <button class="btn btn-secondary btn-sm" onclick="copyGasCode()">📋 コードをコピー</button>
+        </div>
+        <pre id="gasCodeBlock" style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.68rem;color:#aef;overflow-x:auto;max-height:280px;white-space:pre;line-height:1.5;display:none;"></pre>
+        <button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="toggleGasPreview()">👁 コードを表示/非表示</button>
+      </div>
+    </div>
+
   </div>`;
+}
+
+// ══════════════════════════════════════════
+//  GAS 自動化: 投稿キュー書き出し
+// ══════════════════════════════════════════
+async function exportPublishQueueToDrive() {
+  const token = await getGdToken();
+  if (!token) { showToast('Drive認証が必要です'); return; }
+  const folderId = localStorage.getItem(GD_FOLDER_SK);
+  if (!folderId) { showToast('DriveフォルダIDを設定してください'); return; }
+
+  const el = document.getElementById('queueExportStatus');
+  if (el) el.textContent = '書き出し中...';
+
+  const cal = loadCalendar();
+  const d = loadData();
+  const xToken = localStorage.getItem('channelos_x_access_token');
+  const xTokenSecret = localStorage.getItem('channelos_x_access_token_secret');
+
+  // 未投稿の予定を抽出
+  const queue = cal.filter(e => !e.xPosted && !e.posted && e.date).map(e => {
+    const char = (d.characters || []).find(c => c.id === e.charId) || {};
+    const ep = (d.episodes || []).find(ep => ep.id === e.episodeId) || {};
+    const meta = ep.meta || ep.generatedMeta || {};
+    return {
+      id: e.id,
+      charName: char.name || '',
+      date: e.date,
+      time: e.time || '18:00',
+      scheduledISO: new Date(`${e.date}T${e.time||'18:00'}:00+09:00`).toISOString(),
+      theme: e.theme || ep.theme || '',
+      youtubeUrl: ep.youtubeUrl || '',
+      xText: meta.xPost || (meta.title ? `【${char.name||''}】${meta.title}\n\n${meta.description?.slice(0,80)||''}...\n${ep.youtubeUrl||''}` : ''),
+      noteTitle: meta.title || '',
+      noteBody: meta.notePost || meta.description || '',
+      xPosted: false,
+      notePosted: false,
+    };
+  });
+
+  const payload = JSON.stringify({ queue, xToken, xTokenSecret, exportedAt: new Date().toISOString() });
+
+  try {
+    // 既存ファイルを検索または新規作成
+    const q = encodeURIComponent(`name='channelos_publish_queue.json' and '${folderId}' in parents and trashed=false`);
+    const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const list = await listRes.json();
+    const existingId = list.files?.[0]?.id;
+
+    if (existingId) {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: payload
+      });
+    } else {
+      const meta = { name: 'channelos_publish_queue.json', parents: [folderId] };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+      form.append('file', new Blob([payload], { type: 'application/json' }));
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+      });
+    }
+    if (el) el.textContent = `✅ ${queue.length}件の予定を書き出しました（${new Date().toLocaleString('ja-JP')}）`;
+    showToast(`✅ ${queue.length}件の投稿キューをDriveに書き出しました`);
+  } catch(e) {
+    if (el) el.textContent = '❌ ' + e.message;
+    showToast('❌ ' + e.message);
+  }
+}
+
+const _GAS_CODE = `// Channel OS 自動投稿 GAS スクリプト
+// 設定: FukuiSho0603@gmail.com の Google Drive に channel_os_publish_queue.json があること
+// トリガー: checkAndPost を 1時間ごとに実行
+
+const FOLDER_ID = ''; // ← Channel OS 設定タブの Drive フォルダID を貼る
+const QUEUE_FILENAME = 'channelos_publish_queue.json';
+
+function checkAndPost() {
+  const file = findQueueFile_();
+  if (!file) { Logger.log('Queue file not found'); return; }
+
+  const content = JSON.parse(file.getBlob().getDataAsString());
+  const queue = content.queue || [];
+  const xToken = content.xToken || '';
+  const xTokenSecret = content.xTokenSecret || '';
+
+  const now = new Date();
+  let updated = false;
+
+  queue.forEach(item => {
+    if (item.xPosted) return;
+    const scheduled = new Date(item.scheduledISO);
+    if (now < scheduled) return; // まだ時間ではない
+
+    // X 投稿
+    if (item.xText && xToken && xTokenSecret) {
+      const ok = postToX_(item.xText, xToken, xTokenSecret);
+      if (ok) { item.xPosted = true; item.xPostedAt = now.toISOString(); updated = true; }
+      Utilities.sleep(2000);
+    }
+
+    // Note は自動化困難のためスキップ（手動またはメール通知）
+    if (item.noteTitle && !item.notePosted) {
+      sendNoteReminder_(item);
+    }
+  });
+
+  if (updated) {
+    content.queue = queue;
+    content.lastRunAt = now.toISOString();
+    file.setContent(JSON.stringify(content));
+  }
+}
+
+function postToX_(text, accessToken, accessTokenSecret) {
+  // Twitter API v2 OAuth 1.0a
+  const apiKey        = PropertiesService.getScriptProperties().getProperty('X_API_KEY');
+  const apiSecret     = PropertiesService.getScriptProperties().getProperty('X_API_SECRET');
+  if (!apiKey || !apiSecret) { Logger.log('X API key not set in Script Properties'); return false; }
+
+  const url = 'https://api.twitter.com/2/tweets';
+  const oauthHeader = buildOAuth1Header_('POST', url, {}, apiKey, apiSecret, accessToken, accessTokenSecret);
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      headers: { 'Authorization': oauthHeader, 'Content-Type': 'application/json' },
+      payload: JSON.stringify({ text }),
+      muteHttpExceptions: true
+    });
+    const code = res.getResponseCode();
+    Logger.log('X post result: ' + code + ' ' + res.getContentText().slice(0, 200));
+    return code === 201 || code === 200;
+  } catch(e) { Logger.log('X post error: ' + e); return false; }
+}
+
+function sendNoteReminder_(item) {
+  const email = Session.getActiveUser().getEmail();
+  if (!email) return;
+  GmailApp.sendEmail(email,
+    '[Channel OS] Note投稿リマインダー: ' + item.noteTitle,
+    '以下の内容をNote.comに投稿してください。\\n\\n' + item.noteBody + '\\n\\n---\\nキャラ: ' + item.charName + ' / 予定: ' + item.scheduledISO
+  );
+}
+
+function findQueueFile_() {
+  const folderId = FOLDER_ID || PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
+  if (!folderId) return null;
+  const folder = DriveApp.getFolderById(folderId);
+  const files = folder.getFilesByName(QUEUE_FILENAME);
+  return files.hasNext() ? files.next() : null;
+}
+
+// OAuth 1.0a ヘッダー生成
+function buildOAuth1Header_(method, url, params, ck, cs, at, ats) {
+  const nonce = Utilities.base64Encode(Utilities.newBlob(Utilities.generateUuid()).getBytes()).replace(/[^a-zA-Z0-9]/g,'').slice(0,32);
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const oauthParams = { oauth_consumer_key:ck, oauth_nonce:nonce, oauth_signature_method:'HMAC-SHA1',
+    oauth_timestamp:ts, oauth_token:at, oauth_version:'1.0' };
+  const allParams = Object.assign({}, params, oauthParams);
+  const paramStr = Object.keys(allParams).sort().map(k => encodeURIComponent(k) + '=' + encodeURIComponent(allParams[k])).join('&');
+  const base = method.toUpperCase() + '&' + encodeURIComponent(url) + '&' + encodeURIComponent(paramStr);
+  const sigKey = encodeURIComponent(cs) + '&' + encodeURIComponent(ats);
+  const sig = Utilities.base64Encode(Utilities.computeHmacSha256Signature(base, sigKey));
+  oauthParams.oauth_signature = sig;
+  return 'OAuth ' + Object.keys(oauthParams).sort().map(k => encodeURIComponent(k) + '="' + encodeURIComponent(oauthParams[k]) + '"').join(', ');
+}
+
+// 初回設定: スクリプトプロパティに X_API_KEY / X_API_SECRET / FOLDER_ID をセット
+function setup() {
+  const props = PropertiesService.getScriptProperties();
+  // ↓ 値を入れて一回だけ実行してください
+  props.setProperty('X_API_KEY',    'YOUR_X_API_KEY_HERE');
+  props.setProperty('X_API_SECRET', 'YOUR_X_API_SECRET_HERE');
+  props.setProperty('FOLDER_ID',    'YOUR_DRIVE_FOLDER_ID_HERE');
+  Logger.log('Setup complete');
+}`;
+
+function copyGasCode() {
+  navigator.clipboard.writeText(_GAS_CODE).then(() => showToast('✅ GASコードをコピーしました'));
+}
+
+function toggleGasPreview() {
+  const el = document.getElementById('gasCodeBlock');
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.textContent = _GAS_CODE;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function saveCaptionStyle() {
@@ -9080,6 +9309,12 @@ function _markChecklist(key) {
   ep.postingChecklist = ep.postingChecklist || {};
   ep.postingChecklist[key] = true;
   saveData(data);
+  // カレンダーキューにも反映
+  if (key === 'xPosted' || key === 'notePosted') {
+    const cal = loadCalendar();
+    cal.filter(e => e.episodeId === currentEpisodeId).forEach(e => { e[key] = true; });
+    saveCalendar(cal);
+  }
   const panel = document.getElementById('panelDistribute');
   if (panel) panel.outerHTML = renderDistributePanel();
 }
