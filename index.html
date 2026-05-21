@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RBAI Channel OS</title>
+<title>Channel OS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <style>
@@ -225,15 +225,19 @@
 </div>
 
 <header>
-  <h1>🎬 RBAI Channel OS</h1>
+  <h1>📺 Channel OS</h1>
   <span id="headerSub">キャラクターを選択してください</span>
-  <span id="syncStatusBadge" style="margin-left:auto;font-size:.75rem;color:#aaa;cursor:pointer;" onclick="syncFromDrive()" title="クリックでDriveから最新データ取得">💾 ローカル</span>
+  <span id="syncStatusBadge" style="font-size:.75rem;color:#aaa;cursor:pointer;" onclick="syncFromDrive()" title="クリックでDriveから最新データ取得">💾</span>
   <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
-  <button onclick="switchTab('settings')" style="margin-left:12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️ 設定</button>
+  <button id="simpleModeBtn" onclick="toggleSimpleMode()" style="margin-left:auto;background:var(--accent);color:#0d0d0d;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;font-weight:700;flex-shrink:0;">シンプル</button>
+  <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
+  <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
 </header>
 
 <div class="layout">
   <aside>
+    <!-- 接続状況バー -->
+    <div id="connectionBar" style="padding:8px 10px;margin-bottom:6px;"></div>
     <div class="sidebar-title">キャラクター</div>
     <div id="charList"></div>
     <div class="sidebar-title" id="epSidebarTitle" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:14px;">動画プロジェクト</div>
@@ -249,6 +253,20 @@
   </main>
 </div>
 
+<!-- Daily Dashboard Modal -->
+<div class="modal-overlay" id="dailyDashModal" style="z-index:3000;display:none;align-items:flex-start;padding-top:40px;">
+  <div class="modal" style="max-width:720px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="margin:0;">📅 毎日投稿チェックリスト</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="dailyDashDate" style="font-size:.8rem;color:var(--text-muted);"></span>
+        <button class="btn btn-secondary btn-sm" onclick="closeDailyDashboard()">✕ 閉じる</button>
+      </div>
+    </div>
+    <div id="dailyDashContent"></div>
+  </div>
+</div>
+
 <!-- Drive Asset Picker Modal -->
 <div class="modal-overlay" id="drivePickerModal">
   <div class="modal" style="max-width:680px;">
@@ -257,6 +275,25 @@
     <div id="drivePickerGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;max-height:400px;overflow-y:auto;padding:4px;"></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="closeModal('drivePickerModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 過去素材モーダル -->
+<div class="modal-overlay" id="pastScenesModal">
+  <div class="modal" style="max-width:700px;">
+    <h2>♻️ 過去の素材を再利用</h2>
+    <p style="font-size:.78rem;color:var(--text-muted);margin:4px 0 12px;">過去のエピソードで生成した画像を今のシーンに使えます。クリックで適用。</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <label style="font-size:.78rem;color:var(--text-muted);">エピソード絞り込み:</label>
+      <select id="pastScenesEpFilter" style="flex:1;min-width:150px;font-size:.82rem;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);" onchange="renderPastScenes()">
+        <option value="">全エピソード</option>
+      </select>
+      <input type="text" id="pastScenesSearch" placeholder="台詞で検索..." style="flex:1;min-width:120px;font-size:.82rem;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);" oninput="renderPastScenes()">
+    </div>
+    <div id="pastScenesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:380px;overflow-y:auto;padding:4px;"></div>
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal('pastScenesModal')">キャンセル</button>
     </div>
   </div>
 </div>
@@ -270,6 +307,10 @@
       YouTube・X・Instagram・Noteの投稿を一括管理できます。<br>
       Googleでログインするだけで全設定が自動で読み込まれます。
     </p>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:16px;text-align:left;">
+      <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:3px;">ログインアカウント（チームオーナー）</div>
+      <div style="font-size:.88rem;font-weight:700;color:var(--accent);" id="welcomeEmailHint">rainybrain.ch@gmail.com</div>
+    </div>
     <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:700;border-radius:10px;margin-bottom:10px;"
       onclick="_hideWelcomeScreen();gdAuth();">
       🔑 Googleでログイン（初回設定）
@@ -279,7 +320,7 @@
       スキップ（後で設定する）
     </button>
     <p style="font-size:.72rem;color:var(--text-muted);margin-top:16px;line-height:1.6;">
-      ✅ 2回目以降は自動でログイン — 毎回の設定は不要です<br>
+      ✅ 2回目以降は自動でログイン（1時間毎に自動更新）<br>
       ✅ チームで共有する場合はオーナーが「チーム設定を保存」するだけ
     </p>
   </div>
@@ -294,7 +335,17 @@
 <div class="modal-overlay" id="addCharModal">
   <div class="modal" style="max-width:580px;max-height:92vh;overflow-y:auto;">
     <h2 id="modalTitle" style="margin-bottom:4px;">🎭 キャラクター設定</h2>
-    <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:16px;">ここで設定したら全プラットフォームに反映されます。後から変更もできます。</p>
+    <!-- AIで一括入力 -->
+    <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--accent)44;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px;">✨ <b>AIで一括入力</b>：どんなキャラか説明するだけで全フィールドを自動設定</div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="aiCharDesc" placeholder="例: 20代の筋トレ系YouTuber、明るく元気、初心者向け筋トレ解説" style="flex:1;font-size:.85rem;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
+          onkeydown="if(event.key==='Enter')generateCharFromDesc()">
+        <button type="button" class="btn btn-primary btn-sm" onclick="generateCharFromDesc()" id="aiCharGenBtn">✨ 生成</button>
+      </div>
+      <div id="aiCharGenStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+    </div>
+    <p style="font-size:.74rem;color:var(--text-muted);margin-bottom:12px;">または以下に手動で入力してください。</p>
 
     <!-- ═══ BLOCK 1: キャラクター＆立ち絵 ═══ -->
     <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
@@ -423,39 +474,65 @@
 
     <!-- ═══ BLOCK 4: 音声設定 ═══ -->
     <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
-      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px;">🎙 音声設定（VOICEVOX）</div>
-      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:6px;">PCでVOICEVOXを起動 → 「🔄 話者取得」を押すだけ。</div>
-      <div id="vvGuideBox" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:.7rem;color:var(--text-muted);">
-        <div style="font-weight:700;margin-bottom:3px;">📌 GitHub Pages版（チーム共有）から使う場合</div>
-        <div>VOICEVOXを通常起動すると接続できない場合があります。その場合は「話者取得」ボタンを押すと<b>起動コマンドが表示</b>されます。そのコマンドで起動し直してください。</div>
-        <div style="margin-top:3px;">チームメンバーへ共有: <b>VOICEVOXをダウンロード → コマンドで起動 → 話者取得</b> の3ステップのみ</div>
+      <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;">🎙 音声設定</div>
+      <!-- 音声モード切替タブ -->
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;">
+        <button type="button" id="voiceTabBrowser" onclick="switchVoiceTab('browser')" style="flex:1;padding:8px 6px;border:none;background:var(--char-color,#c9a84c);color:#0d0d0d;font-size:.75rem;font-weight:700;cursor:pointer;">🌐 ブラウザ音声<br><span style="font-size:.65rem;font-weight:400;">設定不要・即使える</span></button>
+        <button type="button" id="voiceTabVv" onclick="switchVoiceTab('voicevox')" style="flex:1;padding:8px 6px;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;">🎤 VOICEVOX<br><span style="font-size:.65rem;font-weight:400;">高品質・PC起動必要</span></button>
       </div>
-      <input type="hidden" id="newCharVoicevox" value="13">
-      <!-- 話者選択UI -->
-      <div id="vvPickerArea" style="margin-bottom:10px;">
+      <input type="hidden" id="newCharVoiceMode" value="browser">
+      <!-- ブラウザ音声パネル -->
+      <div id="voicePanelBrowser" style="margin-bottom:10px;">
+        <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:6px;">ブラウザ内蔵の日本語音声を使います。インストール不要・GitHub Pagesでもそのまま動作します。</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <select id="newCharVoiceSelect" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
-            <option value="">── まずVOICEVOXを起動してから取得 ──</option>
+          <select id="browserVoiceSelect" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);" onchange="onBrowserVoiceChange(this)">
+            <option value="">── 音声を選択 ──</option>
           </select>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="fetchVvSpeakers()" id="vvFetchBtn">🔄 話者取得</button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="testVvVoice()" id="vvTestBtn">▶ テスト再生</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="loadBrowserVoices()">🔄 音声一覧</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="browserVoiceTestBtn" onclick="testBrowserVoice()">▶ テスト</button>
         </div>
-        <div id="vvPickerStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <label style="font-size:.72rem;flex-shrink:0;">話速</label>
+          <input type="range" id="browserVoiceRate" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;accent-color:var(--char-color,#c9a84c);" oninput="document.getElementById('browserVoiceRateVal').textContent=this.value">
+          <span id="browserVoiceRateVal" style="font-size:.72rem;width:30px;">1.0</span>
+          <label style="font-size:.72rem;flex-shrink:0;margin-left:6px;">音高</label>
+          <input type="range" id="browserVoicePitch" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;accent-color:var(--char-color,#c9a84c);" oninput="document.getElementById('browserVoicePitchVal').textContent=this.value">
+          <span id="browserVoicePitchVal" style="font-size:.72rem;width:30px;">1.0</span>
+        </div>
+        <div id="browserVoiceStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+        <input type="hidden" id="newCharBrowserVoice" value="">
       </div>
-      <!-- 現在選択中 -->
-      <div style="font-size:.8rem;color:var(--text-muted);">選択中: <span id="vvSelectedName" style="color:var(--text);font-weight:700;">未選択</span></div>
-      <!-- 詳細パラメーター（折りたたみ） -->
-      <details style="margin-top:10px;">
-        <summary style="font-size:.72rem;color:var(--text-muted);cursor:pointer;">⚙ 音声パラメーター詳細（任意）</summary>
-        <div style="padding:10px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <div><label style="font-size:.72rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-          <div><label style="font-size:.72rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
-          <div><label style="font-size:.72rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-          <div><label style="font-size:.72rem;">音量</label><input type="number" id="newCharVolumeScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
-          <div><label style="font-size:.72rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
-          <div><label style="font-size:.72rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
+      <!-- VOICEVOX パネル -->
+      <div id="voicePanelVv" style="display:none;margin-bottom:10px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:.7rem;color:var(--text-muted);">
+          <b>📌 GitHub Pages版から使う手順：</b><br>
+          ① PCで <code>voicevox.exe --allow-origin "https://rainybrainch.github.io"</code> で起動<br>
+          ② 「🔄 話者取得」を押す → ③ 話者を選択 → ④ 「▶ テスト再生」で確認
         </div>
-      </details>
+        <input type="hidden" id="newCharVoicevox" value="13">
+        <div id="vvPickerArea" style="margin-bottom:10px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="newCharVoiceSelect" style="flex:1;min-width:160px;font-size:.84rem;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);">
+              <option value="">── まずVOICEVOXを起動してから取得 ──</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="fetchVvSpeakers()" id="vvFetchBtn">🔄 話者取得</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testVvVoice()" id="vvTestBtn">▶ テスト再生</button>
+          </div>
+          <div id="vvPickerStatus" style="font-size:.72rem;color:var(--text-muted);margin-top:4px;"></div>
+        </div>
+        <div style="font-size:.8rem;color:var(--text-muted);">選択中: <span id="vvSelectedName" style="color:var(--text);font-weight:700;">未選択</span></div>
+        <details style="margin-top:10px;">
+          <summary style="font-size:.72rem;color:var(--text-muted);cursor:pointer;">⚙ 音声パラメーター詳細（任意）</summary>
+          <div style="padding:10px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div><label style="font-size:.72rem;">話速</label><input type="number" id="newCharSpeedScale" step="0.01" min="0.5" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+            <div><label style="font-size:.72rem;">音高</label><input type="number" id="newCharPitchScale" step="0.01" min="-0.15" max="0.15" placeholder="0.00" style="margin-top:2px;"></div>
+            <div><label style="font-size:.72rem;">抑揚</label><input type="number" id="newCharIntonationScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+            <div><label style="font-size:.72rem;">音量</label><input type="number" id="newCharVolumeScale" step="0.01" min="0.0" max="2.0" placeholder="1.00" style="margin-top:2px;"></div>
+            <div><label style="font-size:.72rem;">間の長さ</label><input type="number" id="newCharPauseScale" step="0.01" min="0.0" max="1.5" placeholder="1.00" style="margin-top:2px;"></div>
+            <div><label style="font-size:.72rem;">開始/終了無音</label><input type="number" id="newCharPreSilence" step="0.01" min="0.0" max="1.5" placeholder="0.10" style="margin-top:2px;"></div>
+          </div>
+        </details>
+      </div>
     </div>
     <!-- hidden: 声優名テキスト（後方互換） -->
     <input type="hidden" id="newCharVoiceName">
@@ -482,6 +559,7 @@
 // ════════════════════════════════════
 const STORAGE_KEY   = 'channelos_data_v2';
 const API_KEY_SK    = 'channelos_claude_api_key';
+const TEAM_OWNER_EMAIL = 'rainybrain.ch@gmail.com';
 const GD_TOKEN_SK   = 'channelos_gd_token';
 const GD_EXPIRY_SK  = 'channelos_gd_token_expiry';
 const GD_REFRESH_SK = 'channelos_gd_refresh_token';
@@ -726,6 +804,7 @@ let generatedScript = '';
 let storyboardData = {};
 let generatedMeta   = null;
 let editingCharId   = null;
+let simpleMode = localStorage.getItem('channelos_simple_mode') !== 'false'; // デフォルトON
 
 // ── 動画プロジェクト管理 ──
 let currentEpisodeId = localStorage.getItem('channelos_last_episode') || null;
@@ -1357,42 +1436,32 @@ window.addEventListener('message', handleOAuthCallback);
 //  起動時自動セッション復元
 // ════════════════════════════════════
 (async function _startupRestore() {
-  // OAuth callbackの場合はスキップ（URLにcodeパラメーターがある）
+  // OAuth callbackの場合はスキップ
   const params = new URLSearchParams(location.search);
   if (params.get('code')) return;
 
   const gdRefresh = localStorage.getItem(GD_REFRESH_SK);
-  const gdToken   = localStorage.getItem(GD_TOKEN_SK);
   const hasKey    = !!localStorage.getItem(GEMINI_KEY_SK);
 
-  // ① リフレッシュトークンあり → サイレントでGdトークン更新
-  if (gdRefresh && !gdToken) {
-    try {
-      const clientId = _getClientId();
-      if (clientId) {
-        const res = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `client_id=${encodeURIComponent(clientId)}&refresh_token=${encodeURIComponent(gdRefresh)}&grant_type=refresh_token`
-        });
-        if (res.ok) {
-          const j = await res.json();
-          localStorage.setItem(GD_TOKEN_SK, j.access_token);
-          localStorage.setItem(GD_EXPIRY_SK, Date.now() + (j.expires_in || 3600) * 1000);
-        }
-      }
-    } catch(_e) { /* サイレント失敗 */ }
+  // ① リフレッシュトークンあり → 期限切れ含め自動更新（getGdTokenが期限チェックする）
+  if (gdRefresh) {
+    try { await getGdToken(); } catch(_e) { /* サイレント失敗 */ }
   }
 
   // ② トークンあり・Geminiキー未設定 → チーム設定を自動復元
   const freshToken = localStorage.getItem(GD_TOKEN_SK);
   if (freshToken && !hasKey) {
-    try {
-      await autoLoadTeamConfig(freshToken);
-    } catch(_e) { /* サイレント失敗 */ }
+    try { await autoLoadTeamConfig(freshToken); } catch(_e) { }
   }
 
-  // ③ 何も設定されていない → ウェルカム画面を表示
+  // ③ 55分毎に自動リフレッシュ（1時間切れ対策）
+  if (gdRefresh) {
+    setInterval(async () => {
+      try { await getGdToken(); } catch(_e) { }
+    }, 55 * 60 * 1000);
+  }
+
+  // ④ 何も設定されていない → ウェルカム画面
   const isFirstRun = !freshToken && !gdRefresh && !hasKey && !(loadData().characters?.some(c => c.id.startsWith('char_')));
   if (isFirstRun) {
     setTimeout(() => _showWelcomeScreen(), 300);
@@ -1414,7 +1483,208 @@ function _hideWelcomeScreen() {
 // ════════════════════════════════════
 //  Sidebar
 // ════════════════════════════════════
+// ════════════════════════════════════
+//  毎日投稿チェックリスト（デイリーダッシュボード）
+// ════════════════════════════════════
+function openDailyDashboard() {
+  const modal = document.getElementById('dailyDashModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.getElementById('dailyDashDate').textContent = new Date().toLocaleDateString('ja-JP', {month:'long',day:'numeric',weekday:'short'});
+  _renderDailyDash();
+}
+
+function closeDailyDashboard() {
+  const modal = document.getElementById('dailyDashModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _renderDailyDash() {
+  const d = loadData();
+  const chars = d.characters.filter(c => c.id.startsWith('char_'));
+  const today = new Date().toISOString().slice(0,10);
+
+  const dailyTasks = [
+    { id:'script',  label:'台本生成',    icon:'📝', check: ep => !!ep.script },
+    { id:'image',   label:'絵コンテ画像', icon:'🎨', check: ep => {
+      const sb = storyboardData[ep.charId + '_' + ep.id];
+      return !!(sb?.scenes?.some(s => s.imageDataUrl));
+    }},
+    { id:'upload',  label:'YouTube投稿',  icon:'🚀', check: ep => !!ep.youtubeUrl },
+    { id:'x',       label:'X投稿',        icon:'🐦', check: ep => !!(ep.postingChecklist?.xPosted) },
+    { id:'note',    label:'Note投稿',     icon:'📓', check: ep => !!(ep.postingChecklist?.notePosted) },
+  ];
+
+  if (!chars.length) {
+    document.getElementById('dailyDashContent').innerHTML = `<p style="color:var(--text-muted);font-size:.85rem;">キャラクターがまだいません。左サイドバーから追加してください。</p>`;
+    return;
+  }
+
+  const html = chars.map(char => {
+    const eps = (d.episodes || []).filter(e => e.charId === char.id);
+    // 今日の動画（作成日・更新日が今日のもの）か最新エピソード
+    const todayEps = eps.filter(e => (e.updatedAt||e.createdAt||'').startsWith(today));
+    const workingEp = todayEps[0] || eps.slice(-1)[0] || null;
+    const epLabel = workingEp ? workingEp.title : '（動画なし）';
+
+    const taskHtml = dailyTasks.map(t => {
+      const done = workingEp ? t.check(workingEp) : false;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:${done?'#4caf5015':'var(--surface)'};border:1px solid ${done?'#4caf5033':'var(--border)'};">
+        <span style="font-size:.9rem;">${done?'✅':t.icon}</span>
+        <span style="font-size:.76rem;color:${done?'var(--text-muted)':'var(--text)'};${done?'text-decoration:line-through;':''}">${t.label}</span>
+      </div>`;
+    }).join('');
+
+    const doneCount = workingEp ? dailyTasks.filter(t => t.check(workingEp)).length : 0;
+    const pct = Math.round(doneCount / dailyTasks.length * 100);
+    const ytAuth = !!getYtToken(char.id);
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--surface2);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:${char.color}22;color:${char.color};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${char.icon||'🎭'}</div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:.9rem;">${escHtml(char.name)}</div>
+            <div style="font-size:.72rem;color:var(--text-muted);">${escHtml(char.theme)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:.75rem;font-weight:700;color:${pct===100?'#4caf50':'var(--text)'};">${pct}%</div>
+            <div style="font-size:.65rem;color:var(--text-muted);">${doneCount}/${dailyTasks.length}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${pct===100?'#4caf50':'var(--accent)'};transition:width .4s;border-radius:2px;"></div>
+        </div>
+        <div style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">📌 ${escHtml(epLabel)} ${ytAuth?'':'<span style="color:#e55;">⚠️ YT未認証</span>'}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;">
+          ${taskHtml}
+        </div>
+        ${workingEp ? `<div style="margin-top:10px;text-align:right;">
+          <button class="btn btn-primary btn-sm" onclick="selectChar('${char.id}');loadEpisode('${workingEp.id}');closeDailyDashboard();">この動画を開く →</button>
+        </div>` : `<div style="margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="selectChar('${char.id}');newEpisode();closeDailyDashboard();">＋ 新しい動画を作成</button>
+        </div>`}
+      </div>`;
+  }).join('');
+
+  const totalDone = chars.filter(char => {
+    const eps = (d.episodes||[]).filter(e=>e.charId===char.id);
+    const todayEps = eps.filter(e=>(e.updatedAt||e.createdAt||'').startsWith(today));
+    const ep = todayEps[0] || eps.slice(-1)[0];
+    return ep && dailyTasks.every(t => t.check(ep));
+  }).length;
+
+  document.getElementById('dailyDashContent').innerHTML = `
+    <div style="margin-bottom:14px;padding:10px 14px;background:var(--surface);border-radius:8px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:1.4rem;">${totalDone===chars.length?'🎉':'📊'}</div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem;">${totalDone}/${chars.length} チャンネル 全タスク完了</div>
+        <div style="font-size:.75rem;color:var(--text-muted);">毎日投稿の目標：全チャンネルで台本・画像・アップロード・SNS展開まで完了</div>
+      </div>
+    </div>
+    ${html}`;
+}
+
+function _renderSetupDashboard() {
+  const gdToken   = !!localStorage.getItem(GD_TOKEN_SK);
+  const geminiKey = !!localStorage.getItem(GEMINI_KEY_SK);
+  const openaiKey = !!localStorage.getItem('channelos_openai_api_key');
+  const hasChars  = data.characters.some(c => c.id.startsWith('char_'));
+
+  const step = (num, ok, title, desc, action) => `
+    <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:${ok?'var(--surface2)':'var(--surface)'};border:1px solid ${ok?'#4caf5044':'var(--border)'};opacity:${ok?0.7:1};">
+      <div style="width:32px;height:32px;border-radius:50%;background:${ok?'#4caf50':'var(--accent)'};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;">${ok?'✓':num}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:.88rem;margin-bottom:3px;${ok?'text-decoration:line-through;color:var(--text-muted);':''}">${title}</div>
+        <div style="font-size:.76rem;color:var(--text-muted);margin-bottom:${ok?0:8}px;">${desc}</div>
+        ${ok ? '' : action}
+      </div>
+    </div>`;
+
+  document.getElementById('mainArea').innerHTML = `
+    <div style="max-width:600px;margin:0 auto;padding:32px 20px;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="font-size:2.2rem;margin-bottom:8px;">📺</div>
+        <h2 style="margin:0 0 6px;font-size:1.3rem;">Channel OS セットアップ</h2>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0;">以下を順番に完了させると、5分以内に動画を作れるようになります</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${step(1, gdToken,
+          'Googleアカウントでログイン',
+          'rainybrain.ch@gmail.com でログインするとDrive・YouTube認証がすべて一括で有効になります',
+          `<button class="btn btn-primary btn-sm" onclick="gdAuth()">🔐 Googleでログイン</button>`
+        )}
+        ${step(2, geminiKey || openaiKey,
+          'AIキーを設定',
+          'Gemini APIキー（無料）またはOpenAI APIキー（DALL-E 3、透かしなし）を設定します',
+          `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="switchTab&&switchTab('settings')">⚙️ 設定タブへ</button>
+            <span style="font-size:.72rem;color:var(--text-muted);align-self:center;">Googleログイン後にDriveから自動読込も可能</span>
+          </div>`
+        )}
+        ${step(3, hasChars,
+          'キャラクターを追加',
+          'チャンネル名・テーマ・声設定を入力するか、1行の説明文からAIが自動生成します',
+          `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="openAddCharModal()">＋ キャラクターを追加</button>
+            <span style="font-size:.72rem;color:var(--text-muted);align-self:center;">「筋トレ系YouTuber、明るい」などの説明文1行でOK</span>
+          </div>`
+        )}
+        ${step(4, false,
+          'キャラを選んで動画を作成',
+          '左サイドバーでキャラを選択 → 「＋ 新しい動画」 → テーマを入力して「一括生成」を押すだけ',
+          ''
+        )}
+      </div>
+      ${gdToken && (geminiKey || openaiKey) && hasChars ? `
+        <div style="margin-top:20px;padding:14px 16px;background:#27ae6022;border:1px solid #27ae6044;border-radius:10px;text-align:center;">
+          <div style="font-size:.9rem;font-weight:700;color:#27ae60;margin-bottom:4px;">✅ セットアップ完了！</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">左サイドバーからキャラクターを選択して動画作成を開始してください</div>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderConnectionBar() {
+  const el = document.getElementById('connectionBar');
+  if (!el) return;
+  const gdToken   = !!localStorage.getItem(GD_TOKEN_SK);
+  const geminiKey = !!localStorage.getItem(GEMINI_KEY_SK);
+  const openaiKey = !!localStorage.getItem('channelos_openai_api_key');
+  const ytToken   = currentCharId ? !!getYtToken(currentCharId) : false;
+  const imgProv   = localStorage.getItem('channelos_image_provider') || 'gemini';
+  const imgOk     = imgProv === 'openai' ? openaiKey : imgProv === 'stability' ? !!localStorage.getItem(STABILITY_KEY_SK) : geminiKey;
+
+  const dot = (ok, label, tip) =>
+    `<span title="${tip}" style="display:flex;align-items:center;gap:3px;font-size:.68rem;color:${ok?'#4caf50':'#e55'};white-space:nowrap;cursor:default;">
+      <span style="width:7px;height:7px;border-radius:50%;background:${ok?'#4caf50':'#e55'};flex-shrink:0;"></span>${label}
+    </span>`;
+
+  // 次のアクション（最優先1件）
+  let nextAction = '';
+  if (!gdToken)   nextAction = `<div onclick="gdAuth()" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#4a9edd22;border:1px solid #4a9edd55;border-radius:6px;font-size:.72rem;color:#4a9edd;font-weight:700;">▶ Googleでログイン（rainybrain.ch@gmail.com）</div>`;
+  else if (!geminiKey && !openaiKey) nextAction = `<div onclick="currentCharId?switchTab('settings'):document.querySelector('[onclick*=settings]')?.click()" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#e67e2222;border:1px solid #e67e2255;border-radius:6px;font-size:.72rem;color:#e67e22;font-weight:700;">▶ APIキーを設定（⚙️設定ボタン）</div>`;
+  else if (currentCharId && !ytToken) nextAction = `<div onclick="ytAuth(currentCharId)" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#ff000022;border:1px solid #ff000055;border-radius:6px;font-size:.72rem;color:#ff6666;font-weight:700;">▶ このキャラのYouTube認証</div>`;
+  else if (currentCharId && currentEpisodeId) {
+    const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep?.plan)   nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ テーマを入力して「一括生成」を押してください</div>`;
+    else if (!ep?.script) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 台本タブで台本を確認してください</div>`;
+    else if (!(storyboardData[currentCharId+'_'+currentEpisodeId]?.scenes?.some(s=>s.imageDataUrl))) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 絵コンテタブで画像を一括生成してください</div>`;
+    else if (!ep?.youtubeUrl) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 投稿タブでYouTubeにアップロードしてください</div>`;
+    else nextAction = `<div style="margin-top:6px;padding:5px 8px;background:#9b59b622;border:1px solid #9b59b655;border-radius:6px;font-size:.72rem;color:#9b59b6;">🎉 投稿完了！配信タブでSNS展開してください</div>`;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+      ${dot(gdToken, 'Drive', 'Googleドライブ連携')}
+      ${dot(imgOk, '画像AI', `画像生成: ${imgProv}`)}
+      ${dot(geminiKey, 'Gemini', 'テキスト生成AI')}
+      ${dot(ytToken, 'YouTube', currentCharId ? 'このキャラのYT認証' : 'キャラ選択で確認')}
+    </div>
+    ${nextAction}`;
+}
+
 function renderSidebar() {
+  renderConnectionBar();
   document.getElementById('charList').innerHTML = data.characters.map(c => `
     <div class="char-item ${c.id===currentCharId?'active':''}" onclick="selectChar('${c.id}')">
       <div class="char-icon" style="background:${c.color}22;color:${c.color};">
@@ -1428,14 +1698,33 @@ function renderSidebar() {
   if (!epListEl || !currentCharId) return;
   const eps = getEpisodes();
   const statusLabel = { draft:'📝 下書き', shooting:'🎥 撮影中', editing:'✂️ 編集中', done:'✅ 完成', posted:'🌎 投稿済' };
+  const statusColor = { draft:'#888', shooting:'#e67e22', editing:'#3498db', done:'#27ae60', posted:'#9b59b6' };
   epListEl.innerHTML = `
-    <button class="add-char-btn" style="margin:8px 12px;width:calc(100% - 24px);" onclick="newEpisode()">＋ 新しい動画</button>
+    <div style="display:flex;gap:4px;padding:6px 10px;">
+      <button class="add-char-btn" style="flex:1;margin:0;" onclick="newEpisode()">＋ 新しい動画</button>
+      ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showBulkDeleteEp()" title="まとめて削除">🗑</button>` : ''}
+    </div>
     ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
-    ${eps.slice().reverse().map(ep => `
-    <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;position:relative;">
-      <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" ondblclick="event.stopPropagation();renameEpisode('${ep.id}',this)" title="ダブルクリックで名前変更">${escHtml(ep.title)}</div>
-      <div style="font-size:.68rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'} · ${(ep.updatedAt||ep.createdAt||'').slice(0,10)}</div>
-    </div>`).join('')}`;
+    ${eps.slice().reverse().map(ep => {
+      const cl = ep.postingChecklist || {};
+      const posted = ep.status === 'posted' || !!ep.youtubeUrl;
+      const doneCount = [cl.xPosted,cl.notePosted,cl.igPosted,cl.commentPosted,cl.urlFetched].filter(Boolean).length;
+      const col = statusColor[ep.status] || '#888';
+      const postedBadge = posted ? `<span style="font-size:.6rem;background:#9b59b622;color:#9b59b6;border-radius:4px;padding:1px 5px;margin-left:4px;">投稿済</span>` : (doneCount > 0 ? `<span style="font-size:.6rem;background:#e67e2222;color:#e67e22;border-radius:4px;padding:1px 5px;margin-left:4px;">${doneCount}/5</span>` : '');
+      return `
+    <div class="char-item ${ep.id===currentEpisodeId?'active':''}" onclick="loadEpisode('${ep.id}')" style="flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px 8px 14px;position:relative;">
+      <div style="display:flex;align-items:center;width:100%;gap:4px;">
+        <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;" ondblclick="event.stopPropagation();renameEpisode('${ep.id}',this)" title="ダブルクリックで名前変更">${escHtml(ep.title)}</div>
+        <button onclick="event.stopPropagation();deleteEpisode('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="削除" onmouseover="this.style.opacity=1;this.style.color='#e55'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:.65rem;color:${col};">●</span>
+        <span style="font-size:.65rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'}</span>
+        ${postedBadge}
+        <span style="font-size:.62rem;color:var(--text-muted);margin-left:auto;">${(ep.updatedAt||ep.createdAt||'').slice(5,10)}</span>
+      </div>
+    </div>`;
+    }).join('')}`;
 }
 
 function renameEpisode(id, el) {
@@ -1470,6 +1759,48 @@ function deleteEpisode(id) {
   if (currentEpisodeId === null) renderMain();
 }
 
+function showBulkDeleteEp() {
+  const eps = getEpisodes();
+  if (!eps.length) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'bulkDeleteOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:340px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:12px;">
+      <h3 style="font-size:1rem;color:#e55;">🗑 動画プロジェクトを削除</h3>
+      <p style="font-size:.78rem;color:var(--text-muted);">削除したいプロジェクトにチェックを入れてください。</p>
+      <div style="overflow-y:auto;max-height:300px;border:1px solid var(--border);border-radius:8px;">
+        ${eps.slice().reverse().map(ep => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);">
+            <input type="checkbox" class="bulkDelCheck" data-id="${ep.id}" style="accent-color:#e55;width:16px;height:16px;">
+            <span style="font-size:.84rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(ep.title)}</span>
+            <span style="font-size:.65rem;color:var(--text-muted);">${(ep.updatedAt||ep.createdAt||'').slice(5,10)}</span>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="document.getElementById('bulkDeleteOverlay').remove()">キャンセル</button>
+        <button class="btn" style="background:#e55;color:#fff;" onclick="_execBulkDelete()">選択を削除</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _execBulkDelete() {
+  const checks = document.querySelectorAll('.bulkDelCheck:checked');
+  if (!checks.length) { showToast('削除するプロジェクトを選択してください'); return; }
+  const ids = Array.from(checks).map(c => c.dataset.id);
+  if (!confirm(`${ids.length}件のプロジェクトを削除しますか？この操作は元に戻せません。`)) return;
+  data.episodes = (data.episodes || []).filter(e => !ids.includes(e.id));
+  if (ids.includes(currentEpisodeId)) {
+    currentEpisodeId = null; selectedPlan = null; generatedScript = ''; generatedMeta = null;
+  }
+  saveData(data);
+  document.getElementById('bulkDeleteOverlay')?.remove();
+  renderSidebar();
+  if (!currentEpisodeId) renderMain();
+  showToast(`✅ ${ids.length}件を削除しました`);
+}
+
 function selectChar(id) {
   currentCharId = id; selectedPlan = null; generatedPlans = []; generatedScript = ''; generatedMeta = null; currentEpisodeId = null;
   document.getElementById('epSidebarTitle').style.display = 'block';
@@ -1488,7 +1819,11 @@ function selectChar(id) {
 // ════════════════════════════════════
 function renderMain() {
   const char = data.characters.find(c => c.id === currentCharId);
-  if (!char) return;
+  if (!char) {
+    _renderSetupDashboard();
+    renderConnectionBar();
+    return;
+  }
   document.getElementById('headerSub').textContent = `${char.name} — ${char.theme}`;
   document.documentElement.style.setProperty('--char-color', char.color);
 
@@ -1517,11 +1852,19 @@ function renderMain() {
       </div>
     </div>
 
-    <div class="tabs">
-      ${['plan','script','meta','scene','assets','publish','distribute','comments'].map(t => {
-        const labels = {plan:'📋 企画',script:'📝 台本',meta:'📄 概要欄',scene:'🎨 絵コンテ',assets:'🖼 素材',publish:'📦 投稿',distribute:'📡 配信',comments:'💬 コメント'};
-        return `<button class="tab ${currentTab===t?'active':''}" id="tab_${t}" onclick="switchTab('${t}')">${labels[t]}<span class="notif-dot"></span></button>`;
-      }).join('')}
+    <div class="tabs" id="mainTabs">
+      ${(() => {
+        const allTabs = ['plan','script','meta','scene','assets','publish','distribute','comments'];
+        // シンプルモード: 3タブのみ（plan=作成 / scene=絵コンテ / distribute=配信）
+        const simpleTabs = ['plan','scene','distribute'];
+        const labels = {plan:'🚀 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',publish:'📦 投稿',distribute:'📡 配信',comments:'💬 コメント'};
+        const tabs = simpleMode ? simpleTabs : allTabs;
+        return tabs.map(t => {
+          const badge = _getTabBadge(t);
+          const badgeHtml = badge > 0 ? `<span style="position:absolute;top:3px;right:3px;background:#e53935;color:#fff;font-size:.6rem;font-weight:700;border-radius:8px;padding:0 4px;min-width:14px;text-align:center;line-height:14px;">${badge}</span>` : `<span class="notif-dot"></span>`;
+          return `<button class="tab ${currentTab===t?'active':''}" id="tab_${t}" onclick="switchTab('${t}')" style="position:relative;${simpleMode?'font-size:.9rem;padding:10px 20px;':''}">${labels[t]}${badgeHtml}</button>`;
+        }).join('') + (simpleMode ? `<button class="tab" onclick="toggleSimpleMode()" style="margin-left:auto;font-size:.72rem;color:var(--text-muted);padding:8px 10px;">⋯ 詳細</button>` : '');
+      })()}
     </div>
 
     ${renderPlanPanel(char)}
@@ -1538,8 +1881,49 @@ function renderMain() {
 
   if (currentTab === 'scene') initCanvas();
   if (currentTab === 'assets') loadDriveAssets();
-  // 認証済みキャラのチャンネル名を自動取得して表示
   data.characters.forEach(c => { if (getYtToken(c.id)) showYtChannelInfo(c.id); });
+  _updateSimpleModeBtn();
+}
+
+function toggleSimpleMode() {
+  simpleMode = !simpleMode;
+  localStorage.setItem('channelos_simple_mode', String(simpleMode));
+  const btn = document.getElementById('simpleModeBtn');
+  if (btn) {
+    btn.textContent = simpleMode ? 'シンプル' : '詳細';
+    btn.style.background = simpleMode ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color = simpleMode ? '#0d0d0d' : 'var(--text-muted)';
+    btn.style.border = simpleMode ? 'none' : '1px solid var(--border)';
+  }
+  // シンプルモード時、隠れているタブにいたら企画タブに戻す
+  const simpleTabs = ['plan','scene','distribute'];
+  if (simpleMode && !simpleTabs.includes(currentTab)) currentTab = 'plan';
+  renderMain();
+}
+
+function _updateSimpleModeBtn() {
+  const btn = document.getElementById('simpleModeBtn');
+  if (!btn) return;
+  btn.textContent = simpleMode ? 'シンプル' : '詳細';
+  btn.style.background = simpleMode ? 'var(--accent)' : 'var(--surface2)';
+  btn.style.color = simpleMode ? '#0d0d0d' : 'var(--text-muted)';
+  btn.style.border = simpleMode ? 'none' : '1px solid var(--border)';
+}
+
+function _getTabBadge(tab) {
+  const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  if (!ep) return 0;
+  const cl = ep.postingChecklist || {};
+  if (tab === 'distribute') {
+    const hasBulk = !!(ep.xTweet || ep.notePost);
+    const total = 5;
+    const done = [hasBulk, !!(ep.thumbnailDataUrl || ep.thumbnailSDataUrl), !!ep.youtubeUrl, cl.xPosted, cl.notePosted].filter(Boolean).length;
+    return total - done > 0 ? total - done : 0;
+  }
+  if (tab === 'publish') return (ep.thumbnailDataUrl || ep.thumbnailSDataUrl) ? 0 : 1;
+  if (tab === 'script') return ep.script ? 0 : (ep.plan ? 1 : 0);
+  if (tab === 'meta') return ep.meta ? 0 : (ep.script ? 1 : 0);
+  return 0;
 }
 
 function switchTab(tab) {
@@ -1629,25 +2013,45 @@ function renderPlanPanel(char) {
       </div>
 
       <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="patternCards">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
+        <select id="allGenPattern" onchange="selectPattern(this.value)"
+          style="width:100%;font-size:.95rem;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
           ${[
-            {id:'explanation', icon:'🎤', label:'解説', desc:'キャラが語る'},
-            {id:'ranking',     icon:'🏆', label:'ランキング', desc:'TOP5・比較'},
-            {id:'story',       icon:'📖', label:'ストーリー', desc:'「もし〇〇なら」'},
-            {id:'drama',       icon:'🎭', label:'ドラマ', desc:'キャラ体験談'},
-            {id:'dialogue',    icon:'💬', label:'対談', desc:'Q&A・掛け合い'},
-            {id:'challenge',   icon:'🔥', label:'チャレンジ', desc:'実験・試す'},
-            {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・感想'},
-            {id:'howto',       icon:'📋', label:'How-To', desc:'手順・やり方'},
-            {id:'secret',      icon:'🤫', label:'暴露・本音', desc:'裏側・実態'},
-          ].map(p => `<label id="patternCard_${p.id}" onclick="selectPattern('${p.id}')" style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:10px 8px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;">
-            <span style="font-size:1.3rem;">${p.icon}</span>
-            <span style="font-weight:700;font-size:.82rem;">${p.label}</span>
-            <span style="font-size:.66rem;color:var(--text-muted);">${p.desc}</span>
-          </label>`).join('')}
+            {id:'explanation', icon:'🎤', label:'解説 — キャラが専門知識・体験を語る'},
+            {id:'ranking',     icon:'🏆', label:'ランキング — TOP5・比較・カウントダウン'},
+            {id:'story',       icon:'📖', label:'ストーリー — 「もし〇〇なら」仮想シナリオ'},
+            {id:'drama',       icon:'🎭', label:'ドラマ — キャラの実体験・失敗談'},
+            {id:'dialogue',    icon:'💬', label:'対談・コラボ — 複数キャラの掛け合い'},
+            {id:'challenge',   icon:'🔥', label:'チャレンジ — 試してみた・実験'},
+            {id:'reaction',    icon:'😲', label:'リアクション — 驚き・感動・レビュー'},
+            {id:'howto',       icon:'📋', label:'How-To — ステップ解説・やり方'},
+            {id:'secret',      icon:'🤫', label:'暴露・本音 — 裏側・実態・告白'},
+          ].map(p => `<option value="${p.id}" ${_savedPattern===p.id?'selected':''}>${p.icon} ${p.label}</option>`).join('')}
+        </select>
+
+        <!-- 対談・コラボ時のゲスト選択 -->
+        <div id="dialogueGuestBox" style="display:${_savedPattern==='dialogue'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid var(--char-color,#c9a84c)55;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;color:var(--char-color,#c9a84c);font-weight:700;margin-bottom:8px;">🎭 コラボするキャラを選択</div>
+          <div style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">ホスト: <b>${escHtml(char.name)}</b>（現在選択中）</div>
+          <label style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">ゲストキャラ（1〜2名）</label>
+          <div id="guestCharList" style="display:flex;flex-direction:column;gap:6px;">
+            ${data.characters.filter(c => c.id !== currentCharId).map(c => {
+              const saved = _epInput?.dialogueGuests || [];
+              const checked = saved.includes(c.id);
+              return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;background:var(--surface);border-radius:6px;border:1px solid ${checked?'var(--char-color,#c9a84c)':'var(--border)'};" id="guestLabel_${c.id}">
+                <input type="checkbox" value="${c.id}" class="guestCharCheck" ${checked?'checked':''} onchange="onGuestCheck('${c.id}',this.checked)"
+                  style="accent-color:var(--char-color,#c9a84c);width:16px;height:16px;flex-shrink:0;">
+                <div style="width:26px;height:26px;border-radius:50%;background:${c.color}22;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">${c.icon||'🎭'}</div>
+                <div>
+                  <div style="font-size:.84rem;font-weight:700;">${escHtml(c.name)}</div>
+                  <div style="font-size:.68rem;color:var(--text-muted);">${escHtml(c.theme)} / ${escHtml(c.tone||'')}</div>
+                </div>
+                ${c.voice_mode === 'voicevox' || c.voicevox_speaker ? `<span style="margin-left:auto;font-size:.65rem;color:#4a8;">🎤 声あり</span>` : `<span style="margin-left:auto;font-size:.65rem;color:var(--text-muted);">🌐 ブラウザ音声</span>`}
+              </label>`;
+            }).join('') || `<div style="font-size:.78rem;color:var(--text-muted);">他のキャラがまだいません。左サイドバーから追加してください。</div>`}
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;">💡 選択したキャラの声・個性が台本と音声生成に自動で反映されます</div>
         </div>
-        <input type="hidden" id="allGenPattern" value="${_savedPattern}">
       </div>
 
       <div style="margin-bottom:16px;">
@@ -1819,19 +2223,34 @@ const PATTERN_GUIDE = {
 };
 
 function selectPattern(pid) {
-  document.getElementById('allGenPattern').value = pid;
-  const color = getComputedStyle(document.documentElement).getPropertyValue('--char-color').trim() || '#c9a84c';
-  Object.keys(PATTERN_GUIDE).forEach(k => {
-    const card = document.getElementById('patternCard_' + k);
-    if (!card) return;
-    const active = k === pid;
-    card.style.border = `2px solid ${active ? color : 'var(--border)'}`;
-    card.style.background = active ? 'rgba(201,168,76,.12)' : 'transparent';
-  });
+  const sel = document.getElementById('allGenPattern');
+  if (sel) sel.value = pid;
+  // 対談モード表示切替
+  const guestBox = document.getElementById('dialogueGuestBox');
+  if (guestBox) guestBox.style.display = pid === 'dialogue' ? 'block' : 'none';
   if (currentEpisodeId) {
     const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
     if (ep) { ep.inputPattern = pid; saveData(data); }
   }
+}
+
+function onGuestCheck(charId, checked) {
+  if (!currentEpisodeId) return;
+  const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return;
+  ep.dialogueGuests = ep.dialogueGuests || [];
+  if (checked && !ep.dialogueGuests.includes(charId)) ep.dialogueGuests.push(charId);
+  if (!checked) ep.dialogueGuests = ep.dialogueGuests.filter(id => id !== charId);
+  saveData(data);
+  // ボーダー色更新
+  const lbl = document.getElementById('guestLabel_' + charId);
+  if (lbl) lbl.style.borderColor = checked ? 'var(--char-color,#c9a84c)' : 'var(--border)';
+}
+
+function getDialogueGuests() {
+  if (!currentEpisodeId) return [];
+  const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+  return (ep?.dialogueGuests || []).map(id => data.characters.find(c => c.id === id)).filter(Boolean);
 }
 
 function getEpisodeFormat() {
@@ -1892,9 +2311,20 @@ async function generateAll() {
     char.x_strategy    ? `【X戦略】${char.x_strategy}` : '',
     char.ig_strategy   ? `【IG戦略】${char.ig_strategy}` : '',
   ].filter(Boolean).join('\n');
+
+  // 対談・コラボモード: ゲストキャラ情報を組み込む
+  const isDialogue = pattern === 'dialogue';
+  const guestChars = isDialogue ? getDialogueGuests() : [];
+  const allCastChars = isDialogue ? [char, ...guestChars] : [char];
+  const castDesc = isDialogue && guestChars.length > 0
+    ? `\n【出演キャスト（${allCastChars.length}名）】\n` + allCastChars.map(c =>
+        `▶ ${c.name}（${c.species}）: ${c.tone} / ${c.ai_personality || c.theme}`
+      ).join('\n') + `\n\n台本の"lines"フィールドでは必ず各セリフを「[${allCastChars.map(c=>c.name).join(']か[')}]: セリフ」の形式で出力すること。`
+    : '';
+
   const prompt = `あなたはYouTubeチャンネルの企画・台本・投稿最適化の専門家です。
-キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
-AI人格: ${char.ai_personality}
+${isDialogue && guestChars.length > 0 ? `ホスト: ${char.name}（${char.species}）テーマ: ${char.theme}` : `キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}\nAI人格: ${char.ai_personality}`}
+${castDesc}
 テーマキーワード: ${theme}
 動画形式: ${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分）'}
 コンテンツパターン: 【${patternInfo.label}】${patternInfo.guide}
@@ -2382,41 +2812,18 @@ async function generateAllSceneImages() {
 }
 
 function splitScriptToScenes(linesText, format) {
+  // 1行1シーン統一（画像との1:1対応で明確化）
   const lines = linesText.split('\n').filter(l => l.trim());
-  const scenes = [];
-
-  // 区切りキーワード：新しいブロックの始まりと判断する
-  const breakPattern = /^(まず|次[にのは]?[、。！]?|そして|さらに|続[いけ]て|最後[にはも]?[、。！]?|\d+[つ個番]目[！。、]?|[一二三四五六七八九十][つ個番]目[！。、]?|その\d+[！。、]?|第\d+[！。、]?|フック|結論|CTA|オープニング|まとめ|ここで|ちなみに|でも|だから|というわけで|まだあるぞ|以上|というわけで|コメントで|チャンネル登録|フォロー|保存して|仲間[よにへ]|今日[はのも]まとめ|〆|締め|最後に一言)/;
-
-  let block = [];
-  for (const line of lines) {
-    if (block.length > 0 && breakPattern.test(line)) {
-      scenes.push(block);
-      block = [];
-    }
-    block.push(line);
-  }
-  if (block.length > 0) scenes.push(block);
-
-  // シーンが1つしかできなかった場合は行数均等分割にフォールバック
-  if (scenes.length <= 1) {
-    const chunkSize = format === 'shorts' ? 2 : 3;
-    const fallback = [];
-    for (let i = 0; i < lines.length; i += chunkSize) {
-      fallback.push(lines.slice(i, i + chunkSize));
-    }
-    return fallback.map((lines, i) => ({ label: `シーン${i+1}`, time: '', lines, prompt: '', imageDataUrl: '', audioDataUrl: '', audioName: '', audioDuration: 0 }));
-  }
-
-  return scenes.map((lines, i) => ({
-    label: `シーン${i+1}`,
+  return lines.map((line, i) => ({
+    label: `シーン${i + 1}`,
     time: '',
-    lines,
+    lines: [line],
     prompt: '',
     imageDataUrl: '',
     audioDataUrl: '',
     audioName: '',
-    audioDuration: 0
+    audioDuration: 0,
+    skipBulk: false
   }));
 }
 
@@ -2586,12 +2993,18 @@ function renderStoryboard() {
         <input type="text" placeholder="追加指示（例: 赤いバンダナ、ジム内、汗をかいている）" value="${escHtml(scene.extraPrompt||'')}"
           style="width:100%;margin-top:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.78rem;"
           oninput="saveSceneExtraPrompt(${i}, this.value)">
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="copySceneLines(${i})">📋 台詞をコピー</button>
-          <button class="btn btn-sm" onclick="copySceneLinesTerop(${i})" style="background:#1a6b3a;color:#fff;">🎬 テロップ用</button>
-          <button class="btn btn-sm" onclick="copySceneLinesForGem(${i})" style="background:#8e44ad;color:#fff;">🖼 画像生成</button>
-          <button class="btn btn-sm" onclick="copySceneForVideo(${i})" style="background:#c0392b;color:#fff;">🎬 動画生成</button>
-          <button class="btn btn-sm" onclick="copyMidjourneyPrompt(${i})" style="background:#7b2d8b;color:#fff;">🎨 MJプロンプト</button>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-secondary btn-sm" onclick="copySceneLines(${i})">📋 台詞コピー</button>
+          <button class="btn btn-secondary btn-sm" onclick="openPastScenesModal(${i})">♻️ 過去素材</button>
+          <details style="display:inline-block;position:relative;">
+            <summary class="btn btn-secondary btn-sm" style="list-style:none;cursor:pointer;font-size:.72rem;">⋯</summary>
+            <div style="position:absolute;bottom:100%;left:0;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:3px;min-width:140px;margin-bottom:4px;">
+              <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="copySceneLinesTerop(${i})">🎬 テロップ用コピー</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="copySceneLinesForGem(${i})">🖼 画像生成プロンプト</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="copyMidjourneyPrompt(${i})">🎨 MJプロンプト</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="copySceneForVideo(${i})">🎬 動画生成プロンプト</button>
+            </div>
+          </details>
         </div>
         <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">
           ${scene.audioDataUrl
@@ -2601,10 +3014,84 @@ function renderStoryboard() {
                  🎙 VOICEVOXアップ
                  <input type="file" accept="audio/*" style="display:none" onchange="handleSceneAudio(${i}, this)">
                </label>`}
+          ${scene.lines.some(l => /^\[.+?[:：]/.test(l))
+            ? `<button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="playSceneDialogue(${i})">🎭 対談再生</button>`
+            : ''}
         </div>
       </div>
     </div>
   </div>`).join('');
+}
+
+// ════════════════════════════════════
+//  過去素材再利用
+// ════════════════════════════════════
+let _pastScenesTargetIdx = -1;
+
+function openPastScenesModal(sceneIdx) {
+  _pastScenesTargetIdx = sceneIdx;
+  // エピソードフィルター構築（現在以外の全エピソード）
+  const allEps = (data.episodes || []).filter(e => e.id !== currentEpisodeId && e.charId === currentCharId);
+  const sel = document.getElementById('pastScenesEpFilter');
+  if (sel) {
+    sel.innerHTML = '<option value="">全エピソード</option>' +
+      allEps.map(e => `<option value="${e.id}">${escHtml(e.title)}</option>`).join('');
+  }
+  const searchEl = document.getElementById('pastScenesSearch');
+  if (searchEl) searchEl.value = '';
+  renderPastScenes();
+  openModal('pastScenesModal');
+}
+
+function renderPastScenes() {
+  const grid = document.getElementById('pastScenesGrid');
+  if (!grid) return;
+  const filterEpId = document.getElementById('pastScenesEpFilter')?.value || '';
+  const searchQ    = (document.getElementById('pastScenesSearch')?.value || '').toLowerCase();
+  const allEps = (data.episodes || []).filter(e => e.id !== currentEpisodeId && e.charId === currentCharId);
+  const targetEps = filterEpId ? allEps.filter(e => e.id === filterEpId) : allEps;
+
+  const items = [];
+  for (const ep of targetEps) {
+    const key = ep.charId + '_' + ep.id;
+    const sb = storyboardData[key];
+    if (!sb?.scenes) continue;
+    for (let i = 0; i < sb.scenes.length; i++) {
+      const s = sb.scenes[i];
+      if (!s.imageDataUrl || s.imageDataUrl.startsWith('drive:')) continue;
+      const lineText = (s.lines || []).join(' ').toLowerCase();
+      if (searchQ && !lineText.includes(searchQ)) continue;
+      items.push({ epTitle: ep.title, sceneLabel: s.label || `S${i+1}`, lineText: (s.lines || []).join('\n'), imageDataUrl: s.imageDataUrl });
+    }
+  }
+
+  if (items.length === 0) {
+    grid.innerHTML = '<p style="font-size:.82rem;color:var(--text-muted);padding:20px;grid-column:1/-1;">過去のエピソードに再利用できる画像がありません（AI生成済みの画像が必要です）</p>';
+    return;
+  }
+
+  grid.innerHTML = items.map((it, idx) => `
+    <div onclick="applyPastScene(${idx})" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--char-color)'" onmouseout="this.style.borderColor='var(--border)'" data-idx="${idx}">
+      <img src="${it.imageDataUrl}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;">
+      <div style="padding:5px 7px;">
+        <div style="font-size:.62rem;color:var(--char-color);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(it.epTitle)}</div>
+        <div style="font-size:.65rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(it.lineText)}">${escHtml(it.sceneLabel)}: ${escHtml(it.lineText.slice(0,30))}</div>
+      </div>
+    </div>`).join('');
+  // items をグローバルに保持
+  window._pastScenesItems = items;
+}
+
+function applyPastScene(idx) {
+  const item = (window._pastScenesItems || [])[idx];
+  if (!item || _pastScenesTargetIdx < 0) return;
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes?.[_pastScenesTargetIdx]) return;
+  sb.scenes[_pastScenesTargetIdx].imageDataUrl = item.imageDataUrl;
+  saveStoryboard();
+  document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
+  closeModal('pastScenesModal');
+  showToast(`✅ 過去素材を適用しました（${item.sceneLabel}）`);
 }
 
 let _drivePickerTargetScene = -1;
@@ -2804,12 +3291,31 @@ function clearSceneImage(sceneIdx) {
   if (el) el.innerHTML = renderStoryboard();
 }
 
+// [キャラ名]: プレフィックスからキャラを解決する
+function _resolveCharForLine(lineText) {
+  const m = lineText.match(/^\[(.+?)\][:：]/);
+  if (!m) return data.characters.find(c => c.id === currentCharId) || null;
+  const name = m[1];
+  return data.characters.find(c => c.name === name) || data.characters.find(c => c.id === currentCharId) || null;
+}
+
+// セリフ行から[キャラ名]:プレフィックスを除いた純テキストを返す
+function _stripCharPrefix(lineText) {
+  return lineText.replace(/^\[.+?[:：]\s*/, '').trim();
+}
+
 async function generateVoicevox(sceneIdx) {
   const sb = storyboardData[sbKey()];
   if (!sb || !sb.scenes[sceneIdx]) return;
-  const char = data.characters.find(c => c.id === currentCharId);
+  const sceneLines = sb.scenes[sceneIdx].lines.filter(l => l.trim());
+  if (!sceneLines.length) { showToast('台詞がありません'); return; }
+
+  // 対談モード: キャラごとにまとめて音声生成→結合は複雑なのでまず先頭キャラで生成
+  // 将来的にはラインごとに音声を連結する。現在は行ごとに最初のキャラを使用
+  const firstLine = sceneLines[0];
+  const char = _resolveCharForLine(firstLine);
   const speakerId = char?.voicevox_speaker ?? 13;
-  const lines = sb.scenes[sceneIdx].lines.filter(l => l.trim()).join('。');
+  const lines = sceneLines.map(l => _stripCharPrefix(l)).join('。');
   if (!lines) { showToast('台詞がありません'); return; }
 
   const statusEl = document.getElementById(`vvStatus_${sceneIdx}`);
@@ -2982,26 +3488,41 @@ async function generateSceneImage(sceneIdx) {
   if (btn) btn.textContent = '生成中…';
 
   // Step2: 解釈したポーズを使って画像プロンプト生成
+  // Shorts safe zone: bottom 35% = UI overlay (like/comment/share), top 8% = profile bar
+  // Character face & key elements should occupy top 55% of the frame
+  const shortsSafeZoneNote = isShorts
+    ? `IMPORTANT for YouTube Shorts: Place the character in the upper 55% of the frame (top-center). Keep bottom 35% clear of key elements (YouTube UI overlay area). Character face must be fully visible in top half. Vertical 9:16 composition.`
+    : `Horizontal 16:9 composition. Character centered or slightly left, leaving right side for text overlay.`;
+
+  const imageProvider = localStorage.getItem('channelos_image_provider') || 'gemini';
+  const bgStyle = imageProvider === 'openai'
+    ? `Anime-style background scene that matches the dialogue context. Colorful and detailed environment.`
+    : `White background or simple gradient, full body character visible.`;
+
   const prompt = [
     `Anime style 2D illustration, flat color, NOT realistic, NOT 3D CG.`,
     `Character: ${charName}${appearance ? `, ${appearance}` : ''}.`,
-    `White background, full body.`,
+    bgStyle,
     poseDesc
       ? `IMPORTANT - Pose and action: ${poseDesc}`
       : `Natural standing pose facing forward.`,
     `Facial expression must match the scene emotion.`,
     `Correct anatomy: exactly 2 arms, 2 legs, 5 fingers per hand. No extra limbs.`,
-    `STRICT: absolutely no text, no letters, no words, no watermark, no speech bubbles anywhere.`,
-    isShorts ? 'Vertical composition 9:16.' : 'Horizontal composition 16:9.',
+    `STRICT: absolutely no text, no letters, no words, no watermark, no speech bubbles anywhere in the image.`,
+    shortsSafeZoneNote,
     extra ? extra : '',
-    `Reference image: use only for character design (hair color, outfit, features). Ignore pose/expression from reference.`
+    imageProvider !== 'openai' ? `Reference image: use only for character design (hair color, outfit, features). Ignore pose/expression from reference.` : ''
   ].filter(Boolean).join(' ');
 
   if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
 
   try {
     const refImage = sb.charRefDataUrl || char?.ref_image || null;
-    const rawDataUrl = await generateGeminiImage(prompt, refImage);
+    const rawDataUrl = imageProvider === 'openai'
+      ? await generateOpenAIImage(prompt, isShorts)
+      : imageProvider === 'stability'
+      ? await generateStabilityImage(prompt, isShorts ? '9:16' : '16:9')
+      : await generateGeminiImage(prompt, refImage);
     const dataUrl = await compressImage(rawDataUrl, 640, 0.7);
 
     // Drive優先保存
@@ -3152,9 +3673,16 @@ function renderMetaResult(meta) {
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
           ${copyBtn(descWithVoice,'概要欄コピー')}
           ${copyBtn((meta.hashtags||[]).join(' '),'ハッシュタグコピー')}
-          <button id="bgmBtn60" class="btn btn-sm" style="background:#1db954;color:#fff;" onclick="copyMetaForBGM60()">🎵 BGMプロンプト生成（60秒）</button>
-          <button id="bgmBtn180" class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="copyMetaForBGM180()">🎵 BGMプロンプト生成（3分）</button>
-          <button class="btn btn-sm" style="background:#e65100;color:#fff;" onclick="copyMetaForThumb()">🖼 サムネプロンプト生成</button>
+          <details style="display:inline-block;position:relative;">
+            <summary class="btn btn-secondary btn-sm" style="list-style:none;cursor:pointer;">🎵 BGM / 画像プロンプト</summary>
+            <div style="position:absolute;top:100%;left:0;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:200px;margin-top:4px;">
+              <div style="font-size:.68rem;color:var(--text-muted);padding:2px 4px;">BGMは固定曲を使う場合は不要</div>
+              <button id="bgmBtn60" class="btn btn-secondary btn-sm" style="font-size:.75rem;" onclick="copyMetaForBGM60()">🎵 BGMプロンプト（60秒）</button>
+              <button id="bgmBtn180" class="btn btn-secondary btn-sm" style="font-size:.75rem;" onclick="copyMetaForBGM180()">🎵 BGMプロンプト（3分）</button>
+              <div style="font-size:.68rem;color:var(--text-muted);padding:2px 4px;margin-top:2px;">サムネは絵コンテタブで生成推奨</div>
+              <button class="btn btn-secondary btn-sm" style="font-size:.75rem;" onclick="copyMetaForThumb()">🖼 サムネプロンプトコピー</button>
+            </div>
+          </details>
         </div>
       </div>
       <div><label>タグ</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div></div>
@@ -3414,16 +3942,21 @@ function renderScenePanel() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div class="card-title" style="margin:0;">📽 絵コンテ（シーン分割）</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="initStoryboard(getEpisodeFormat())">🔄 再生成</button>
-          <button class="btn btn-secondary btn-sm" onclick="initStoryboard1Line()">📄 1行1シーン</button>
-          <button class="btn btn-sm" style="background:#6c3483;color:#fff;" onclick="copyAllSceneLines()">🎙 全シーン台詞コピー</button>
-          <button class="btn btn-sm" style="background:#1a6b3a;color:#fff;" onclick="copyAllSceneLinesTerop()">🎬 全テロップ用コピー</button>
-          <button class="btn btn-sm" style="background:#7b2d8b;color:#fff;" onclick="copyAllMidjourneyPrompts()">🎨 MJ全プロンプト</button>
-          <button class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="downloadSRT()" title="VOICEVOX音声がある場合は音声秒数でテロップタイミングを生成">${(() => { const sb = storyboardData[sbKey()]; const scenes = sb?.scenes || []; const withAudio = scenes.filter(s => s.audioDuration > 0).length; return withAudio > 0 ? `📝 SRT(🎙${withAudio}/${scenes.length}シーン)` : '📝 SRT字幕DL'; })()}</button>
-          <button class="btn btn-sm" style="background:#4a148c;color:#fff;" onclick="downloadASS()" title="フェード/スライドアニメーション付きASS字幕（設定タブでスタイル変更）">✨ ASS字幕DL</button>
-          <button class="btn btn-sm" style="background:#2e7d32;color:#fff;" onclick="downloadMaterialList()">📋 素材リストDL</button>
-          <button class="btn btn-primary btn-sm" onclick="downloadMaterialPack()">📦 素材パックDL</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-secondary btn-sm" onclick="initStoryboard1Line()">🔄 1行1シーンで再分割</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyAllSceneLines()">📋 全台詞コピー</button>
+          ${(() => { const sb = storyboardData[sbKey()]; const scenes = sb?.scenes || []; const withAudio = scenes.filter(s => s.audioDuration > 0).length; return withAudio > 0 ? `<button class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="downloadSRT()">📝 字幕DL(${withAudio})</button>` : ''; })()}
+          <details style="display:inline-block;position:relative;">
+            <summary class="btn btn-secondary btn-sm" style="list-style:none;cursor:pointer;">⋯ その他</summary>
+            <div style="position:absolute;top:100%;right:0;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:160px;margin-top:4px;">
+              <button class="btn btn-secondary btn-sm" onclick="initStoryboard1Line()">📄 1行1シーン分割</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyAllSceneLinesTerop()">🎬 テロップ用コピー</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyAllMidjourneyPrompts()">🎨 MJ全プロンプト</button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadASS()">✨ ASS字幕DL</button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadMaterialList()">📋 素材リストDL</button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadMaterialPack()">📦 素材パックDL</button>
+            </div>
+          </details>
         </div>
       </div>
       ${(() => { const char = data.characters.find(c => c.id === currentCharId); return (char?.gem_url || char?.gpt_url) ? `
@@ -3451,7 +3984,15 @@ function renderScenePanel() {
 
       <!-- 一括AI画像生成 -->
       <div style="background:linear-gradient(135deg,rgba(106,27,154,.12),transparent);border:1px solid #6a1b9a55;border-radius:8px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:.82rem;font-weight:700;color:#ce93d8;margin-bottom:8px;">🎨 一括AI画像生成</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="font-size:.82rem;font-weight:700;color:#ce93d8;">🎨 一括AI画像生成</div>
+          <select onchange="localStorage.setItem('channelos_image_provider',this.value)"
+            style="font-size:.72rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+            <option value="gemini" ${(localStorage.getItem('channelos_image_provider')||'gemini')==='gemini'?'selected':''}>Gemini（透かし付き）</option>
+            <option value="openai" ${localStorage.getItem('channelos_image_provider')==='openai'?'selected':''}>DALL-E 3（透かしなし ★）</option>
+            <option value="stability" ${localStorage.getItem('channelos_image_provider')==='stability'?'selected':''}>Stability AI</option>
+          </select>
+        </div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
           <div style="flex:1;min-width:200px;">
             <label style="font-size:.74rem;color:var(--text-muted);">共通追加指示（全シーンに適用）</label>
@@ -3668,47 +4209,71 @@ function useAssetInScene(idx) {
 }
 
 // ════════════════════════════════════
-//  Assets Panel (Google Drive)
+//  Assets Panel（素材ライブラリ）
 // ════════════════════════════════════
 function renderAssetsPanel() {
-  const hasToken  = !!localStorage.getItem(GD_TOKEN_SK);
+  const hasToken = !!localStorage.getItem(GD_TOKEN_SK);
+  const char = data.characters.find(c => c.id === currentCharId);
+  // 過去全エピソードの生成済みシーン数を集計
+  const allEps = (data.episodes || []).filter(e => e.charId === currentCharId && e.id !== currentEpisodeId);
+  let pastImageCount = 0;
+  for (const ep of allEps) {
+    const sb = storyboardData[ep.charId + '_' + ep.id];
+    if (sb?.scenes) pastImageCount += sb.scenes.filter(s => s.imageDataUrl && !s.imageDataUrl.startsWith('drive:')).length;
+  }
   return `
   <div class="panel ${currentTab==='assets'?'active':''}" id="panelAssets">
-    ${!hasToken ? `
-    <div class="card" style="border-color:var(--char-color);">
-      <div class="card-title">⚠️ Google Drive 未接続</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;">設定タブでGoogle Driveに接続してください</p>
-      <button class="btn btn-primary btn-sm" onclick="switchTab('settings')">設定へ →</button>
-    </div>` : ''}
-    <div class="card">
-      <div class="card-title">画像をアップロード</div>
-      <div class="upload-zone" id="uploadZone" onclick="triggerUpload()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
-        <div class="upload-icon">📁</div>
-        <p>クリックまたはドラッグ＆ドロップ<br><span style="font-size:.72rem;color:var(--text-muted);">PNG / JPG / GIF / WebP</span></p>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="uploadFiles(this.files)">
-      <div id="uploadProgress" style="display:none;" class="loading" style="margin-top:10px;">
-        <div class="spinner"></div><span id="uploadMsg">アップロード中...</span>
-      </div>
+
+    <!-- 過去素材の再利用（最重要） -->
+    <div class="card" style="border-color:var(--char-color,#c9a84c)44;background:linear-gradient(135deg,rgba(201,168,76,.06),transparent);">
+      <div class="card-title">♻️ 過去素材を再利用（トークン節約）</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;">
+        ${pastImageCount > 0
+          ? `このキャラの過去エピソードに <b style="color:var(--char-color)">${pastImageCount}枚</b> の生成済み画像があります。絵コンテの各シーンで「♻️ 過去素材」ボタンから再利用できます。`
+          : 'まだ過去の生成済み画像がありません。絵コンテでAI生成すると次回から再利用できます。'}
+      </p>
+      <button class="btn btn-primary btn-sm" onclick="switchTab('scene')">🎬 絵コンテタブで再利用する →</button>
     </div>
+
+    <!-- Drive素材 -->
     <div class="card">
-      <div class="result-header">
-        <span class="card-title" style="margin:0;">素材ライブラリ <span style="color:var(--char-color);font-size:.85em;">${data.characters.find(c=>c.id===currentCharId)?.name||''}専用</span></span>
+      <div class="result-header" style="margin-bottom:10px;">
+        <span class="card-title" style="margin:0;">📂 Drive素材 <span style="color:var(--char-color);font-size:.85em;">${char?.name||''}フォルダ</span></span>
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-primary btn-sm" onclick="importAllDriveImages()" title="Driveフォルダの全画像を一括取り込み">📥 全画像取り込み</button>
+          <button class="btn btn-primary btn-sm" onclick="importAllDriveImages()" title="Driveフォルダの全画像を一括取り込み">📥 一括取り込み</button>
           <button class="btn btn-secondary btn-sm" onclick="loadDriveAssets()">🔄 更新</button>
         </div>
       </div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">Driveフォルダの画像を取り込んで絵コンテのシーンに適用できます。Midjourneyで生成した画像もここに保存して使えます。</p>
+      ${!hasToken ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;color:var(--text-muted);">Drive未接続 → <button class="btn btn-secondary btn-sm" onclick="switchTab('settings')">設定で接続</button></div>` : ''}
       <div id="importAllProgress" style="display:none;padding:8px 0;">
         <div class="loading"><div class="spinner"></div><span id="importAllMsg">取り込み中...</span></div>
         <div style="background:var(--surface2);border-radius:4px;height:6px;margin-top:6px;overflow:hidden;">
           <div id="importAllBar" style="height:100%;background:var(--char-color);width:0%;transition:width .3s;"></div>
         </div>
       </div>
-      <div id="assetGrid" class="asset-grid" style="margin-top:12px;">
+      <div id="assetGrid" class="asset-grid" style="margin-top:8px;">
         <div class="loading"><div class="spinner"></div><span>読み込み中...</span></div>
       </div>
     </div>
+
+    <!-- アップロード（折りたたみ） -->
+    <details>
+      <summary class="card" style="cursor:pointer;list-style:none;">
+        <span class="card-title" style="margin:0;display:inline;">📁 ローカル画像をアップロード</span>
+        <span style="font-size:.72rem;color:var(--text-muted);margin-left:8px;">クリックして展開</span>
+      </summary>
+      <div class="card" style="margin-top:0;border-top:none;border-radius:0 0 8px 8px;">
+        <div class="upload-zone" id="uploadZone" onclick="triggerUpload()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <div class="upload-icon">📁</div>
+          <p>クリックまたはドラッグ＆ドロップ<br><span style="font-size:.72rem;color:var(--text-muted);">PNG / JPG / GIF / WebP</span></p>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="uploadFiles(this.files)">
+        <div id="uploadProgress" style="display:none;" class="loading" style="margin-top:10px;">
+          <div class="spinner"></div><span id="uploadMsg">アップロード中...</span>
+        </div>
+      </div>
+    </details>
   </div>`;
 }
 
@@ -4483,9 +5048,12 @@ function renderDistributePanel() {
   <div class="panel ${currentTab==='distribute'?'active':''}" id="panelDistribute">
 
     <!-- ヘッダー -->
-    <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--char-color,#c9a84c)44;border-radius:10px;padding:14px 16px;margin-bottom:4px;">
-      <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;">📡 投稿フロー</div>
-      <div style="font-size:.75rem;color:var(--text-muted);">チェックを順番にこなすだけ。AI自動化済み項目は押さなくてOK。</div>
+    <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--char-color,#c9a84c)44;border-radius:10px;padding:14px 16px;margin-bottom:4px;display:flex;align-items:center;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;">📡 投稿フロー</div>
+        <div style="font-size:.75rem;color:var(--text-muted);">チェックを順番にこなすだけ。AI自動化済み項目は押さなくてOK。</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="toggleSimpleMode();setTimeout(()=>switchTab('publish'),50);" title="投稿カレンダーを見る">📅 カレンダー</button>
     </div>
 
     <!-- チェックリスト -->
@@ -4716,8 +5284,18 @@ function renderSettingsPanel() {
           <div><label style="font-size:.78rem;color:var(--accent);font-weight:700;">★ Gemini APIキー（メインAI ── すべての生成・提案に使用）</label>
             <input type="password" id="geminiApiKey" placeholder="AIza..." value="${localStorage.getItem(GEMINI_KEY_SK)||''}" autocomplete="off" style="margin-top:4px;border-color:var(--accent);">
           </div>
-          <div><label style="font-size:.78rem;">OpenAI APIキー（DALL-E用）</label>
+          <div><label style="font-size:.78rem;">OpenAI APIキー（DALL-E 3 / 透かしなし画像生成）</label>
             <input type="password" id="openaiApiKey" placeholder="sk-..." value="${localStorage.getItem('channelos_openai_api_key')||''}" autocomplete="off" style="margin-top:4px;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;">🎨 絵コンテ画像生成エンジン</label>
+            <select id="imageProviderSel" onchange="localStorage.setItem('channelos_image_provider',this.value)"
+              style="width:100%;margin-top:4px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+              <option value="gemini" ${(localStorage.getItem('channelos_image_provider')||'gemini')==='gemini'?'selected':''}>Gemini Imagen（無料枠あり・AI透かし付き）</option>
+              <option value="openai" ${localStorage.getItem('channelos_image_provider')==='openai'?'selected':''}>DALL-E 3 / OpenAI（透かしなし・有料）★推奨</option>
+              <option value="stability" ${localStorage.getItem('channelos_image_provider')==='stability'?'selected':''}>Stability AI（透かしなし・有料）</option>
+            </select>
+            <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">⚠️ Gemini Imagenは生成画像右下にSynthIDウォーターマーク（星マーク）が入ります。商用利用・公開素材にはDALL-E 3推奨。</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -6013,6 +6591,133 @@ function wizYtAuth()  { closeModal('addCharModal'); ytAuth(editingCharId || '_wi
 function wizXAuth()   { if (!localStorage.getItem(X_CLIENT_SK)) { showToast('先に設定タブでX Client IDを入力してください'); return; } xAuth(editingCharId || '_wizard_'); }
 function wizIgAuth()  { if (!localStorage.getItem(IG_APP_ID_SK)) { showToast('先に設定タブでIG App IDを入力してください'); return; } igAuth(editingCharId || '_wizard_'); }
 
+// ════════════════════════════════════
+//  ブラウザ内蔵音声（Web Speech API）
+// ════════════════════════════════════
+function switchVoiceTab(mode) {
+  const isBrowser = mode === 'browser';
+  document.getElementById('newCharVoiceMode').value = mode;
+  document.getElementById('voicePanelBrowser').style.display = isBrowser ? '' : 'none';
+  document.getElementById('voicePanelVv').style.display = isBrowser ? 'none' : '';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--char-color').trim() || '#c9a84c';
+  const tabB = document.getElementById('voiceTabBrowser');
+  const tabV = document.getElementById('voiceTabVv');
+  if (tabB) { tabB.style.background = isBrowser ? accent : 'var(--surface)'; tabB.style.color = isBrowser ? '#0d0d0d' : 'var(--text-muted)'; }
+  if (tabV) { tabV.style.background = !isBrowser ? accent : 'var(--surface)'; tabV.style.color = !isBrowser ? '#0d0d0d' : 'var(--text-muted)'; }
+  if (isBrowser) loadBrowserVoices();
+}
+
+function loadBrowserVoices() {
+  if (!window.speechSynthesis) {
+    const s = document.getElementById('browserVoiceStatus');
+    if (s) s.textContent = '❌ このブラウザは音声合成に対応していません';
+    return;
+  }
+  const doPopulate = () => {
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja') || v.name.includes('Japan') || v.name.includes('日本'));
+    const sel = document.getElementById('browserVoiceSelect');
+    if (!sel) return;
+    const cur = document.getElementById('newCharBrowserVoice')?.value || '';
+    sel.innerHTML = '<option value="">── 日本語音声を選択 ──</option>';
+    // 全音声も追加（日本語が見つからない環境用）
+    const all = speechSynthesis.getVoices();
+    const list = voices.length > 0 ? voices : all;
+    list.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      if (v.name === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    const s = document.getElementById('browserVoiceStatus');
+    if (s) s.textContent = voices.length > 0 ? `✅ 日本語音声 ${voices.length}件を取得しました` : `⚠ 日本語音声が見つかりません（全${all.length}件表示中）`;
+  };
+  if (speechSynthesis.getVoices().length > 0) { doPopulate(); }
+  else { speechSynthesis.addEventListener('voiceschanged', doPopulate, { once: true }); doPopulate(); }
+}
+
+function onBrowserVoiceChange(sel) {
+  const v = sel.value;
+  const h = document.getElementById('newCharBrowserVoice');
+  if (h) h.value = v;
+}
+
+function testBrowserVoice() {
+  if (!window.speechSynthesis) { showToast('❌ ブラウザが音声合成に対応していません'); return; }
+  const voiceName = document.getElementById('browserVoiceSelect')?.value || '';
+  const name = document.getElementById('newCharName')?.value || 'キャラ';
+  const rate = parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0;
+  const pitch = parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0;
+  speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(`こんにちは、${name}です。よろしくお願いします！`);
+  utt.lang = 'ja-JP';
+  utt.rate = rate;
+  utt.pitch = pitch;
+  if (voiceName) {
+    const v = speechSynthesis.getVoices().find(v => v.name === voiceName);
+    if (v) utt.voice = v;
+  }
+  const btn = document.getElementById('browserVoiceTestBtn');
+  if (btn) btn.textContent = '▶ 再生中...';
+  utt.onend = () => { if (btn) btn.textContent = '▶ テスト'; };
+  speechSynthesis.speak(utt);
+  showToast('▶ ブラウザ音声でテスト再生中');
+}
+
+async function speakWithBrowserVoice(text, char) {
+  return new Promise((resolve, reject) => {
+    if (!window.speechSynthesis) { reject(new Error('SpeechSynthesis未対応')); return; }
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'ja-JP';
+    utt.rate = char?.browser_voice_rate || 1.0;
+    utt.pitch = char?.browser_voice_pitch || 1.0;
+    if (char?.browser_voice_name) {
+      const v = speechSynthesis.getVoices().find(v => v.name === char.browser_voice_name);
+      if (v) utt.voice = v;
+    }
+    utt.onend = resolve;
+    utt.onerror = reject;
+    speechSynthesis.speak(utt);
+  });
+}
+
+// 対談対応: シーンの各行を[キャラ名]に対応した音声で順次再生
+async function playSceneDialogue(sceneIdx) {
+  const sb = storyboardData[sbKey()];
+  if (!sb || !sb.scenes[sceneIdx]) return;
+  const lines = sb.scenes[sceneIdx].lines.filter(l => l.trim());
+  if (!lines.length) { showToast('台詞がありません'); return; }
+  showToast('▶ 対談音声を順次再生中...');
+  for (const line of lines) {
+    const char = _resolveCharForLine(line);
+    const text = _stripCharPrefix(line);
+    if (!text) continue;
+    const mode = char?.voice_mode || 'browser';
+    if (mode === 'voicevox') {
+      try {
+        const speakerId = char?.voicevox_speaker ?? 13;
+        const base = 'http://localhost:50021';
+        const qRes = await fetch(`${base}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, { method: 'POST' });
+        if (!qRes.ok) throw new Error('VV接続失敗');
+        const query = await qRes.json();
+        if (char?.voicevox_speed != null) query.speedScale = char.voicevox_speed;
+        if (char?.voicevox_pitch != null) query.pitchScale = char.voicevox_pitch;
+        const sRes = await fetch(`${base}/synthesis?speaker=${speakerId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(query) });
+        const blob = await sRes.blob();
+        const url = URL.createObjectURL(blob);
+        await new Promise(res => { const a = new Audio(url); a.onended = res; a.play(); });
+        URL.revokeObjectURL(url);
+      } catch(e) {
+        await speakWithBrowserVoice(text, char).catch(()=>{});
+      }
+    } else {
+      await speakWithBrowserVoice(text, char).catch(()=>{});
+    }
+  }
+  showToast('✅ 対談音声再生完了');
+}
+
 // VOICEVOX話者取得・選択
 const VOICEVOX_URL = 'http://localhost:50021';
 // GitHub PagesのoriginをVOICEVOX --allow-originに渡す起動コマンド
@@ -6166,11 +6871,68 @@ async function autoFillStrategy() {
   } catch(e) { showToast('❌ 戦略提案失敗: ' + e.message); }
 }
 
+async function generateCharFromDesc() {
+  const desc = document.getElementById('aiCharDesc')?.value?.trim();
+  if (!desc) { showToast('キャラクターの説明を入力してください'); return; }
+  const btn = document.getElementById('aiCharGenBtn');
+  const status = document.getElementById('aiCharGenStatus');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = '🔄 AIがキャラクター情報を生成中...';
+
+  const prompt = `YouTubeキャラクターを設計してください。
+説明: ${desc}
+
+以下のJSON形式のみで出力（他テキスト不要）:
+{
+  "name": "キャラクター名（カタカナ2〜4文字推奨）",
+  "species": "種族・キャラクター種別（例: 人間、狼獣人、AI少女、など）",
+  "theme": "チャンネルテーマ・ジャンル（15字以内）",
+  "tone": "話し方・口調（例: 元気でポジティブ、クールで知的、など）",
+  "ai_personality": "AIが使うキャラ設定文（100字以内）",
+  "color": "テーマカラー（#xxxxxx形式、キャラのイメージに合う色）",
+  "yt_strategy": "YouTube戦略（視聴者層・差別化を30字以内）",
+  "note_strategy": "Note戦略（30字以内）",
+  "x_strategy": "X戦略（30字以内）",
+  "ig_strategy": "IG方針（30字以内）"
+}`;
+
+  try {
+    const text = await callClaude(prompt);
+    const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    // フォームに反映
+    const _set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    _set('newCharName', r.name);
+    _set('newCharSpecies', r.species);
+    _set('newCharTheme', r.theme);
+    _set('newCharTone', r.tone);
+    _set('newCharPersonality', r.ai_personality);
+    _set('newCharYtStrategy', r.yt_strategy);
+    _set('newCharNoteStrategy', r.note_strategy);
+    _set('newCharXStrategy', r.x_strategy);
+    _set('newCharIgStrategy', r.ig_strategy);
+    if (r.color) {
+      const colorEl = document.getElementById('newCharColor');
+      if (colorEl) colorEl.value = r.color;
+      document.documentElement.style.setProperty('--char-color', r.color);
+    }
+    if (status) status.textContent = `✅ 「${r.name}」を生成しました。内容を確認・修正してから保存してください。`;
+  } catch(e) {
+    if (status) status.textContent = '❌ 生成失敗: ' + e.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function openAddCharModal() {
   editingCharId = null;
   document.getElementById('modalTitle').textContent = '🎭 新しいキャラクターを追加';
   document.getElementById('modalSaveBtn').onclick = saveNewChar;
   _clearCharModal();
+  // ブラウザ音声モードをデフォルトに設定し、音声一覧を自動取得
+  switchVoiceTab('browser');
+  setTimeout(() => loadBrowserVoices(), 100);
+  const d = document.getElementById('aiCharDesc'); if (d) d.value = '';
+  const s = document.getElementById('aiCharGenStatus'); if (s) s.textContent = '';
   openModal('addCharModal');
 }
 
@@ -6211,13 +6973,26 @@ function openEditChar(id) {
   _sf('newCharXStrategy',    char.x_strategy);
   _sf('newCharIgStrategy',   char.ig_strategy);
   _sf('newCharNoteUsername', char.note_username);
-  // VOICEVOX: 現在の話者IDをhiddenとselectedNameに反映
+  // 音声モード復元
+  const vMode = char.voice_mode || 'browser';
+  const vmEl = document.getElementById('newCharVoiceMode');
+  if (vmEl) vmEl.value = vMode;
+  switchVoiceTab(vMode);
+  // ブラウザ音声
+  const bvEl = document.getElementById('newCharBrowserVoice');
+  if (bvEl) bvEl.value = char.browser_voice_name || '';
+  const brEl = document.getElementById('browserVoiceRate');
+  if (brEl) { brEl.value = char.browser_voice_rate || 1.0; const rv = document.getElementById('browserVoiceRateVal'); if (rv) rv.textContent = brEl.value; }
+  const bpEl = document.getElementById('browserVoicePitch');
+  if (bpEl) { bpEl.value = char.browser_voice_pitch || 1.0; const pv = document.getElementById('browserVoicePitchVal'); if (pv) pv.textContent = bpEl.value; }
+  // VOICEVOX
   document.getElementById('newCharVoicevox').value = char.voicevox_speaker ?? 13;
   const vvNm = document.getElementById('vvSelectedName');
   if (vvNm) vvNm.textContent = char.voicevox_name || '未選択（「話者取得」で選択）';
-  // VOICEVOXが既に起動していれば話者一覧を自動取得
-  fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(1500) })
-    .then(r => r.ok ? fetchVvSpeakers() : null).catch(() => null);
+  if (vMode === 'voicevox') {
+    fetch('http://localhost:50021/speakers', { signal: AbortSignal.timeout(1500) })
+      .then(r => r.ok ? fetchVvSpeakers() : null).catch(() => null);
+  }
   _updateWizardStatus(id);
   openModal('addCharModal');
 }
@@ -6300,6 +7075,10 @@ function saveNewChar() {
     avatar_url: document.getElementById('newCharAvatarDataUrl').value || '',
     ref_image: document.getElementById('newCharRefImage').value || '',
     drive_folder_id: document.getElementById('newCharFolderId').value.trim(),
+    voice_mode: document.getElementById('newCharVoiceMode')?.value || 'browser',
+    browser_voice_name:  document.getElementById('newCharBrowserVoice')?.value || '',
+    browser_voice_rate:  parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0,
+    browser_voice_pitch: parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0,
     voicevox_speaker: parseInt(document.getElementById('newCharVoicevox').value) || 3,
     vv_speed:       parseFloat(document.getElementById('newCharSpeedScale').value) || null,
     vv_pitch:       parseFloat(document.getElementById('newCharPitchScale').value) || null,
@@ -6335,6 +7114,10 @@ function updateChar() {
   char.appearance       = document.getElementById('newCharAppearance').value.trim();
   char.voicevox_name    = document.getElementById('newCharVoiceName').value.trim();
   char.drive_folder_id  = document.getElementById('newCharFolderId').value.trim();
+  char.voice_mode       = document.getElementById('newCharVoiceMode')?.value || 'browser';
+  char.browser_voice_name  = document.getElementById('newCharBrowserVoice')?.value || '';
+  char.browser_voice_rate  = parseFloat(document.getElementById('browserVoiceRate')?.value) || 1.0;
+  char.browser_voice_pitch = parseFloat(document.getElementById('browserVoicePitch')?.value) || 1.0;
   char.voicevox_speaker = parseInt(document.getElementById('newCharVoicevox').value) || 3;
   char.vv_speed        = parseFloat(document.getElementById('newCharSpeedScale').value) || null;
   char.vv_pitch        = parseFloat(document.getElementById('newCharPitchScale').value) || null;
@@ -6467,6 +7250,31 @@ async function generateGeminiImage(prompt, refImageDataUrl) {
   const imgPart = (json.candidates?.[0]?.content?.parts || []).find(p => p.inlineData?.mimeType?.startsWith('image/'));
   if (!imgPart) throw new Error(`[${modelToUse}] 画像データが返りませんでした`);
   return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+}
+
+// ════════════════════════════════════
+//  OpenAI DALL-E 3 Image Generation（透かしなし）
+// ════════════════════════════════════
+async function generateOpenAIImage(prompt, isShorts) {
+  const key = localStorage.getItem('channelos_openai_api_key');
+  if (!key) throw new Error('OpenAI APIキーを設定してください（設定タブ）');
+  const size = isShorts ? '1024x1792' : '1792x1024';
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: 'dall-e-3', prompt, size, quality: 'standard', n: 1 })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(`DALL-E 3: ${e?.error?.message || `error ${res.status}`}`);
+  }
+  const json = await res.json();
+  const url = json.data?.[0]?.url;
+  if (!url) throw new Error('DALL-E 3: 画像URLが取得できませんでした');
+  // URLからbase64に変換
+  const imgRes = await fetch(url);
+  const blob = await imgRes.blob();
+  return await new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(blob); });
 }
 
 async function generateStabilityImage(prompt, aspectRatio = '1:1') {
