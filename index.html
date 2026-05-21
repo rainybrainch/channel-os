@@ -6287,45 +6287,41 @@ function renderSettingsPanel() {
       </div>
     </details>
 
-    <!-- VOICEVOX接続 -->
-    <div class="card" style="margin-top:8px;" id="settingsVvCard">
-      <div class="card-title">🎙 VOICEVOX 接続確認</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">音声を使う場合はVOICEVOXをPCで起動してください。GitHub Pages版では<b>起動コマンドが必要</b>です。</p>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="checkVvConnection()">🔄 接続確認</button>
-        <span id="settingsVvStatus" style="font-size:.8rem;color:var(--text-muted);">未確認</span>
-      </div>
-      <div id="settingsVvCmd" style="display:none;background:var(--surface2);border-radius:6px;padding:10px;font-size:.75rem;">
-        <div style="font-weight:700;margin-bottom:4px;color:var(--text);">📌 GitHub Pages版での起動コマンド（1回コピーして実行するだけ）</div>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-          <code id="vvCmdText" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:.72rem;word-break:break-all;"></code>
-          <button class="btn btn-primary btn-sm" style="flex-shrink:0;" onclick="navigator.clipboard.writeText(document.getElementById('vvCmdText').textContent).then(()=>showToast('📋 コマンドをコピーしました'))">📋 コピー</button>
+    <!-- VOICEVOX接続（折りたたみ・任意） -->
+    <details style="margin-top:4px;" id="settingsVvCard">
+      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;list-style:none;">
+        🎙 VOICEVOX（音声生成・任意）<span style="margin-left:8px;font-size:.72rem;">— 使わない場合は不要</span>
+      </summary>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-size:.76rem;color:var(--text-muted);">
+        PCでVOICEVOXを起動している場合のみ使用可。GitHub Pages版では起動コマンドが必要。
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="checkVvConnection()">🔄 接続確認</button>
+          <span id="settingsVvStatus" style="font-size:.8rem;color:var(--text-muted);">未確認</span>
         </div>
-        <div style="margin-top:6px;color:var(--text-muted);font-size:.68rem;">
-          ① このコマンドをコピー → ② Windowsの「ファイル名を指定して実行（Win+R）」に貼り付けてEnter → ③ VOICEVOXが起動したら「接続確認」を再クリック
-        </div>
-        <div style="margin-top:4px;color:var(--text-muted);font-size:.68rem;">
-          チームメンバーへの共有: このコマンドをLINE/Slackで送るだけ
+        <div id="settingsVvCmd" style="display:none;margin-top:8px;background:var(--surface2);border-radius:6px;padding:10px;font-size:.75rem;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <code id="vvCmdText" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:.72rem;word-break:break-all;"></code>
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0;" onclick="navigator.clipboard.writeText(document.getElementById('vvCmdText').textContent).then(()=>showToast('📋 コピーしました'))">📋</button>
+          </div>
+          <div style="margin-top:4px;font-size:.68rem;">Win+R → コマンド貼り付け → Enter → VOICEVOXが起動したら「接続確認」</div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <!-- チームメンバー管理 -->
-    <div class="card" style="margin-top:8px;">
-      <div class="card-title">👥 チームメンバー管理</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">許可したGmailでログインすると、全設定・YouTube認証が自動で読み込まれます。</p>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <input type="email" id="newMemberEmail" placeholder="追加するGmailアドレス" style="flex:1;font-size:.82rem;">
-        <button class="btn btn-primary btn-sm" onclick="addTeamMember(document.getElementById('newMemberEmail').value.trim())">追加</button>
+    <!-- チームメンバー管理（折りたたみ・複数人運用時のみ） -->
+    <details style="margin-top:4px;">
+      <summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;list-style:none;">
+        👥 チームメンバー管理<span style="margin-left:8px;font-size:.72rem;">— 複数人で使う場合のみ</span>
+      </summary>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-size:.76rem;color:var(--text-muted);">
+        <p style="margin-bottom:8px;">許可したGmailでログインすると設定・認証が自動共有されます。1人で使う場合は不要。</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="email" id="newMemberEmail" placeholder="追加するGmailアドレス" style="flex:1;font-size:.82rem;">
+          <button class="btn btn-primary btn-sm" onclick="addTeamMember(document.getElementById('newMemberEmail').value.trim())">追加</button>
+        </div>
+        <div id="memberList" style="font-size:.8rem;color:var(--text-muted);">（Drive接続後に表示）</div>
       </div>
-      <div id="memberList" style="font-size:.8rem;color:var(--text-muted);">（チーム設定を読み込み中...）</div>
-      <div style="margin-top:10px;padding:8px;background:#1a2a3a;border-radius:6px;font-size:.75rem;color:#7ab5d8;line-height:1.7;">
-        📋 <b>メンバー招待の手順：</b><br>
-        ① 上でメールを追加 → 「👥 チーム設定を保存」<br>
-        ② DriveフォルダをメンバーのGoogleアカウントと共有<br>
-        ③ メンバーが Channel OS を開いてGoogleログインするだけ
-      </div>
-    </div>
+    </details>
 
     <!-- YouTube認証はキャラヘッダーで個別管理 -->
     <details style="margin-top:4px;">
