@@ -2700,7 +2700,7 @@ function switchTab(tab) {
   // 各パネルを最新状態で再描画してからアクティブ化
   if (char) {
     const renders = {
-      plan:     () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); },
+      plan:     () => { const el = document.getElementById('panelPlan');     if (el) el.outerHTML = renderPlanPanel(char); setTimeout(showStrategyHint, 0); },
       script:   () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
       meta:     () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
       assets:   () => { loadDriveAssets(); },
@@ -2826,6 +2826,8 @@ function renderPlanPanel(char) {
         <textarea id="allGenDetail" placeholder="例: この動画は新規視聴者向け。冒頭に統計データを入れる。最後はLINE登録に誘導する。"
           style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;">${escHtml(_savedDetail)}</textarea>
       </div>
+
+      <div id="strategyHint" style="display:none;margin-bottom:12px;"></div>
 
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" style="flex:3;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateAll()">🚀 一括生成（企画→台本→投稿情報）</button>
@@ -3243,6 +3245,44 @@ ${strategy}
   }
 }
 
+function _buildStrategyContext(charId) {
+  const patternLabels = { explanation:'解説', ranking:'ランキング', story:'ストーリー', drama:'ドラマ', dialogue:'対談', challenge:'チャレンジ', reaction:'リアクション', howto:'How-To', secret:'暴露' };
+  const eps = (data.episodes || []).filter(e => e.charId === charId && e.title && e.title !== '新しい動画').slice(-20);
+  const patternCount = {};
+  let totalViews = 0, viewCount = 0;
+  const topVideos = [];
+  eps.forEach(e => {
+    const p = e.contentPattern || 'explanation';
+    patternCount[p] = (patternCount[p] || 0) + 1;
+    if (e.youtubeViewCount) { totalViews += e.youtubeViewCount; viewCount++; topVideos.push({ title: e.title, views: e.youtubeViewCount, pattern: p }); }
+  });
+  const patternSummary = Object.entries(patternCount).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `${patternLabels[k]||k}×${v}`).join(' / ') || 'なし';
+  const avgViews = viewCount ? Math.round(totalViews / viewCount) : null;
+  topVideos.sort((a,b)=>b.views-a.views);
+  const topStr = topVideos.slice(0,3).map(v=>`「${v.title}」(${v.views}回/${patternLabels[v.pattern]||v.pattern})`).join(', ');
+  // 不足パターンを提案
+  const allPatterns = Object.keys(patternLabels);
+  const missing = allPatterns.filter(p => !patternCount[p]);
+  const underused = allPatterns.filter(p => patternCount[p] && patternCount[p] < 2);
+  const suggest = missing.slice(0,2).concat(underused.slice(0,1)).map(p => patternLabels[p]).join('・');
+  return { patternSummary, avgViews, topStr, suggest, totalEps: eps.length };
+}
+
+function showStrategyHint() {
+  const el = document.getElementById('strategyHint');
+  if (!el || !currentCharId) return;
+  const s = _buildStrategyContext(currentCharId);
+  if (s.totalEps === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 14px;font-size:.78rem;line-height:1.7;">
+      <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">📊 戦略サマリー（過去${s.totalEps}本）</div>
+      <div style="color:var(--text-muted);">コンテンツ比率: <span style="color:var(--text);">${s.patternSummary}</span></div>
+      ${s.avgViews ? `<div style="color:var(--text-muted);">平均再生数: <span style="color:var(--text);">${s.avgViews.toLocaleString()}回</span>${s.topStr ? ` / 人気: ${s.topStr}` : ''}</div>` : ''}
+      ${s.suggest ? `<div style="color:#f0a500;">💡 まだ少ないパターン: <strong>${s.suggest}</strong> を試すと新規視聴者が増えます</div>` : ''}
+    </div>`;
+}
+
 async function generatePlan() {
   const char = data.characters.find(c => c.id === currentCharId);
   const theme = document.getElementById('planTheme')?.value.trim();
@@ -3253,10 +3293,13 @@ async function generatePlan() {
   const pastEps = (data.episodes || []).filter(e => e.charId === currentCharId && e.id !== currentEpisodeId && e.title && e.title !== '新しい動画').slice(-10);
   const pastTitles = pastEps.map(e => `- ${e.title}${e.selectedPlan?.description ? '（'+e.selectedPlan.description.slice(0,30)+'…）' : ''}`).join('\n');
   const dupWarning = pastTitles ? `\n\n【過去の動画（重複禁止）】\n${pastTitles}\n上記と内容・タイトルが被らない新しい切り口を必ず選ぶこと。` : '';
+  // 戦略コンテキスト追加
+  const strat = _buildStrategyContext(currentCharId);
+  const stratCtx = strat.totalEps > 0 ? `\n\n【戦略コンテキスト】\nコンテンツ比率: ${strat.patternSummary}${strat.avgViews ? ' / 平均再生数: '+strat.avgViews.toLocaleString()+'回' : ''}${strat.topStr ? ' / 人気動画: '+strat.topStr : ''}${strat.suggest ? '\n不足パターン: '+strat.suggest+' → 3案のうち少なくとも1案でこれを活かすこと' : ''}` : '';
   const prompt = `あなたはYouTubeチャンネルの企画プロデューサーです。
 キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 AI人格: ${char.ai_personality}
-テーマキーワード: ${theme}${dupWarning}
+テーマキーワード: ${theme}${dupWarning}${stratCtx}
 
 以下のJSON形式のみ出力（他テキスト不要）:
 [{"label":"案A（王道）","title":"","description":"","hook":""},{"label":"案B（連携）","title":"","description":"","hook":""},{"label":"案C（枠超え）","title":"","description":"","hook":""}]`;
@@ -5651,6 +5694,64 @@ function closeCalModal() {
   if (m) m.remove();
 }
 
+async function generateWeeklyPlan() {
+  const chars = (loadData().characters || []).filter(c => c.id.startsWith('char_'));
+  if (!chars.length) { showToast('キャラクターを追加してください'); return; }
+  const geminiKey = localStorage.getItem('channelos_gemini_api_key');
+  if (!geminiKey) { showToast('Gemini APIキーを設定してください'); return; }
+
+  showToast('1週間プランを生成中...');
+  const today = new Date();
+  const days = Array.from({length:7}, (_,i) => {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    return d.toISOString().slice(0,10);
+  });
+
+  // 各キャラの戦略コンテキストを収集
+  const charStrategies = chars.map(c => {
+    const s = _buildStrategyContext(c.id);
+    return `${c.name}（${c.theme}）- 過去${s.totalEps}本 / 比率: ${s.patternSummary || 'なし'}${s.suggest ? ' / 不足: '+s.suggest : ''}`;
+  }).join('\n');
+
+  const prompt = `あなたはYouTubeチャンネルの週次プランナーです。
+以下のキャラクターに対して、今週7日間の投稿スケジュールを戦略的に生成してください。
+
+【キャラクター別戦略コンテキスト】
+${charStrategies}
+
+【ルール】
+- 各キャラクターはできれば毎日or隔日投稿
+- 同じコンテンツパターンが連続しない
+- コンテンツ比率のバランスを改善する方向で
+- 投稿時間は18:00〜20:00の間で自然にばらつかせる
+
+以下のJSON形式のみ出力：
+[{"date":"YYYY-MM-DD","charName":"キャラ名","contentPattern":"パターンID","theme":"今日のテーマ1行","time":"18:00"}]
+パターンID: explanation/ranking/story/drama/dialogue/challenge/reaction/howto/secret`;
+
+  try {
+    const text = await callClaude(prompt);
+    const plans = safeParseArr(text, []);
+    if (!plans.length) { showToast('プラン生成に失敗しました'); return; }
+
+    const cal = loadCalendar();
+    let added = 0;
+    plans.forEach(p => {
+      const char = chars.find(c => c.name === p.charName);
+      if (!char) return;
+      // 同日・同キャラの予定が既にあればスキップ
+      if (cal.some(e => e.date === p.date && e.charId === char.id)) return;
+      cal.push({ id: 'cal_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), date: p.date, time: p.time || '18:00', charId: char.id, theme: p.theme, contentPattern: p.contentPattern, title: '', scheduled: false, posted: false, createdAt: new Date().toISOString() });
+      added++;
+    });
+    saveCalendar(cal);
+    renderCalendar();
+    showToast(`✅ ${added}件の予定をカレンダーに追加しました`);
+  } catch(e) {
+    showToast('エラー: ' + e.message);
+  }
+}
+
 async function importPostedVideos() {
   const token = await getYtTokenAsync(currentCharId);
   if (!token) { showToast('YouTube認証が必要です'); return; }
@@ -6593,6 +6694,7 @@ function renderPublishPanel() {
       <div class="cal-grid" id="calGrid"></div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:.72rem;color:var(--text-muted);">日をクリック→予定追加 / 予定クリック→編集</span>
+        <button class="btn btn-sm" style="background:#27ae60;color:#fff;" onclick="generateWeeklyPlan()">📅 1週間自動プラン</button>
         <button class="btn btn-sm" style="background:#c0392b;color:#fff;margin-left:auto;" onclick="importPostedVideos()">📥 投稿済み動画を取得</button>
       </div>
       <div id="importVideosStatus" style="font-size:.75rem;color:var(--text-muted);margin-top:6px;display:none;"></div>
