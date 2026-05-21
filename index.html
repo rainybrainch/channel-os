@@ -2732,10 +2732,10 @@ function renderMain() {
 
     <div class="tabs" id="mainTabs">
       ${(() => {
-        const allTabs = ['plan','script','meta','scene','assets','calendar','post','distribute','comments'];
-        // シンプルモード: 3タブのみ（plan=作成 / calendar=カレンダー / distribute=配信）
-        const simpleTabs = ['plan','calendar','distribute'];
-        const labels = {plan:'🚀 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',calendar:'📅 カレンダー',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
+        const allTabs = ['plan','create','script','meta','scene','assets','post','distribute','comments'];
+        // シンプルモード: 3タブのみ（plan=計画 / create=作成 / distribute=配信）
+        const simpleTabs = ['plan','create','distribute'];
+        const labels = {plan:'📋 計画',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🖼 素材',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
         const tabs = simpleMode ? simpleTabs : allTabs;
         return tabs.map(t => {
           const badge = _getTabBadge(t);
@@ -2746,6 +2746,7 @@ function renderMain() {
     </div>
 
     ${renderPlanPanel(char)}
+    ${renderCreatePanel(char)}
     ${renderScriptPanel(char)}
     ${renderMetaPanel(char)}
     ${renderScenePanel()}
@@ -2760,6 +2761,10 @@ function renderMain() {
 
   if (currentTab === 'scene') initCanvas();
   if (currentTab === 'assets') loadDriveAssets();
+  // 計画タブのカレンダーサブモード
+  const _planMode = localStorage.getItem('channelos_plan_mode') || 'week';
+  if (currentTab === 'plan' && _planMode === 'cal') setTimeout(renderCalendar, 0);
+  if (currentTab === 'calendar') setTimeout(renderCalendar, 0);
   data.characters.forEach(c => { if (getYtToken(c.id)) showYtChannelInfo(c.id); });
   _updateSimpleModeBtn();
 }
@@ -2775,7 +2780,7 @@ function toggleSimpleMode() {
     btn.style.border = simpleMode ? 'none' : '1px solid var(--border)';
   }
   // シンプルモード時、隠れているタブにいたら企画タブに戻す
-  const simpleTabs = ['plan','scene','distribute'];
+  const simpleTabs = ['plan','create','distribute'];
   if (simpleMode && !simpleTabs.includes(currentTab)) currentTab = 'plan';
   renderMain();
 }
@@ -2806,7 +2811,7 @@ function _getTabBadge(tab) {
 }
 
 // 全パネルID一覧（追加時ここにも足す）
-const ALL_PANELS = ['plan','script','meta','scene','assets','calendar','post','distribute','comments','settings'];
+const ALL_PANELS = ['plan','create','script','meta','scene','assets','calendar','post','distribute','comments','settings'];
 
 function switchTab(tab) {
   currentTab = tab;
@@ -2885,14 +2890,14 @@ function renderPlanPanel(char) {
   <div class="panel ${currentTab==='plan'?'active':''}" id="panelPlan">
 
     <!-- ══ モード切替 ══ -->
-    <div style="display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:4px;">
-      ${modeBtn('week','📅','今週の予定',planMode==='week')}
-      ${modeBtn('now','⚡','今すぐ作る',planMode==='now')}
+    <div id="planModeSelector" style="display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:4px;">
+      ${modeBtn('week','📅','今週の予定',planMode==='week'||planMode==='now')}
+      ${modeBtn('cal','📆','カレンダー',planMode==='cal')}
       ${modeBtn('habit','🔁','習慣シリーズ',planMode==='habit')}
     </div>
 
     <!-- ══ 今週の予定モード ══ -->
-    <div id="planModeWeek" style="display:${planMode==='week'?'flex':'none'};flex-direction:column;gap:12px;">
+    <div id="planModeWeek" style="display:${planMode==='week'||planMode==='now'?'flex':'none'};flex-direction:column;gap:12px;">
 
       <!-- PDCA 分析カード -->
       <div class="card" style="border:1px solid #a84cdd55;background:linear-gradient(135deg,rgba(168,76,221,.05),transparent);">
@@ -2906,7 +2911,7 @@ function renderPlanPanel(char) {
       <div class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="font-weight:700;font-size:.9rem;color:#4a9edd;">今週の投稿予定</div>
-          <button class="btn btn-sm" style="background:#4a9edd;color:#fff;font-size:.74rem;" onclick="setPlanViewMode('now');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">＋ プランを追加</button>
+          <button class="btn btn-sm" style="background:#4a9edd;color:#fff;font-size:.74rem;" onclick="switchTab('plan');setPlanViewMode('week');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),100)">＋ プランを追加</button>
         </div>
         ${calEntries.length ? calEntries.map(e => {
           const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
@@ -2936,15 +2941,11 @@ function renderPlanPanel(char) {
           </div>`;
         }).join('') : `<div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:.84rem;">
           今週の予定がまだありません<br>
-          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="setPlanViewMode('now');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">📅 週間プランを作る</button>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'})">📅 週間プランを作る</button>
         </div>`}
       </div>
-    </div>
 
-    <!-- ══ 今すぐ作るモード ══ -->
-    <div id="planModeNow" style="display:${planMode==='now'?'flex':'none'};flex-direction:column;gap:12px;">
-
-      <!-- 週間プラン作成（折りたたみ） -->
+      <!-- 週間プラン作成 -->
       <div id="weeklyPlanSection" class="card" style="border:1px solid #4a9edd55;background:linear-gradient(135deg,rgba(74,158,221,.05),transparent);">
         <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="toggleWeeklyPlanBox()">
           <span style="font-size:1rem;">📅</span>
@@ -2986,183 +2987,10 @@ function renderPlanPanel(char) {
         </div>
       </div>
 
-    <!-- 単発動画作成 -->
-    <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div class="card-title" style="margin:0;">🎬 動画を作る</div>
-        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
-      </div>
+    <!-- ══ 今すぐ作るモード（旧 planModeNow） ══ -->
+    <div id="planModeNow" style="display:none;">
 
-      <!-- 制作モード切替 -->
-      <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface2);border-radius:8px;padding:4px;">
-        <button id="modeBtn_video" onclick="setPlanMode('video')"
-          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern!=='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern!=='radio'?'#0d0d0d':'var(--text-muted)'};">
-          📺 通常動画
-        </button>
-        <button id="modeBtn_radio" onclick="setPlanMode('radio')"
-          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern==='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern==='radio'?'#0d0d0d':'var(--text-muted)'};">
-          🎙 ラジオ
-        </button>
-      </div>
-
-      <!-- 通常動画フロー -->
-      <div id="planVideoMode" style="display:${_savedPattern!=='radio'?'block':'none'};">
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 1 ── フォーマットを選ぶ</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <label id="formatCard_horizontal" onclick="selectFormat('horizontal')" style="cursor:pointer;border:2px solid ${_savedFormat==='horizontal'?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:10px;padding:16px 14px;background:${_savedFormat==='horizontal'?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;gap:4px;">
-            <span style="font-size:1.3rem;">📺</span>
-            <span style="font-weight:700;font-size:.95rem;">横動画 3分</span>
-            <span style="font-size:.72rem;color:var(--text-muted);">通常動画 / 1280×720</span>
-          </label>
-          <label id="formatCard_shorts" onclick="selectFormat('shorts')" style="cursor:pointer;border:2px solid ${_savedFormat==='shorts'?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:10px;padding:16px 14px;background:${_savedFormat==='shorts'?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;gap:4px;">
-            <span style="font-size:1.3rem;">📱</span>
-            <span style="font-weight:700;font-size:.95rem;">ショート 60秒</span>
-            <span style="font-size:.72rem;color:var(--text-muted);">Shorts / 720×1280</span>
-          </label>
-        </div>
-        <input type="hidden" id="allGenFormat" value="${_savedFormat}">
-      </div>
-
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
-        <input type="hidden" id="allGenPattern" value="${_savedPattern}">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-          ${[
-            {id:'explanation', icon:'🎤', label:'解説',    desc:'知識・体験を語る'},
-            {id:'ranking',     icon:'🏆', label:'ランキング', desc:'TOP5・比較'},
-            {id:'story',       icon:'📖', label:'ストーリー', desc:'仮想シナリオ'},
-            {id:'drama',       icon:'🎭', label:'ドラマ',  desc:'実体験・失敗談'},
-            {id:'dialogue',    icon:'💬', label:'対談',    desc:'複数キャラ掛け合い'},
-            {id:'challenge',   icon:'🔥', label:'チャレンジ', desc:'試してみた'},
-            {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・レビュー'},
-            {id:'howto',       icon:'📋', label:'How-To',  desc:'手順・やり方'},
-            {id:'secret',      icon:'🤫', label:'本音暴露', desc:'裏側・告白'},
-          ].map(p => `<div onclick="selectPattern('${p.id}')" id="patternCard_${p.id}"
-            style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:8px 6px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'var(--surface2)'};text-align:center;transition:all .15s;">
-            <div style="font-size:1.3rem;margin-bottom:2px;">${p.icon}</div>
-            <div style="font-size:.78rem;font-weight:700;line-height:1.2;">${p.label}</div>
-            <div style="font-size:.62rem;color:var(--text-muted);margin-top:2px;line-height:1.2;">${p.desc}</div>
-          </div>`).join('')}
-        </div>
-
-        <!-- 対談・コラボ時のゲスト選択 -->
-        <div id="dialogueGuestBox" style="display:${_savedPattern==='dialogue'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid var(--char-color,#c9a84c)55;border-radius:8px;padding:12px 14px;">
-          <div style="font-size:.78rem;color:var(--char-color,#c9a84c);font-weight:700;margin-bottom:8px;">🎭 コラボするキャラを選択</div>
-          <div style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">ホスト: <b>${escHtml(char.name)}</b>（現在選択中）</div>
-          <label style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">ゲストキャラ（1〜2名）</label>
-          <div id="guestCharList" style="display:flex;flex-direction:column;gap:6px;">
-            ${data.characters.filter(c => c.id !== currentCharId).map(c => {
-              const saved = _epInput?.dialogueGuests || [];
-              const checked = saved.includes(c.id);
-              return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;background:var(--surface);border-radius:6px;border:1px solid ${checked?'var(--char-color,#c9a84c)':'var(--border)'};" id="guestLabel_${c.id}">
-                <input type="checkbox" value="${c.id}" class="guestCharCheck" ${checked?'checked':''} onchange="onGuestCheck('${c.id}',this.checked)"
-                  style="accent-color:var(--char-color,#c9a84c);width:16px;height:16px;flex-shrink:0;">
-                <div style="width:26px;height:26px;border-radius:50%;background:${c.color}22;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">${c.icon||'🎭'}</div>
-                <div>
-                  <div style="font-size:.84rem;font-weight:700;">${escHtml(c.name)}</div>
-                  <div style="font-size:.68rem;color:var(--text-muted);">${escHtml(c.theme)} / ${escHtml(c.tone||'')}</div>
-                </div>
-                ${c.voice_mode === 'voicevox' || c.voicevox_speaker ? `<span style="margin-left:auto;font-size:.65rem;color:#4a8;">🎤 声あり</span>` : `<span style="margin-left:auto;font-size:.65rem;color:var(--text-muted);">🌐 ブラウザ音声</span>`}
-              </label>`;
-            }).join('') || `<div style="font-size:.78rem;color:var(--text-muted);">他のキャラがまだいません。左サイドバーから追加してください。</div>`}
-          </div>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;">💡 選択したキャラの声・個性が台本と音声生成に自動で反映されます</div>
-        </div>
-
-      </div><!-- /STEP2 pattern -->
-
-      <div style="margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">STEP 3 ── 企画テーマ</label>
-          <button class="btn btn-secondary btn-sm" style="font-size:.72rem;padding:4px 10px;" onclick="suggestTheme()">💡 AIが提案</button>
-        </div>
-        <div id="themeSuggestArea" style="display:none;margin-bottom:8px;"></div>
-        <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣、睡眠を劇的に改善する方法…" value="${escHtml(_savedTheme)}"
-          style="width:100%;font-size:1rem;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
-          onkeydown="if(event.key==='Enter')generateAll()">
-      </div>
-
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 4 ── 追加指示（任意）</label>
-        <input type="text" id="allGenNote" placeholder="例: ギャグ多め、感情的に訴える、データ重視で信頼感を出す…" value="${escHtml(_savedNote)}"
-          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
-      </div>
-
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 5 ── 詳細指示（任意）</label>
-        <textarea id="allGenDetail" placeholder="例: この動画は新規視聴者向け。冒頭に統計データを入れる。最後はLINE登録に誘導する。"
-          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;">${escHtml(_savedDetail)}</textarea>
-      </div>
-
-      <div id="strategyHint" style="display:none;margin-bottom:12px;"></div>
-
-      <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" style="flex:3;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateAll()">🚀 一括生成（企画→台本→投稿情報）</button>
-        <button class="btn btn-secondary" style="flex:1;padding:13px;" onclick="generatePlan()">企画3案だけ</button>
-      </div>
-
-      <div id="planLoading" class="loading" style="display:none;margin-top:14px;"><div class="spinner"></div><span>企画を考えています...</span></div>
-      <div id="allGenProgress" style="display:none;margin-top:14px;">
-        <div style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
-          <div id="allStep1" style="color:var(--text-muted);">⬜ [1/3] Gemini が一括生成中（30〜60秒）...</div>
-          <div id="allStep2" style="color:var(--text-muted);">⬜ [2/3] 結果を反映中...</div>
-          <div id="allStep3" style="color:var(--text-muted);">⬜ [3/3] 完了</div>
-        </div>
-      </div>
-      </div><!-- /planVideoMode -->
-
-      <!-- ラジオモード -->
-      <div id="planRadioMode" style="display:${_savedPattern==='radio'?'block':'none'};">
-        <div style="background:var(--surface2);border:1px solid #4a9edd55;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:12px;">STEP 1 ── 収録メモ・文字起こしを貼り付け</div>
-          <textarea id="planRadioTranscriptInline" placeholder="収録した内容・話したこと・文字起こしをそのまま貼り付けてください。&#10;AIが台本・概要欄・タイトルに整理します。"
-            style="width:100%;min-height:140px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
-          <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編・シリーズ名 など）"
-            style="width:100%;margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
-        </div>
-        <div style="background:var(--surface2);border:1px solid #4a9edd33;border-radius:10px;padding:12px 16px;margin-bottom:16px;">
-          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:10px;">STEP 2 ── 音声ファイルを追加（任意）</div>
-          <button class="btn btn-secondary btn-sm" onclick="openModal('radioRecordModal')" style="display:flex;align-items:center;gap:8px;font-size:.82rem;">
-            🎤 録音・音声ファイルをアップロード
-          </button>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">録音データは投稿タブで音声トラックとして使用できます</div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateRadio()">
-          🎙 ラジオ台本・投稿情報を生成
-        </button>
-        <div id="radioGenProgress" style="display:none;margin-top:14px;font-size:.84rem;color:var(--text-muted);">⬜ Gemini がラジオ台本を生成中...</div>
-      </div><!-- /planRadioMode -->
-    </div>
-    <div id="planResults" class="plan-grid">${generatedPlans.length ? renderPlanCards(generatedPlans, generatedPlans.indexOf(selectedPlan)) : ''}</div>
-    <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};">
-      <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
-    </div>
-
-    <details style="margin-top:4px;">
-      <summary style="cursor:pointer;background:var(--surface);border:1px solid #4a9edd44;border-radius:8px;padding:12px 16px;font-size:.84rem;color:#4a9edd;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:1rem;">🎙</span> ラジオ・長尺 — 文字起こしから整理する（上で「📻 ラジオ」を選んだ場合はそちらで入力）
-        <span style="margin-left:auto;font-size:.72rem;color:var(--text-muted);">▼ 開く</span>
-      </summary>
-      <div class="card" style="border:1px solid #4a9edd44;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);border-top:none;border-radius:0 0 8px 8px;margin-top:0;">
-        <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 14px;">文字起こしや収録メモを貼り付けると、整理済み台本・投稿情報・絵コンテを自動生成します。</p>
-        <div style="margin-bottom:12px;">
-          <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">文字起こし / 収録メモ</label>
-          <textarea id="planRadioTranscript" placeholder="収録した内容をそのまま貼り付けてください。&#10;&#10;例:&#10;00:00 オープニング — 今日のテーマ&#10;02:30 セクション1 — ○○について..." style="width:100%;min-height:140px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.88rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">補足情報（任意）</label>
-          <input type="text" id="planRadioNote" placeholder="例: ゲスト回、前後編の前編など"
-            style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
-        </div>
-        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:.92rem;font-weight:700;background:#4a9edd;color:#fff;" onclick="startRadioFromPlan()">
-          🚀 ラジオ一括生成（台本整理→投稿情報→絵コンテ）
-        </button>
-        <div id="planRadioLoading" class="loading" style="display:none;margin-top:12px;"><div class="spinner"></div><span>Claude が分析中...</span></div>
-      </div>
-    </details>
-    </div><!-- /card 単発動画 -->
-    </div><!-- /planModeNow -->
+    </div><!-- /planModeNow（旧コンテンツは作成タブに移動） -->
 
     <!-- ══ 習慣シリーズモード ══ -->
     <div id="planModeHabit" style="display:${planMode==='habit'?'flex':'none'};flex-direction:column;gap:12px;">
@@ -3232,16 +3060,43 @@ function renderPlanPanel(char) {
       </div>
     </div><!-- /planModeHabit -->
 
+    <!-- ══ カレンダーモード ══ -->
+    <div id="planModeCal" style="display:${planMode==='cal'?'flex':'none'};flex-direction:column;gap:12px;">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:.95rem;">📆 投稿カレンダー</div>
+          <button class="btn btn-sm" style="background:#4a9edd;color:#fff;font-size:.78rem;" onclick="setPlanViewMode('week');setTimeout(()=>document.getElementById('weeklyPlanSection')?.scrollIntoView({behavior:'smooth'}),50)">＋ 週間プラン作成</button>
+        </div>
+        <div class="cal-header">
+          <button class="cal-nav" onclick="calPrev()">‹</button>
+          <span id="calTitle" style="font-weight:700;font-size:.95rem;"></span>
+          <button class="cal-nav" onclick="calNext()">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;font-size:.72rem;color:var(--text-muted);">
+          <span>日をクリック → 予定追加</span>
+          <span>予定クリック → 編集・制作開始</span>
+          <button class="btn btn-sm" style="background:#c0392b;color:#fff;margin-left:auto;font-size:.72rem;" onclick="importPostedVideos()">📥 投稿済み取得</button>
+        </div>
+        <div id="importVideosStatus" style="font-size:.75rem;color:var(--text-muted);margin-top:6px;display:none;"></div>
+      </div>
+    </div><!-- /planModeCal -->
+
   </div>`;
 }
 
 // ── 作成モード切替 ──
 function setPlanViewMode(mode) {
+  if (mode === 'now') mode = 'week'; // 旧nowは週の予定に統合
   localStorage.setItem('channelos_plan_mode', mode);
-  ['week','now','habit'].forEach(m => {
-    const el = document.getElementById('planMode' + m.charAt(0).toUpperCase() + m.slice(1));
+  ['week','cal','habit'].forEach(m => {
+    const id = 'planMode' + m.charAt(0).toUpperCase() + m.slice(1);
+    const el = document.getElementById(id);
     if (el) el.style.display = m === mode ? 'flex' : 'none';
   });
+  // planModeNow は常時非表示（旧互換）
+  const nowEl = document.getElementById('planModeNow');
+  if (nowEl) nowEl.style.display = 'none';
   // モードボタンのハイライト更新
   const color = getComputedStyle(document.documentElement).getPropertyValue('--char-color').trim() || '#c9a84c';
   document.querySelectorAll('#planModeSelector button').forEach(b => {
@@ -3308,7 +3163,7 @@ function startHabitEpisode(idx) {
   data.episodes.push(ep);
   saveData(data);
   loadEpisode(epId);
-  setPlanViewMode('now');
+  switchTab('create');
   showToast('✅ ' + h.name + ' の制作を開始しました');
 }
 
@@ -3791,6 +3646,176 @@ function renderPlanCards(plans, selIdx) {
       <div class="plan-card-desc">${p.description}</div>
       <div style="margin-top:8px;font-size:.75rem;color:var(--char-color);">つかみ: ${p.hook}</div>
     </div>`).join('');
+}
+
+// ════════════════════════════════════
+//  Create Panel（作成タブ）
+// ════════════════════════════════════
+function renderCreatePanel(char) {
+  const _savedFormat  = localStorage.getItem('channelos_last_format') || 'shorts';
+  const _savedPattern = localStorage.getItem('channelos_last_pattern') || 'explanation';
+  const _savedTheme   = localStorage.getItem('channelos_last_theme') || '';
+  const _savedNote    = localStorage.getItem('channelos_last_note') || '';
+  const _savedDetail  = localStorage.getItem('channelos_last_detail') || '';
+  const _epInput      = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  const generatedPlans = _epInput?.generatedPlans || [];
+  const selectedPlan   = _epInput?.plan || null;
+
+  return `
+  <div class="panel ${currentTab==='create'?'active':''}" id="panelCreate">
+
+    <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">🎬 動画を作る</div>
+        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
+      </div>
+
+      <!-- 制作モード切替 -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface2);border-radius:8px;padding:4px;">
+        <button id="modeBtn_video" onclick="setPlanMode('video')"
+          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern!=='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern!=='radio'?'#0d0d0d':'var(--text-muted)'};">
+          📺 通常動画
+        </button>
+        <button id="modeBtn_radio" onclick="setPlanMode('radio')"
+          style="flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:${_savedPattern==='radio'?'var(--char-color,#c9a84c)':'transparent'};color:${_savedPattern==='radio'?'#0d0d0d':'var(--text-muted)'};">
+          🎙 ラジオ
+        </button>
+      </div>
+
+      <!-- 通常動画フロー -->
+      <div id="planVideoMode" style="display:${_savedPattern!=='radio'?'block':'none'};">
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:.05em;">STEP 1 ── フォーマットを選ぶ</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <label id="formatCard_horizontal" onclick="selectFormat('horizontal')" style="cursor:pointer;border:2px solid ${_savedFormat==='horizontal'?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:10px;padding:16px 14px;background:${_savedFormat==='horizontal'?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:1.3rem;">📺</span>
+            <span style="font-weight:700;font-size:.95rem;">横動画 3分</span>
+            <span style="font-size:.72rem;color:var(--text-muted);">通常動画 / 1280×720</span>
+          </label>
+          <label id="formatCard_shorts" onclick="selectFormat('shorts')" style="cursor:pointer;border:2px solid ${_savedFormat==='shorts'?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:10px;padding:16px 14px;background:${_savedFormat==='shorts'?'rgba(201,168,76,.12)':'transparent'};display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:1.3rem;">📱</span>
+            <span style="font-weight:700;font-size:.95rem;">ショート 60秒</span>
+            <span style="font-size:.72rem;color:var(--text-muted);">Shorts / 720×1280</span>
+          </label>
+        </div>
+        <input type="hidden" id="allGenFormat" value="${_savedFormat}">
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
+        <input type="hidden" id="allGenPattern" value="${_savedPattern}">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+          ${[
+            {id:'explanation', icon:'🎤', label:'解説',    desc:'知識・体験を語る'},
+            {id:'ranking',     icon:'🏆', label:'ランキング', desc:'TOP5・比較'},
+            {id:'story',       icon:'📖', label:'ストーリー', desc:'仮想シナリオ'},
+            {id:'drama',       icon:'🎭', label:'ドラマ',  desc:'実体験・失敗談'},
+            {id:'dialogue',    icon:'💬', label:'対談',    desc:'複数キャラ掛け合い'},
+            {id:'challenge',   icon:'🔥', label:'チャレンジ', desc:'試してみた'},
+            {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・レビュー'},
+            {id:'howto',       icon:'📋', label:'How-To',  desc:'手順・やり方'},
+            {id:'secret',      icon:'🤫', label:'本音暴露', desc:'裏側・告白'},
+          ].map(p => `<div onclick="selectPattern('${p.id}')" id="patternCard_${p.id}"
+            style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:8px 6px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'var(--surface2)'};text-align:center;transition:all .15s;">
+            <div style="font-size:1.3rem;margin-bottom:2px;">${p.icon}</div>
+            <div style="font-size:.78rem;font-weight:700;line-height:1.2;">${p.label}</div>
+            <div style="font-size:.62rem;color:var(--text-muted);margin-top:2px;line-height:1.2;">${p.desc}</div>
+          </div>`).join('')}
+        </div>
+
+        <!-- 対談・コラボ時のゲスト選択 -->
+        <div id="dialogueGuestBox" style="display:${_savedPattern==='dialogue'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid var(--char-color,#c9a84c)55;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;color:var(--char-color,#c9a84c);font-weight:700;margin-bottom:8px;">🎭 コラボするキャラを選択</div>
+          <div style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">ホスト: <b>${escHtml(char.name)}</b>（現在選択中）</div>
+          <label style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">ゲストキャラ（1〜2名）</label>
+          <div id="guestCharList" style="display:flex;flex-direction:column;gap:6px;">
+            ${data.characters.filter(c => c.id !== currentCharId).map(c => {
+              const saved = _epInput?.dialogueGuests || [];
+              const checked = saved.includes(c.id);
+              return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;background:var(--surface);border-radius:6px;border:1px solid ${checked?'var(--char-color,#c9a84c)':'var(--border)'};" id="guestLabel_${c.id}">
+                <input type="checkbox" value="${c.id}" class="guestCharCheck" ${checked?'checked':''} onchange="onGuestCheck('${c.id}',this.checked)"
+                  style="accent-color:var(--char-color,#c9a84c);width:16px;height:16px;flex-shrink:0;">
+                <div style="width:26px;height:26px;border-radius:50%;background:${c.color}22;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">${c.icon||'🎭'}</div>
+                <div>
+                  <div style="font-size:.84rem;font-weight:700;">${escHtml(c.name)}</div>
+                  <div style="font-size:.68rem;color:var(--text-muted);">${escHtml(c.theme)} / ${escHtml(c.tone||'')}</div>
+                </div>
+                ${c.voice_mode === 'voicevox' || c.voicevox_speaker ? `<span style="margin-left:auto;font-size:.65rem;color:#4a8;">🎤 声あり</span>` : `<span style="margin-left:auto;font-size:.65rem;color:var(--text-muted);">🌐 ブラウザ音声</span>`}
+              </label>`;
+            }).join('') || `<div style="font-size:.78rem;color:var(--text-muted);">他のキャラがまだいません。左サイドバーから追加してください。</div>`}
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;">💡 選択したキャラの声・個性が台本と音声生成に自動で反映されます</div>
+        </div>
+
+      </div><!-- /STEP2 pattern -->
+
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">STEP 3 ── 企画テーマ</label>
+          <button class="btn btn-secondary btn-sm" style="font-size:.72rem;padding:4px 10px;" onclick="suggestTheme()">💡 AIが提案</button>
+        </div>
+        <div id="themeSuggestArea" style="display:none;margin-bottom:8px;"></div>
+        <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣、睡眠を劇的に改善する方法…" value="${escHtml(_savedTheme)}"
+          style="width:100%;font-size:1rem;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
+          onkeydown="if(event.key==='Enter')generateAll()">
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 4 ── 追加指示（任意）</label>
+        <input type="text" id="allGenNote" placeholder="例: ギャグ多め、感情的に訴える、データ重視で信頼感を出す…" value="${escHtml(_savedNote)}"
+          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 5 ── 詳細指示（任意）</label>
+        <textarea id="allGenDetail" placeholder="例: この動画は新規視聴者向け。冒頭に統計データを入れる。最後はLINE登録に誘導する。"
+          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;">${escHtml(_savedDetail)}</textarea>
+      </div>
+
+      <div id="strategyHint" style="display:none;margin-bottom:12px;"></div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:3;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateAll()">🚀 一括生成（企画→台本→投稿情報）</button>
+        <button class="btn btn-secondary" style="flex:1;padding:13px;" onclick="generatePlan()">企画3案だけ</button>
+      </div>
+
+      <div id="planLoading" class="loading" style="display:none;margin-top:14px;"><div class="spinner"></div><span>企画を考えています...</span></div>
+      <div id="allGenProgress" style="display:none;margin-top:14px;">
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:.84rem;">
+          <div id="allStep1" style="color:var(--text-muted);">⬜ [1/3] Gemini が一括生成中（30〜60秒）...</div>
+          <div id="allStep2" style="color:var(--text-muted);">⬜ [2/3] 結果を反映中...</div>
+          <div id="allStep3" style="color:var(--text-muted);">⬜ [3/3] 完了</div>
+        </div>
+      </div>
+      </div><!-- /planVideoMode -->
+
+      <!-- ラジオモード -->
+      <div id="planRadioMode" style="display:${_savedPattern==='radio'?'block':'none'};">
+        <div style="background:var(--surface2);border:1px solid #4a9edd55;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:12px;">STEP 1 ── 収録メモ・文字起こしを貼り付け</div>
+          <textarea id="planRadioTranscriptInline" placeholder="収録した内容・話したこと・文字起こしをそのまま貼り付けてください。&#10;AIが台本・概要欄・タイトルに整理します。"
+            style="width:100%;min-height:140px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+          <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編・シリーズ名 など）"
+            style="width:100%;margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+        </div>
+        <div style="background:var(--surface2);border:1px solid #4a9edd33;border-radius:10px;padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:10px;">STEP 2 ── 音声ファイルを追加（任意）</div>
+          <button class="btn btn-secondary btn-sm" onclick="openModal('radioRecordModal')" style="display:flex;align-items:center;gap:8px;font-size:.82rem;">
+            🎤 録音・音声ファイルをアップロード
+          </button>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">録音データは投稿タブで音声トラックとして使用できます</div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:13px;font-size:.95rem;font-weight:700;" onclick="generateRadio()">
+          🎙 ラジオ台本・投稿情報を生成
+        </button>
+        <div id="radioGenProgress" style="display:none;margin-top:14px;font-size:.84rem;color:var(--text-muted);">⬜ Gemini がラジオ台本を生成中...</div>
+      </div><!-- /planRadioMode -->
+    </div>
+    <div id="planResults" class="plan-grid">${generatedPlans.length ? renderPlanCards(generatedPlans, generatedPlans.indexOf(selectedPlan)) : ''}</div>
+    <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};">
+      <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
+    </div>
+  </div>`;
 }
 
 // ════════════════════════════════════
@@ -6345,10 +6370,10 @@ function startMakingFromCal(charId, episodeId) {
   // キャラを切り替えてからエピソードをロード
   if (charId && charId !== currentCharId) {
     selectChar(charId);
-    setTimeout(() => { loadEpisode(episodeId); switchTab('plan'); }, 100);
+    setTimeout(() => { loadEpisode(episodeId); switchTab('create'); }, 100);
   } else {
     loadEpisode(episodeId);
-    switchTab('plan');
+    switchTab('create');
   }
 }
 
@@ -6577,7 +6602,13 @@ JSONのみ出力（他テキスト不要）:
     }).join('');
 
     if (resultEl) resultEl.innerHTML = `
-      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">チェックした案をカレンダーに追加します（★おすすめは最初からチェック済み）</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:.75rem;color:var(--text-muted);">★おすすめは最初からチェック済み</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" style="font-size:.7rem;padding:3px 10px;" onclick="document.querySelectorAll('.weeklyItemCheck').forEach((cb,i)=>{cb.checked=true;const b=document.getElementById('weeklyItem_'+i);if(b)b.style.opacity='1';})">全選択</button>
+          <button class="btn btn-sm" style="font-size:.7rem;padding:3px 10px;" onclick="document.querySelectorAll('.weeklyItemCheck').forEach((cb,i)=>{cb.checked=false;const b=document.getElementById('weeklyItem_'+i);if(b)b.style.opacity='.45';})">全解除</button>
+        </div>
+      </div>
       ${cards}
       <button class="btn btn-primary" style="width:100%;padding:10px;margin-top:4px;font-size:.88rem;font-weight:700;background:#4a9edd;border-color:#4a9edd;" onclick="addWeeklyPlanToCalendar()">
         📅 チェックした案をカレンダーに追加して動画制作を始める
@@ -6757,7 +6788,7 @@ function renderDistributePanel() {
 
       ${clItem(hasBulkGen, 'STEP 1', '🚀 一括生成（AI自動）',
         hasBulkGen ? 'X・Note・IG・コメント文が生成済みです' : '「企画」タブの一括生成ボタンを押してください',
-        hasBulkGen ? '' : `<button class="btn btn-primary btn-sm" onclick="switchTab('plan')">企画タブへ →</button>`
+        hasBulkGen ? '' : `<button class="btn btn-primary btn-sm" onclick="switchTab('create')">🎬 作成タブへ →</button>`
       )}
 
       ${clItem(hasThumb, 'STEP 2', '🖼 サムネイル生成（AI自動）',
@@ -7766,7 +7797,7 @@ function getYtToken(charId) {
 // ════════════════════════════════════
 function renderCalendarPanel() {
   return `
-  <div class="panel ${currentTab==='calendar'?'active':''}" id="panelCalendar">
+  <div class="panel" id="panelCalendar" style="display:none;">
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="font-weight:700;font-size:.95rem;">📅 投稿カレンダー</div>
