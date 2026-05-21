@@ -2694,7 +2694,6 @@ function selectChar(id) {
     if (last) { currentEpisodeId = last.id; selectedPlan = last.plan||null; generatedPlans = last.plans||[]; generatedScript = last.script||''; generatedMeta = last.meta||null; }
   }
   renderSidebar(); renderMain();
-  loadFromDrive();
 }
 
 // ════════════════════════════════════
@@ -10733,7 +10732,7 @@ renderSidebar();
   if (el) el.value = localStorage.getItem('channelos_gd_client_id') || '';
 })();
 _checkLoginGate();
-loadFromDrive();
+// loadFromDrive() は起動時自動呼び出し廃止。手動同期ボタンからのみ呼ぶ。
 </script>
 </body>
 </html>
