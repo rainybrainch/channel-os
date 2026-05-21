@@ -354,8 +354,30 @@
       </div>
     </div>
 
-    <!-- STEP 5: AI連携URL -->
-    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 5 ── AI連携（任意）</div>
+    <!-- STEP 5: プラットフォーム戦略 -->
+    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 5 ── プラットフォーム別コンテンツ戦略（クオリティ向上に直結）</div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">このキャラクター固有の戦略をAIに覚えさせます。一括生成の品質が上がります。</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+      <div>
+        <label>📺 YouTube戦略 <span style="font-size:.72rem;color:var(--text-muted);">視聴者層・強みテーマ・避けるNG・競合との差別化</span></label>
+        <textarea id="newCharYtStrategy" placeholder="例: 20〜30代の運動初心者女性。他チャンネルと違い「続けられる」をテーマに安心感を重視。専門用語は使わず体験談ベースで話す。" style="min-height:64px;margin-top:4px;font-size:.82rem;"></textarea>
+      </div>
+      <div>
+        <label>📒 Note戦略 <span style="font-size:.72rem;color:var(--text-muted);">Noteの読者層・投稿スタイル・動画との連携方法</span></label>
+        <textarea id="newCharNoteStrategy" placeholder="例: YouTube動画を深掘りする添え書き。「なぜこの動画を作ったか」を本音で語るスタイル。読者が動画を見たくなる入口を作る。" style="min-height:64px;margin-top:4px;font-size:.82rem;"></textarea>
+      </div>
+      <div>
+        <label>🐦 X (Twitter) 戦略 <span style="font-size:.72rem;color:var(--text-muted);">投稿スタイル・フォロワーとの関係・バズらせ方</span></label>
+        <textarea id="newCharXStrategy" placeholder="例: 動画のハイライト1文＋URL。共感を呼ぶ問いかけ形式で締める。絵文字は多用しすぎず2〜3個。" style="min-height:56px;margin-top:4px;font-size:.82rem;"></textarea>
+      </div>
+      <div>
+        <label>📸 Instagram戦略 <span style="font-size:.72rem;color:var(--text-muted);">ビジュアル方針・キャプションスタイル・ハッシュタグ戦略</span></label>
+        <textarea id="newCharIgStrategy" placeholder="例: サムネイルをそのまま使用。キャプションは短め（100字以内）で感情的なフック→URL案内の流れ。" style="min-height:56px;margin-top:4px;font-size:.82rem;"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 6: AI連携URL -->
+    <div style="font-size:.72rem;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">STEP 6 ── AI連携（任意）</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
       <div><label>ChatGPT カスタムGPT URL</label><input type="text" id="newCharGptUrl" placeholder="https://chatgpt.com/g/g-..." style="margin-top:4px;"></div>
       <div><label>Gemini Gem URL</label><input type="text" id="newCharGemUrl" placeholder="https://gemini.google.com/gem/..." style="margin-top:4px;"></div>
@@ -1695,13 +1717,19 @@ async function generateAll() {
 
   const strategy = isShorts ? SHORTS_STRATEGY_2026 : HORIZONTAL_STRATEGY_2026;
   const patternInfo = PATTERN_GUIDE[pattern] || PATTERN_GUIDE.explanation;
+  const _strat = [
+    char.yt_strategy   ? `【YouTubeチャンネル戦略】${char.yt_strategy}` : '',
+    char.note_strategy ? `【Note戦略】${char.note_strategy}` : '',
+    char.x_strategy    ? `【X戦略】${char.x_strategy}` : '',
+    char.ig_strategy   ? `【IG戦略】${char.ig_strategy}` : '',
+  ].filter(Boolean).join('\n');
   const prompt = `あなたはYouTubeチャンネルの企画・台本・投稿最適化の専門家です。
 キャラクター: ${char.name}（${char.species}）テーマ: ${char.theme} トーン: ${char.tone}
 AI人格: ${char.ai_personality}
 テーマキーワード: ${theme}
 動画形式: ${isShorts ? 'YouTubeショート（60秒以内・縦動画）' : '横動画（約3分）'}
 コンテンツパターン: 【${patternInfo.label}】${patternInfo.guide}
-追加指示: ${note || 'なし'}
+${_strat ? `\nキャラクター固有戦略（必ず遵守）:\n${_strat}\n` : ''}追加指示: ${note || 'なし'}
 詳細指示: ${detail || 'なし'}
 
 以下の戦略フレームワークで台本を作成すること:
@@ -5806,6 +5834,11 @@ function openEditChar(id) {
   document.getElementById('newCharGemUrl').value      = char.gem_url || '';
   const ytUrlEl = document.getElementById('newCharYtUrl');
   if (ytUrlEl) ytUrlEl.value = char.yt_url || '';
+  const _sf = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  _sf('newCharYtStrategy',   char.yt_strategy);
+  _sf('newCharNoteStrategy', char.note_strategy);
+  _sf('newCharXStrategy',    char.x_strategy);
+  _sf('newCharIgStrategy',   char.ig_strategy);
   openModal('addCharModal');
 }
 
@@ -5896,7 +5929,11 @@ function saveNewChar() {
     vv_silence:     parseFloat(document.getElementById('newCharPreSilence').value) || null,
     gpt_url: document.getElementById('newCharGptUrl').value.trim(),
     gem_url: document.getElementById('newCharGemUrl').value.trim(),
-    yt_url:  document.getElementById('newCharYtUrl')?.value.trim() || ''
+    yt_url:  document.getElementById('newCharYtUrl')?.value.trim() || '',
+    yt_strategy:   document.getElementById('newCharYtStrategy')?.value.trim() || '',
+    note_strategy: document.getElementById('newCharNoteStrategy')?.value.trim() || '',
+    x_strategy:    document.getElementById('newCharXStrategy')?.value.trim() || '',
+    ig_strategy:   document.getElementById('newCharIgStrategy')?.value.trim() || ''
   });
   saveData(data);
   closeModal('addCharModal');
@@ -5929,6 +5966,10 @@ function updateChar() {
   char.gpt_url          = document.getElementById('newCharGptUrl').value.trim();
   char.gem_url          = document.getElementById('newCharGemUrl').value.trim();
   char.yt_url           = document.getElementById('newCharYtUrl')?.value.trim() || '';
+  char.yt_strategy      = document.getElementById('newCharYtStrategy')?.value.trim() || '';
+  char.note_strategy    = document.getElementById('newCharNoteStrategy')?.value.trim() || '';
+  char.x_strategy       = document.getElementById('newCharXStrategy')?.value.trim() || '';
+  char.ig_strategy      = document.getElementById('newCharIgStrategy')?.value.trim() || '';
   const newAvatar = document.getElementById('newCharAvatarDataUrl').value;
   if (newAvatar) char.avatar_url = newAvatar;
   const newRef = document.getElementById('newCharRefImage').value;
@@ -6848,7 +6889,15 @@ function _resetChecklist() {
 async function distributeAll() {
   const log = document.getElementById('distributeLog');
   if (log) log.innerHTML = '';
-  _distLog('🚀 配信開始...', 'info');
+  _distLog('⚡ 全プラットフォーム配信開始...', 'info');
+
+  // 0. YouTube最新URLを自動取得（まだURLが設定されていない場合）
+  const ep = currentEpisodeId ? (data.episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  if (!ep?.youtubeUrl) {
+    _distLog('📡 YouTube最新動画URLを自動取得中...', 'info');
+    try { await fetchLatestVideoUrl(); _distLog('📡 URL取得＆コメント投稿完了', 'success'); }
+    catch(e) { _distLog('📡 URL取得失敗（スキップ）: ' + e.message, 'warn'); }
+  }
 
   // 1. X投稿
   const xToken = await getXToken(currentCharId);
@@ -6857,20 +6906,34 @@ async function distributeAll() {
     try { await postToX(currentCharId); _markChecklist('xPosted'); _distLog('🐦 X投稿完了', 'success'); }
     catch(e) { _distLog('🐦 X投稿失敗: ' + e.message, 'error'); }
   } else {
-    _distLog('🐦 X: 未接続のためスキップ', 'warn');
+    _distLog('🐦 X: 未接続（設定タブで接続してください）', 'warn');
   }
 
-  // 2. Note（コピー案内）
-  _distLog('📒 Note: コピー＆Note.com を開きます...', 'info');
-  try { await copyNoteAndOpen(); _markChecklist('notePosted'); _distLog('📒 Note: コピー完了。貼り付けて投稿してください', 'warn'); }
-  catch(e) { _distLog('📒 Note: ' + e.message, 'warn'); }
+  // 2. Instagram投稿
+  const igToken = localStorage.getItem(IG_TOKEN_PFX + currentCharId);
+  if (igToken) {
+    _distLog('📸 Instagram投稿中...', 'info');
+    try { await postToInstagram(currentCharId); _markChecklist('igPosted'); _distLog('📸 Instagram投稿完了', 'success'); }
+    catch(e) { _distLog('📸 Instagram投稿失敗: ' + e.message, 'error'); }
+  } else {
+    _distLog('📸 Instagram: 未接続（設定タブで接続してください）', 'warn');
+  }
 
-  // 3. ファーストコメント
-  _distLog('💬 ファーストコメント投稿中...', 'info');
-  try { await postFirstComment(); _markChecklist('commentPosted'); _distLog('💬 コメント投稿完了', 'success'); }
-  catch(e) { _distLog('💬 コメント失敗: ' + e.message, 'error'); }
+  // 3. ファーストコメント（URL取得済みの場合のみ・URL取得時に既に投稿されている場合はスキップ）
+  const cl2 = ((loadData().episodes||[]).find(e=>e.id===currentEpisodeId))?.postingChecklist || {};
+  if (!cl2.commentPosted) {
+    _distLog('💬 ファーストコメント投稿中...', 'info');
+    try { await postFirstComment(); _markChecklist('commentPosted'); _distLog('💬 コメント投稿完了', 'success'); }
+    catch(e) { _distLog('💬 コメント失敗: ' + e.message, 'error'); }
+  }
 
-  _distLog('✅ 一括実行完了', 'success');
+  // 4. Note（コピー＆オープン）
+  _distLog('📒 Note: クリップボードにコピー＆Note.comを開きます...', 'info');
+  try { await copyNoteAndOpen(); _markChecklist('notePosted'); _distLog('📒 Note: コピー完了。Note.comに貼り付けて投稿してください', 'warn'); }
+  catch(e) { _distLog('📒 Note: ' + (e.message||'テキスト未生成'), 'warn'); }
+
+  _distLog('✅ 全プラットフォーム配信処理完了', 'success');
+  showToast('✅ X・IG・コメント・Noteを一括処理しました');
 }
 
 function _distLog(msg, type='info') {
