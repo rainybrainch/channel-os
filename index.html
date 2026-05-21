@@ -470,6 +470,7 @@
           <div id="wizYtStatus" style="font-size:.72rem;color:var(--text-muted);">未接続</div>
         </div>
         <button class="btn btn-secondary btn-sm" id="wizYtBtn" onclick="wizYtAuth()" style="font-size:.75rem;">接続する</button>
+        <button class="btn btn-secondary btn-sm" id="wizYtLogoutBtn" onclick="wizYtLogout()" style="font-size:.75rem;display:none;color:#e55;border-color:#e5533355;">ログアウト</button>
       </div>
       <div style="padding:8px 0 4px;padding-left:34px;display:flex;gap:8px;flex-wrap:wrap;">
         <div style="flex:1;min-width:140px;"><label style="font-size:.72rem;color:var(--text-muted);">チャンネルID（UC〜）</label><input type="text" id="newCharChannelId" placeholder="UCxxxxxxxxxx" style="margin-top:2px;font-size:.8rem;"></div>
@@ -2663,11 +2664,9 @@ function renderMain() {
       </div>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
         ${getYtToken(char.id)
-          ? `<span style="font-size:.72rem;color:#4a8;">📺 YT認証済</span>
-             <span id="yt_account_badge_${char.id}" style="display:inline-flex;align-items:center;gap:3px;">⏳</span>
-             <button class="btn btn-secondary btn-sm" onclick="ytLogout('${char.id}')">YTログアウト</button>`
-          : `<button class="btn btn-primary btn-sm" onclick="ytAuth('${char.id}')">📺 YouTube認証</button>`}
-        <button class="btn btn-secondary btn-sm" onclick="openEditChar('${char.id}')">編集</button>
+          ? `<span id="yt_account_badge_${char.id}" style="display:inline-flex;align-items:center;gap:3px;font-size:.72rem;color:#4a8;">📺</span>`
+          : `<button class="btn btn-primary btn-sm" onclick="ytAuth('${char.id}')" style="font-size:.74rem;padding:5px 10px;">📺 YouTube認証</button>`}
+        <button class="btn btn-secondary btn-sm" onclick="openEditChar('${char.id}')" style="font-size:.74rem;padding:5px 10px;">編集</button>
       </div>
     </div>
 
@@ -7037,7 +7036,7 @@ function ytAuth(charId) {
       if (sp) sp.outerHTML = renderSettingsPanel();
     }
   });
-  client.requestAccessToken({ prompt: 'consent' });
+  client.requestAccessToken({ prompt: 'select_account' });
 }
 async function _saveThumbToEp(field, dataUrl) {
   if (!currentEpisodeId) return;
@@ -7900,12 +7899,15 @@ function _updateWizardStatus(charId) {
   _set('wizYtStatus', ytTok ? '✅ 接続済み' : '未接続', !!ytTok);
   _set('wizXStatus',  xTok  ? `✅ @${xUser||'接続済み'}` : '未接続（設定タブでClient IDを先に入力）', !!xTok);
   _set('wizIgStatus', igTok ? `✅ @${igUser||'接続済み'}` : '未接続（設定タブでApp IDを先に入力）', !!igTok);
-  _btn('wizYtBtn', '接続する', !!ytTok);
+  _btn('wizYtBtn', ytTok ? '再認証' : '接続する', false);
   _btn('wizXBtn',  '接続する', !!xTok);
   _btn('wizIgBtn', '接続する', !!igTok);
+  const logoutBtn = document.getElementById('wizYtLogoutBtn');
+  if (logoutBtn) logoutBtn.style.display = ytTok ? 'inline-block' : 'none';
 }
 
 function wizYtAuth()  { closeModal('addCharModal'); ytAuth(editingCharId || '_wizard_'); }
+function wizYtLogout() { if (editingCharId) { ytLogout(editingCharId); _updateWizardStatus(editingCharId); } }
 function wizXAuth()   { if (!localStorage.getItem(X_CLIENT_SK)) { showToast('先に設定タブでX Client IDを入力してください'); return; } xAuth(editingCharId || '_wizard_'); }
 function wizIgAuth()  { if (!localStorage.getItem(IG_APP_ID_SK)) { showToast('先に設定タブでIG App IDを入力してください'); return; } igAuth(editingCharId || '_wizard_'); }
 
