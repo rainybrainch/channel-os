@@ -8308,13 +8308,19 @@ async function aiImproveChar() {
 現在のパーソナリティ: ${persona || '未設定'}
 
 以下の項目をキャラクターに最適な内容で提案してください。アイコン画像は変更しません。
+voice_nameは以下から1つ選んでください：
+ja-JP-Neural2-A（女性・柔らか）/ ja-JP-Neural2-B（女性・高め）/ ja-JP-Neural2-C（女性・落ち着き）/ ja-JP-Neural2-D（男性・標準）/ ja-JP-Wavenet-B（女性・高品質）/ ja-JP-Wavenet-D（男性・高品質）/ ja-JP-Standard-A（女性・標準）/ ja-JP-Standard-B（男性・標準）
+
 JSON形式のみで出力（他テキスト不要）:
 {
   "tone": "口調・話し方（20字以内）",
   "ai_personality": "AIが使うキャラ設定（100字以内・視聴者への価値・特徴を含む）",
   "yt_strategy": "YouTube戦略（視聴者層・差別化・NGを30字以内）",
   "note_strategy": "Note戦略（30字以内）",
-  "x_strategy": "X投稿スタイル（30字以内）"
+  "x_strategy": "X投稿スタイル（30字以内）",
+  "voice_name": "キャラに合う音声ID",
+  "voice_rate": 話速（0.8〜1.3の数値・テンポ感に合わせて）,
+  "voice_pitch": 音高（-5〜5の整数・キャラの声の高さに合わせて）
 }`;
   try {
     const text = await callClaude(prompt);
@@ -8325,8 +8331,22 @@ JSON形式のみで出力（他テキスト不要）:
     _set('newCharYtStrategy',  r.yt_strategy);
     _set('newCharNoteStrategy',r.note_strategy);
     _set('newCharXStrategy',   r.x_strategy);
+    // 音声設定を反映
+    if (r.voice_name) {
+      const voiceSel = document.getElementById('newCharGoogleTtsVoice');
+      if (voiceSel) voiceSel.value = r.voice_name;
+      switchVoiceTab('google_tts');
+    }
+    if (r.voice_rate != null) {
+      const rateEl = document.getElementById('googleTtsRate');
+      if (rateEl) { rateEl.value = r.voice_rate; const rv = document.getElementById('googleTtsRateVal'); if (rv) rv.textContent = r.voice_rate; }
+    }
+    if (r.voice_pitch != null) {
+      const pitchEl = document.getElementById('googleTtsPitch');
+      if (pitchEl) { pitchEl.value = r.voice_pitch; const pv = document.getElementById('googleTtsPitchVal'); if (pv) pv.textContent = r.voice_pitch; }
+    }
     if (st) st.textContent = '✅ 改良しました。確認して保存してください';
-    showToast('✅ AI改良完了');
+    showToast('✅ AI改良完了（音声設定も更新）');
   } catch(e) {
     if (st) st.textContent = '❌ ' + e.message;
     showToast('❌ ' + e.message);
