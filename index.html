@@ -6515,17 +6515,17 @@ function renderSettingsPanel() {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
           <div>
             <label style="font-size:.78rem;">フォントサイズ</label>
-            <select id="capFontSize" style="margin-top:4px;">
+            <select id="capFontSize" style="margin-top:4px;" onchange="updateCapPreview()">
               ${['18','20','24','28','32','40'].map(s=>`<option value="${s}" ${(cs.fontSize||'24')===s?'selected':''}>${s}px</option>`).join('')}
             </select>
           </div>
           <div>
             <label style="font-size:.78rem;">テキスト色</label>
-            <input type="color" id="capTextColor" value="${cs.textColor||'#ffffff'}" style="height:36px;width:100%;cursor:pointer;margin-top:4px;">
+            <input type="color" id="capTextColor" value="${cs.textColor||'#ffffff'}" style="height:36px;width:100%;cursor:pointer;margin-top:4px;" oninput="updateCapPreview()">
           </div>
           <div>
             <label style="font-size:.78rem;">背景スタイル</label>
-            <select id="capBgStyle" style="margin-top:4px;">
+            <select id="capBgStyle" style="margin-top:4px;" onchange="updateCapPreview()">
               <option value="none" ${(cs.bgStyle||'semi')==='none'?'selected':''}>なし</option>
               <option value="semi" ${(cs.bgStyle||'semi')==='semi'?'selected':''}>半透明黒（推奨）</option>
               <option value="solid" ${(cs.bgStyle||'semi')==='solid'?'selected':''}>不透明黒</option>
@@ -6541,7 +6541,7 @@ function renderSettingsPanel() {
           </div>
           <div>
             <label style="font-size:.78rem;">表示位置</label>
-            <select id="capPosition" style="margin-top:4px;">
+            <select id="capPosition" style="margin-top:4px;" onchange="updateCapPreview()">
               <option value="bottom" ${(cs.position||'bottom')==='bottom'?'selected':''}>下部（推奨）</option>
               <option value="center" ${(cs.position||'bottom')==='center'?'selected':''}>中央下</option>
               <option value="top" ${(cs.position||'bottom')==='top'?'selected':''}>上部</option>
@@ -6549,11 +6549,17 @@ function renderSettingsPanel() {
           </div>
           <div>
             <label style="font-size:.78rem;">フォント</label>
-            <select id="capFont" style="margin-top:4px;">
+            <select id="capFont" style="margin-top:4px;" onchange="updateCapPreview()">
               <option value="Noto Sans JP" ${(cs.font||'Noto Sans JP')==='Noto Sans JP'?'selected':''}>Noto Sans JP</option>
               <option value="M PLUS 1p" ${(cs.font||'Noto Sans JP')==='M PLUS 1p'?'selected':''}>M PLUS 1p</option>
               <option value="Arial" ${(cs.font||'Noto Sans JP')==='Arial'?'selected':''}>Arial</option>
             </select>
+          </div>
+        </div>
+        <!-- プレビュー -->
+        <div style="margin-bottom:12px;background:#111;border-radius:8px;overflow:hidden;position:relative;aspect-ratio:16/5;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8%;">
+          <div id="capPreviewText" style="font-size:24px;color:#fff;padding:4px 12px;border-radius:4px;background:rgba(0,0,0,0.6);font-family:'Noto Sans JP',sans-serif;max-width:90%;text-align:center;transition:all .2s;">
+            サンプルの字幕テキストです
           </div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="saveCaptionStyle()">💾 字幕スタイルを保存</button>
@@ -6791,6 +6797,27 @@ function toggleGasPreview() {
     el.style.display = 'block';
   } else {
     el.style.display = 'none';
+  }
+}
+
+function updateCapPreview() {
+  const el = document.getElementById('capPreviewText');
+  if (!el) return;
+  const fontSize  = document.getElementById('capFontSize')?.value || '24';
+  const textColor = document.getElementById('capTextColor')?.value || '#ffffff';
+  const bgStyle   = document.getElementById('capBgStyle')?.value || 'semi';
+  const font      = document.getElementById('capFont')?.value || 'Noto Sans JP';
+  const position  = document.getElementById('capPosition')?.value || 'bottom';
+  const bg = bgStyle === 'none' ? 'transparent' : bgStyle === 'solid' ? 'rgba(0,0,0,1)' : 'rgba(0,0,0,0.6)';
+  el.style.fontSize   = fontSize + 'px';
+  el.style.color      = textColor;
+  el.style.background = bg;
+  el.style.fontFamily = `'${font}',sans-serif`;
+  const wrapper = el.parentElement;
+  if (wrapper) {
+    wrapper.style.alignItems = position === 'top' ? 'flex-start' : position === 'center' ? 'center' : 'flex-end';
+    wrapper.style.paddingTop    = position === 'top' ? '8%' : '0';
+    wrapper.style.paddingBottom = position === 'top' ? '0' : '8%';
   }
 }
 
