@@ -2763,21 +2763,27 @@ function renderPlanPanel(char) {
       </div>
 
       <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
-        <select id="allGenPattern" onchange="selectPattern(this.value)"
-          style="width:100%;font-size:.95rem;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">STEP 2 ── コンテンツパターン</label>
+        <input type="hidden" id="allGenPattern" value="${_savedPattern}">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
           ${[
-            {id:'explanation', icon:'🎤', label:'解説 — キャラが専門知識・体験を語る'},
-            {id:'ranking',     icon:'🏆', label:'ランキング — TOP5・比較・カウントダウン'},
-            {id:'story',       icon:'📖', label:'ストーリー — 「もし〇〇なら」仮想シナリオ'},
-            {id:'drama',       icon:'🎭', label:'ドラマ — キャラの実体験・失敗談'},
-            {id:'dialogue',    icon:'💬', label:'対談・コラボ — 複数キャラの掛け合い'},
-            {id:'challenge',   icon:'🔥', label:'チャレンジ — 試してみた・実験'},
-            {id:'reaction',    icon:'😲', label:'リアクション — 驚き・感動・レビュー'},
-            {id:'howto',       icon:'📋', label:'How-To — ステップ解説・やり方'},
-            {id:'secret',      icon:'🤫', label:'暴露・本音 — 裏側・実態・告白'},
-          ].map(p => `<option value="${p.id}" ${_savedPattern===p.id?'selected':''}>${p.icon} ${p.label}</option>`).join('')}
-        </select>
+            {id:'explanation', icon:'🎤', label:'解説',    desc:'知識・体験を語る'},
+            {id:'ranking',     icon:'🏆', label:'ランキング', desc:'TOP5・比較'},
+            {id:'story',       icon:'📖', label:'ストーリー', desc:'仮想シナリオ'},
+            {id:'drama',       icon:'🎭', label:'ドラマ',  desc:'実体験・失敗談'},
+            {id:'dialogue',    icon:'💬', label:'対談',    desc:'複数キャラ掛け合い'},
+            {id:'challenge',   icon:'🔥', label:'チャレンジ', desc:'試してみた'},
+            {id:'reaction',    icon:'😲', label:'リアクション', desc:'驚き・レビュー'},
+            {id:'howto',       icon:'📋', label:'How-To',  desc:'手順・やり方'},
+            {id:'secret',      icon:'🤫', label:'本音暴露', desc:'裏側・告白'},
+            {id:'radio',       icon:'📻', label:'ラジオ',  desc:'収録・トーク整理'},
+          ].map(p => `<div onclick="selectPattern('${p.id}')" id="patternCard_${p.id}"
+            style="cursor:pointer;border:2px solid ${_savedPattern===p.id?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:8px 6px;background:${_savedPattern===p.id?'rgba(201,168,76,.12)':'var(--surface2)'};text-align:center;transition:all .15s;">
+            <div style="font-size:1.3rem;margin-bottom:2px;">${p.icon}</div>
+            <div style="font-size:.78rem;font-weight:700;line-height:1.2;">${p.label}</div>
+            <div style="font-size:.62rem;color:var(--text-muted);margin-top:2px;line-height:1.2;">${p.desc}</div>
+          </div>`).join('')}
+        </div>
 
         <!-- 対談・コラボ時のゲスト選択 -->
         <div id="dialogueGuestBox" style="display:${_savedPattern==='dialogue'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid var(--char-color,#c9a84c)55;border-radius:8px;padding:12px 14px;">
@@ -2801,6 +2807,14 @@ function renderPlanPanel(char) {
             }).join('') || `<div style="font-size:.78rem;color:var(--text-muted);">他のキャラがまだいません。左サイドバーから追加してください。</div>`}
           </div>
           <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;">💡 選択したキャラの声・個性が台本と音声生成に自動で反映されます</div>
+        </div>
+
+        <!-- ラジオパターン: 文字起こしエリア -->
+        <div id="radioPatternBox" style="display:${_savedPattern==='radio'?'block':'none'};margin-top:10px;background:var(--surface2);border:1px solid #4a9edd55;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;color:#4a9edd;font-weight:700;margin-bottom:8px;">📻 ラジオ・収録メモを整理</div>
+          <textarea id="planRadioTranscriptInline" placeholder="収録した内容・文字起こしをそのまま貼り付けてください。&#10;AIが台本・絵コンテに整理します。" style="width:100%;min-height:120px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+          <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編 など）" style="width:100%;margin-top:8px;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">💡「🚀 一括生成」を押すと文字起こしを元にAIが台本・投稿情報を自動作成します</div>
         </div>
       </div>
 
@@ -2848,23 +2862,28 @@ function renderPlanPanel(char) {
       <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
     </div>
 
-    <div class="card" style="border:1px solid #4a9edd44;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);margin-top:4px;">
-      <div class="card-title" style="margin-bottom:6px;">🎙 ラジオ・長尺を作る</div>
-      <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 14px;">文字起こしや収録メモを貼り付けると、整理済み台本・投稿情報・絵コンテを自動生成します。</p>
-      <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">文字起こし / 収録メモ</label>
-        <textarea id="planRadioTranscript" placeholder="収録した内容をそのまま貼り付けてください。&#10;&#10;例:&#10;00:00 オープニング — 今日のテーマ&#10;02:30 セクション1 — ○○について..." style="width:100%;min-height:140px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.88rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+    <details style="margin-top:4px;">
+      <summary style="cursor:pointer;background:var(--surface);border:1px solid #4a9edd44;border-radius:8px;padding:12px 16px;font-size:.84rem;color:#4a9edd;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1rem;">🎙</span> ラジオ・長尺 — 文字起こしから整理する（上で「📻 ラジオ」を選んだ場合はそちらで入力）
+        <span style="margin-left:auto;font-size:.72rem;color:var(--text-muted);">▼ 開く</span>
+      </summary>
+      <div class="card" style="border:1px solid #4a9edd44;background:linear-gradient(135deg,rgba(74,158,221,.06),transparent);border-top:none;border-radius:0 0 8px 8px;margin-top:0;">
+        <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 14px;">文字起こしや収録メモを貼り付けると、整理済み台本・投稿情報・絵コンテを自動生成します。</p>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">文字起こし / 収録メモ</label>
+          <textarea id="planRadioTranscript" placeholder="収録した内容をそのまま貼り付けてください。&#10;&#10;例:&#10;00:00 オープニング — 今日のテーマ&#10;02:30 セクション1 — ○○について..." style="width:100%;min-height:140px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.88rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">補足情報（任意）</label>
+          <input type="text" id="planRadioNote" placeholder="例: ゲスト回、前後編の前編など"
+            style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:.92rem;font-weight:700;background:#4a9edd;color:#fff;" onclick="startRadioFromPlan()">
+          🚀 ラジオ一括生成（台本整理→投稿情報→絵コンテ）
+        </button>
+        <div id="planRadioLoading" class="loading" style="display:none;margin-top:12px;"><div class="spinner"></div><span>Claude が分析中...</span></div>
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">補足情報（任意）</label>
-        <input type="text" id="planRadioNote" placeholder="例: ゲスト回、前後編の前編など"
-          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
-      </div>
-      <button class="btn btn-primary" style="width:100%;padding:12px;font-size:.92rem;font-weight:700;background:#4a9edd;color:#fff;" onclick="startRadioFromPlan()">
-        🚀 ラジオ一括生成（台本整理→投稿情報→絵コンテ）
-      </button>
-      <div id="planRadioLoading" class="loading" style="display:none;margin-top:12px;"><div class="spinner"></div><span>Claude が分析中...</span></div>
-    </div>
+    </details>
   </div>`;
 }
 
@@ -2977,9 +2996,18 @@ const PATTERN_GUIDE = {
 function selectPattern(pid) {
   const sel = document.getElementById('allGenPattern');
   if (sel) sel.value = pid;
+  // カードのハイライト切替
+  document.querySelectorAll('[id^="patternCard_"]').forEach(el => {
+    const isActive = el.id === 'patternCard_' + pid;
+    el.style.border = `2px solid ${isActive ? 'var(--char-color,#c9a84c)' : 'var(--border)'}`;
+    el.style.background = isActive ? 'rgba(201,168,76,.12)' : 'var(--surface2)';
+  });
   // 対談モード表示切替
   const guestBox = document.getElementById('dialogueGuestBox');
   if (guestBox) guestBox.style.display = pid === 'dialogue' ? 'block' : 'none';
+  // ラジオ文字起こしエリア表示切替
+  const radioBox = document.getElementById('radioPatternBox');
+  if (radioBox) radioBox.style.display = pid === 'radio' ? 'block' : 'none';
   if (currentEpisodeId) {
     const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
     if (ep) { ep.inputPattern = pid; saveData(data); }
@@ -3025,10 +3053,15 @@ async function generateAll() {
   if (!char) { showToast('キャラクターを選択してください'); return; }
   const apiKey = localStorage.getItem(GEMINI_KEY_SK);
   if (!apiKey) { showToast('設定タブでGemini APIキーを入力してください'); return; }
+  const pattern = document.getElementById('allGenPattern')?.value || 'explanation';
+  // ラジオパターン時はstartRadioFromPlanに委譲
+  if (pattern === 'radio') {
+    const radioText = document.getElementById('planRadioTranscriptInline')?.value.trim();
+    if (radioText) { startRadioFromPlan(); return; }
+  }
   const theme = document.getElementById('planTheme').value.trim();
   if (!theme) { showToast('テーマを入力してください'); return; }
   const format  = document.getElementById('allGenFormat')?.value || 'horizontal';
-  const pattern = document.getElementById('allGenPattern')?.value || 'explanation';
   const note    = document.getElementById('allGenNote')?.value.trim() || '';
   const detail  = document.getElementById('allGenDetail')?.value.trim() || '';
 
@@ -4609,9 +4642,12 @@ function renderRadioResult(res) {
 }
 
 async function startRadioFromPlan() {
-  const transcript = document.getElementById('planRadioTranscript')?.value.trim();
-  if (!transcript) { showToast('文字起こしを入力してください'); return; }
-  const note = document.getElementById('planRadioNote')?.value.trim() || '';
+  // インライン入力（パターンカード内）または下部の旧エリアを優先
+  const transcript = (document.getElementById('planRadioTranscriptInline')?.value.trim()) ||
+                     (document.getElementById('planRadioTranscript')?.value.trim());
+  if (!transcript) { showToast('文字起こし / 収録メモを入力してください'); return; }
+  const note = (document.getElementById('planRadioNoteInline')?.value.trim()) ||
+               (document.getElementById('planRadioNote')?.value.trim()) || '';
   // 新規エピソードを作成
   newEpisode();
   // generateRadioMeta に値を直接渡す
@@ -4786,14 +4822,17 @@ function renderScenePanel() {
         </div>
       </div>
 
-      <!-- スマホ/動画連携ツールバー -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-        <div style="font-size:.74rem;color:var(--text-muted);width:100%;margin-bottom:4px;font-weight:600;">📱 スマホ・動画連携</div>
-        <button class="btn btn-secondary btn-sm" onclick="openReverseStoryboard()" title="動画をアップロードしてシーンを自動生成">🎬 逆台本（動画→絵コンテ）</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportCapCutProject()" title="CapCut/DaVinci用にシーン構成をJSON書き出し">📤 CapCut書き出し</button>
-        <button class="btn btn-secondary btn-sm" onclick="openModal('radioRecordModal')" title="スマホ録音をラジオタブに送る">🎙 ラジオ録音</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL</button>
-      </div>
+      <!-- スマホ/動画連携ツールバー（折りたたみ） -->
+      <details style="margin-bottom:12px;">
+        <summary style="cursor:pointer;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:.76rem;color:var(--text-muted);font-weight:600;list-style:none;display:flex;align-items:center;gap:6px;">
+          📱 スマホ・動画連携ツール <span style="margin-left:auto;">▼</span>
+        </summary>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--surface2);border-radius:0 0 8px 8px;border:1px solid var(--border);border-top:none;">
+          <button class="btn btn-secondary btn-sm" onclick="openReverseStoryboard()" title="動画をアップロードしてシーンを自動生成">🎬 逆台本（動画→絵コンテ）</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportCapCutProject()" title="CapCut/DaVinci用にシーン構成をJSON書き出し">📤 CapCut書き出し</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL</button>
+        </div>
+      </details>
 
       <!-- 一括AI画像生成 -->
       <div style="background:linear-gradient(135deg,rgba(106,27,154,.12),transparent);border:1px solid #6a1b9a55;border-radius:8px;padding:14px;margin-bottom:14px;">
