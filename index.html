@@ -3413,6 +3413,9 @@ async function generateAll() {
 
   const strategy = isShorts ? SHORTS_STRATEGY_2026 : HORIZONTAL_STRATEGY_2026;
   const patternInfo = PATTERN_GUIDE[pattern] || PATTERN_GUIDE.explanation;
+  const _pdca = _buildStrategyContext(char.id);
+  const _pdcaStr = _pdca.totalEps > 0
+    ? `過去実績(${_pdca.totalEps}本):コンテンツ比率=${_pdca.patternSummary}${_pdca.avgViews?` 平均再生=${_pdca.avgViews}回`:''}${_pdca.topStr?` 人気動画=${_pdca.topStr}`:''}${_pdca.suggest?` 不足パターン=${_pdca.suggest}`:''}` : '';
   const _strat = [
     char.yt_strategy   ? `【YouTubeチャンネル戦略】${char.yt_strategy}` : '',
     char.note_strategy ? `【Note戦略】${char.note_strategy}` : '',
@@ -3431,7 +3434,7 @@ async function generateAll() {
     : '';
 
   const prompt = `${isDialogue && guestChars.length > 0 ? `ホスト:${char.name}(${char.species})テーマ:${char.theme}` : `キャラ:${char.name}(${char.species})テーマ:${char.theme} トーン:${char.tone} 個性:${char.ai_personality}`}
-${castDesc}形式:${isShorts?'ショート60秒':'横動画3分'} パターン:${patternInfo.label}(${patternInfo.guide}) テーマ:${theme}${_strat?` 戦略:${_strat}`:''}${note?' 追加:'+note:''}${detail?' 詳細:'+detail:''}
+${castDesc}形式:${isShorts?'ショート60秒':'横動画3分'} パターン:${patternInfo.label}(${patternInfo.guide}) テーマ:${theme}${_strat?` 戦略:${_strat}`:''}${_pdcaStr?' PDCA:'+_pdcaStr:''}${note?' 追加:'+note:''}${detail?' 詳細:'+detail:''}
 戦略:${strategy}
 JSONのみ出力:
 {"plans":[{"label":"案A","title":"","description":"","hook":""},{"label":"案B","title":"","description":"","hook":""},{"label":"案C","title":"","description":"","hook":""}],"selected_index":0,"selection_reason":"","script":{"info":"構成メモ","lines":"セリフ改行区切り（キャラ名・括弧不要）"},"meta":{"title":"タイトル40字","title_alt":"代替","description":"概要欄3段落","tags":["ビッグKW","ミドルKW","ロングテール","Shorts","shorts"],"hashtags":["#Shorts","#メガ","#ビッグ","#ミドル","#ニッチ"],"hashtag_strategy":"戦略1文","best_post_time":"投稿日時","thumb_horizontal":"英語16:9プロンプト","thumb_shorts":"英語9:16プロンプト","thumb_text_horizontal":"横テキスト20字","thumb_text_shorts":"縦テキスト15字"},"distribute":{"x_tweet":"X文260字[YT_URL]","note_post":"Note文400字[YT_URL]","ig_caption":"IG200字","first_comment":"コメ150字"}}`;
@@ -3704,7 +3707,7 @@ function renderCreatePanel(char) {
             ${isActive ? '<span style="font-size:.72rem;color:#27ae60;font-weight:700;flex-shrink:0;">▶ 編集中</span>' : '<span style="font-size:.7rem;color:var(--text-muted);flex-shrink:0;">タップ</span>'}
           </div>`;
         }).join('')}
-      </div></div>
+      </div>
     </div>` : ''}
 
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
