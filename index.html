@@ -10921,7 +10921,8 @@ if __name__ == "__main__":
 function parseScript(raw) {
   try {
     const json = safeParseJSON(raw, null); if (!json) throw new Error('parse fail');
-    return { info: json.info || '', lines: json.lines || '' };
+    const rawLines = json.lines || '';
+    return { info: json.info || '', lines: Array.isArray(rawLines) ? rawLines.join('\n') : String(rawLines) };
   } catch(e) {
     // JSON失敗時は全文をlinesとして表示
     return { info: '', lines: raw };
