@@ -2985,7 +2985,7 @@ function renderPlanPanel(char) {
               </div>
               <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
                 ${e.posted ? '<span style="font-size:.68rem;color:#4caf50;">✅投稿済</span>' : isToday ? '<span style="font-size:.68rem;color:var(--char-color,#c9a84c);font-weight:700;">今日！</span>' : ''}
-                ${!e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}')">🎬 作る</button>` : ''}
+                ${!e.posted ? `<button class="btn btn-primary btn-sm" style="font-size:.72rem;padding:4px 10px;white-space:nowrap;" onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}','${e.id}')">🎬 作る</button>` : ''}
                 ${isPast ? `<button class="btn btn-sm" style="font-size:.66rem;padding:3px 8px;background:${perf?'rgba(76,175,80,.2)':'var(--surface2)'};color:${perf?'#4caf50':'var(--text-muted)'};" onclick="openPdcaModal('${e.date}','${e.charId}',${JSON.stringify(e.title||e.theme||'')})">${perf?'📊 編集':'📊 実績'}</button>` : ''}
                 <button onclick="deleteCalEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:.75rem;color:#666;padding:2px 4px;" title="この予定を削除">🗑</button>
               </div>
@@ -3667,7 +3667,7 @@ function renderCreatePanel(char) {
     const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayStr = _ld(new Date());
     return loadCalendar()
-      .filter(e => e.charId === char.id && e.date >= todayStr && e.episodeId && !e.posted)
+      .filter(e => e.charId === char.id && e.date >= todayStr && !e.posted)
       .sort((a,b) => a.date.localeCompare(b.date))
       .slice(0, 7);
   })();
@@ -3686,7 +3686,7 @@ function renderCreatePanel(char) {
           const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           const todayStr = _ld(new Date());
           const isToday = e.date === todayStr;
-          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}')"
+          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}','${e.id}')"
             style="cursor:pointer;padding:10px 12px;border-radius:8px;border:2px solid ${isActive?'#27ae60':isToday?'#27ae6066':'var(--border)'};background:${isActive?'rgba(39,174,96,.12)':'var(--surface2)'};display:flex;align-items:center;gap:10px;">
             <div style="text-align:center;min-width:32px;">
               <div style="font-size:.62rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
@@ -6382,18 +6382,30 @@ function closeCalModal() {
 }
 
 // カレンダーから動画制作を開始
-function startMakingFromCal(charId, episodeId) {
+function startMakingFromCal(charId, episodeId, calEntryId) {
   closeCalModal();
   const _go = (epId) => { loadEpisode(epId); switchTab('create'); };
-  // エピソードIDがない場合は新規作成
+  // エピソードIDがない場合は該当カレンダーエントリに新規作成して紐付け
   if (!episodeId) {
     const cal = loadCalendar();
-    const entry = cal.find(e => e.charId === (charId||currentCharId) && !e.episodeId && !e.posted);
+    const entry = calEntryId
+      ? cal.find(e => e.id === calEntryId)
+      : cal.find(e => e.charId === (charId||currentCharId) && !e.episodeId && !e.posted);
     if (entry) {
       const newEpId = 'ep_' + Date.now();
-      const ep = { id: newEpId, charId: charId||currentCharId, title: entry.title||entry.theme||'', theme: entry.theme||'', inputTheme: entry.theme||'', inputPattern: entry.pattern||'explanation', inputFormat: entry.format||'shorts', createdAt: new Date().toISOString(), status: 'draft' };
-      data.episodes = data.episodes || []; data.episodes.push(ep); saveData(data);
-      entry.episodeId = newEpId; saveCalendar(cal);
+      const ep = {
+        id: newEpId, charId: charId||currentCharId,
+        title: entry.title||entry.theme||'',
+        theme: entry.theme||'', inputTheme: entry.theme||'',
+        inputPattern: entry.pattern||'explanation',
+        inputFormat: entry.format||'shorts',
+        createdAt: new Date().toISOString(), status: 'draft'
+      };
+      data.episodes = data.episodes || [];
+      data.episodes.push(ep);
+      saveData(data);
+      entry.episodeId = newEpId;
+      saveCalendar(cal);
       episodeId = newEpId;
     }
   }
