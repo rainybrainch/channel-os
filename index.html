@@ -1031,18 +1031,19 @@ function loadEpisode(id) {
   generatedMeta   = ep.meta   || null;
   window._radioResult = ep.radioResult || null;
   renderSidebar();
-  // 企画タブを再描画して内容を反映
+  // 全パネルを再描画して内容を反映
   const char = data.characters.find(c => c.id === currentCharId);
   if (!char) return;
   const planPanel = document.getElementById('panelPlan');
   if (planPanel) planPanel.outerHTML = renderPlanPanel(char);
+  const createPanel = document.getElementById('panelCreate');
+  if (createPanel) createPanel.outerHTML = renderCreatePanel(char);
   const scriptPanel = document.getElementById('panelScript');
   if (scriptPanel) scriptPanel.outerHTML = renderScriptPanel(char);
   const metaPanel = document.getElementById('panelMeta');
   if (metaPanel) metaPanel.outerHTML = renderMetaPanel(char);
   const scenePanel = document.getElementById('panelScene');
   if (scenePanel) scenePanel.outerHTML = renderScenePanel();
-  switchTab('plan');
 }
 
 function saveCurrentEpisode() {
@@ -2877,6 +2878,7 @@ function switchTab(tab) {
   } else if (char) {
     const renders = {
       plan:       () => { const el = document.getElementById('panelPlan'); if (el) el.outerHTML = renderPlanPanel(char); setTimeout(()=>{ showStrategyHint(); _restoreWeeklyPlanResult(); }, 0); },
+      create:     () => { const el = document.getElementById('panelCreate'); if (el) el.outerHTML = renderCreatePanel(char); },
       script:     () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
       meta:       () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
       assets:     () => { loadDriveAssets(); },
