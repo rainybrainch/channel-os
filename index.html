@@ -3433,7 +3433,8 @@ async function generateAll() {
       ).join('\n') + `\n\n台本の"lines"フィールドでは必ず各セリフを「[${allCastChars.map(c=>c.name).join(']か[')}]: セリフ」の形式で出力すること。`
     : '';
 
-  const prompt = `${isDialogue && guestChars.length > 0 ? `ホスト:${char.name}(${char.species})テーマ:${char.theme}` : `キャラ:${char.name}(${char.species})テーマ:${char.theme} トーン:${char.tone} 個性:${char.ai_personality}`}
+  const prompt = `${CHANNEL_PHILOSOPHY}
+${isDialogue && guestChars.length > 0 ? `ホスト:${char.name}(${char.species})テーマ:${char.theme}` : `キャラ:${char.name}(${char.species})テーマ:${char.theme} トーン:${char.tone} 個性:${char.ai_personality}`}
 ${castDesc}形式:${isShorts?'ショート60秒':'横動画3分'} パターン:${patternInfo.label}(${patternInfo.guide}) テーマ:${theme}${_strat?` 戦略:${_strat}`:''}${_pdcaStr?' PDCA:'+_pdcaStr:''}${note?' 追加:'+note:''}${detail?' 詳細:'+detail:''}
 戦略:${strategy}
 JSONのみ出力:
@@ -3910,7 +3911,9 @@ function renderScriptPanel(char) {
 }
 
 // 2026年横動画（3分）戦略フレームワーク（horizontal-strategy-2026.md より抽出）
-const HORIZONTAL_STRATEGY_2026 = `横動画180秒/750〜850字。構成:0-15秒=常識破壊フック(挨拶なし)→15-45秒=痛み提起→45-150秒=PREP解決策(90秒でコメントCTA1回)→150-180秒=1フレーズ締め(「ありがとう」禁止)。口語・感情タグ・数字必須。フック:常識破壊/衝撃統計/ビフォーアフター/疑問提起/共感の5種から選択。`;
+const CHANNEL_PHILOSOPHY = `【チャンネル共通哲学】視聴者に安心感を与えることを最優先にする。「帰ってきたら同じクオリティが待っている」という信頼感を積み重ねる。毎回ブレない軸・トーン・構成クオリティを保つこと。`;
+
+const HORIZONTAL_STRATEGY_2026 =`横動画180秒/750〜850字。構成:0-15秒=常識破壊フック(挨拶なし)→15-45秒=痛み提起→45-150秒=PREP解決策(90秒でコメントCTA1回)→150-180秒=1フレーズ締め(「ありがとう」禁止)。口語・感情タグ・数字必須。フック:常識破壊/衝撃統計/ビフォーアフター/疑問提起/共感の5種から選択。`;
 
 const SHORTS_STRATEGY_2026 = `ショート60秒。構成:0-2秒=結論先出しフック→2-45秒=3秒1カット+中盤再フック→最後5秒=保存/コメントCTA。テロップ5-7字以内。ジェットカット。フック:衝撃事実/疑問提起/ビフォーアフター/意外性/共感の5種から選択。`;
 
@@ -3923,7 +3926,8 @@ async function generateScript() {
   aiStart('台本を生成中...');
 
   const strategy = isShorts ? SHORTS_STRATEGY_2026 : HORIZONTAL_STRATEGY_2026;
-  const prompt = `キャラ:${char.name}(${char.species}) トーン:${char.tone} 個性:${char.ai_personality}
+  const prompt = `${CHANNEL_PHILOSOPHY}
+キャラ:${char.name}(${char.species}) トーン:${char.tone} 個性:${char.ai_personality}
 企画:${selectedPlan.title}—${selectedPlan.description} 形式:${isShorts?'ショート60秒':'横動画3分750〜850字'}${note?' 追加:'+note:''}
 戦略:${strategy}
 JSONのみ:{"info":"構成メモ3行","lines":"セリフのみ改行区切り（キャラ名・括弧・映像指示不要）"}`;
@@ -6610,7 +6614,8 @@ async function generateWeeklyPlan() {
     .sort((a,b) => (b.perf.views||0) - (a.perf.views||0)).slice(0, 3)
     .map(e => `${e.title||e.theme}:${e.perf.views}回(${e.perf.sentiment==='good'?'好評':e.perf.sentiment==='bad'?'不評':''})`).join('、');
 
-  const prompt = `YouTube「${char.name}」（${char.theme}）の${count}本投稿プランをJSONで出力。
+  const prompt = `${CHANNEL_PHILOSOPHY}
+YouTube「${char.name}」（${char.theme}）の${count}本投稿プランをJSONで出力。
 日付:${dates.join(',')} 形式:${fmtDesc}${alreadyScheduled.length?` 除外日:${alreadyScheduled.join(',')}`:''} ${request?'要望:'+request:''}
 過去動画:${pastEps||'なし'} PDCA好調:${pdcaEntries||'なし'}
 パターンを分散させ、重複なく、視聴者を引きつけるタイトルにする。
