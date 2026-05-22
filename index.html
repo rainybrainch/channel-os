@@ -4276,11 +4276,14 @@ function renderStoryboard() {
         <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">
           ${scene.audioDataUrl
             ? `<div style="font-size:.72rem;color:#4caf50;margin-bottom:4px;">🎙 ✅ ${escHtml(scene.audioName||'音声あり')} (${scene.audioDuration ? scene.audioDuration.toFixed(1)+'秒' : ''})</div>
-               <button class="btn btn-secondary btn-sm" onclick="clearSceneAudio(${i})">✕ 音声削除</button>`
-            : `<label class="btn btn-secondary btn-sm" style="cursor:pointer;">
-                 🎙 VOICEVOXアップ
+               <button class="btn btn-secondary btn-sm" onclick="generateVoicevox(${i})">🔄 再生成</button>
+               <button class="btn btn-secondary btn-sm" onclick="clearSceneAudio(${i})">✕ 削除</button>`
+            : `<button class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="generateVoicevox(${i})">🎙 音声生成</button>
+               <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.72rem;">
+                 📁 手動アップ
                  <input type="file" accept="audio/*" style="display:none" onchange="handleSceneAudio(${i}, this)">
                </label>`}
+          <span id="vvStatus_${i}" style="font-size:.7rem;color:var(--text-muted);display:block;margin-top:2px;"></span>
           ${scene.lines.some(l => /^\[.+?[:：]/.test(l))
             ? `<button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="playSceneDialogue(${i})">🎭 対談再生</button>`
             : ''}
@@ -4571,6 +4574,18 @@ function _resolveCharForLine(lineText) {
 // セリフ行から[キャラ名]:プレフィックスを除いた純テキストを返す
 function _stripCharPrefix(lineText) {
   return lineText.replace(/^\[.+?[:：]\s*/, '').trim();
+}
+
+async function generateAllVoicevox() {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes?.length) { showToast('絵コンテがありません'); return; }
+  let count = 0;
+  for (let i = 0; i < sb.scenes.length; i++) {
+    if (sb.scenes[i].audioDataUrl) continue; // 生成済みはスキップ
+    await generateVoicevox(i);
+    count++;
+  }
+  showToast(`✅ ${count}シーンの音声を生成しました`);
 }
 
 async function generateVoicevox(sceneIdx) {
@@ -5251,6 +5266,13 @@ function renderScenePanel() {
           <button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL</button>
         </div>
       </details>
+
+      <!-- 一括VOICEVOX音声生成 -->
+      <div style="background:linear-gradient(135deg,rgba(21,101,192,.12),transparent);border:1px solid #1565c055;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:.82rem;font-weight:700;color:#64b5f6;">🎙 一括音声生成</div>
+        <button class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="generateAllVoicevox()">⚡ 全シーンを一括生成</button>
+        <span style="font-size:.72rem;color:var(--text-muted);">※VOICEVOXが起動中の場合のみ動作します</span>
+      </div>
 
       <!-- 一括AI画像生成 -->
       <div style="background:linear-gradient(135deg,rgba(106,27,154,.12),transparent);border:1px solid #6a1b9a55;border-radius:8px;padding:14px;margin-bottom:14px;">
