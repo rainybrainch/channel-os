@@ -3695,9 +3695,8 @@ function renderCreatePanel(char) {
           const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           const todayStr = _ld(new Date());
           const isToday = e.date === todayStr;
-          return `<div onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}','${e.id}')"
-            style="cursor:pointer;padding:10px 12px;border-radius:8px;border:2px solid ${isActive?'#27ae60':isToday?'#27ae6066':'var(--border)'};background:${isActive?'rgba(39,174,96,.12)':'var(--surface2)'};display:flex;align-items:center;gap:10px;">
-            <div style="text-align:center;min-width:32px;">
+          return `<div style="padding:10px 12px;border-radius:8px;border:2px solid ${isActive?'#27ae60':isToday?'#27ae6066':'var(--border)'};background:${isActive?'rgba(39,174,96,.12)':'var(--surface2)'};display:flex;align-items:center;gap:10px;">
+            <div style="text-align:center;min-width:32px;flex-shrink:0;">
               <div style="font-size:.62rem;color:var(--text-muted);">${['日','月','火','水','木','金','土'][new Date(e.date+'T00:00:00').getDay()]}</div>
               <div style="font-size:1.1rem;font-weight:700;color:${isToday?'#27ae60':'var(--text)'};">${parseInt(e.date.slice(8))}</div>
             </div>
@@ -3705,7 +3704,9 @@ function renderCreatePanel(char) {
               <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:2px;">${e.format==='shorts'?'📱':'📺'} ${isToday?'<span style="color:#27ae60;font-weight:700;">今日</span>':''}</div>
               <div style="font-size:.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(e.title||e.theme||'')}</div>
             </div>
-            ${isActive ? '<span style="font-size:.72rem;color:#27ae60;font-weight:700;flex-shrink:0;">▶ 編集中</span>' : '<span style="font-size:.7rem;color:var(--text-muted);flex-shrink:0;">タップ</span>'}
+            ${isActive
+              ? '<span style="font-size:.72rem;color:#27ae60;font-weight:700;flex-shrink:0;">▶ 編集中</span>'
+              : `<button class="btn btn-primary btn-sm" style="flex-shrink:0;font-size:.75rem;padding:6px 12px;font-weight:700;" onclick="startMakingFromCal('${e.charId}','${e.episodeId||''}','${e.id}')">🎬 作る</button>`}
           </div>`;
         }).join('')}
       </div>
