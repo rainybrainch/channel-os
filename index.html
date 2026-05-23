@@ -6523,6 +6523,13 @@ function _updateTextareaCount(textarea, countId) {
   const el = document.getElementById(countId);
   if (el) el.textContent = textarea.value.length;
 }
+function _updateIgCount(textarea) {
+  const len = textarea.value.length;
+  const cnt = document.getElementById('igCharCount');
+  const lim = document.getElementById('igCharLimit');
+  if (cnt) cnt.textContent = len;
+  if (lim) lim.style.color = len > 2200 ? '#e74c3c' : 'var(--text-muted)';
+}
 
 function _addThemeHistory(val) {
   if (!val?.trim()) return;
@@ -7575,7 +7582,8 @@ function renderDistributePanel() {
       ${clItem(!!cl.igPosted, 'STEP 6', '📸 Instagram 投稿',
         igToken ? (cl.igPosted ? '投稿済み' : 'キャプションを確認して投稿') : 'IG連携が必要です（設定タブ）',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="igCaption" style="min-height:90px;font-size:.82rem;line-height:1.7;">${escHtml(igCaptionText)}</textarea>
+          <textarea id="igCaption" style="min-height:90px;font-size:.82rem;line-height:1.7;" oninput="_updateIgCount(this)">${escHtml(igCaptionText)}</textarea>
+          <div style="text-align:right;font-size:.72rem;color:var(--text-muted);margin-top:-4px;"><span id="igCharCount">${igCaptionText.length}</span>字 <span id="igCharLimit" style="color:${igCaptionText.length>2200?'#e74c3c':'var(--text-muted)'}">/ 2200</span></div>
           ${hasThumb ? `<div style="font-size:.72rem;color:var(--text-muted);">📎 サムネイル画像を使用します</div>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${igToken
