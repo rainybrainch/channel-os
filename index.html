@@ -7858,7 +7858,7 @@ function renderDistributePanel() {
           onclick="distributeAll()">⚡ X+Note+コメント 一括実行</button>
         <button class="btn btn-secondary btn-sm" onclick="_resetChecklist()" style="color:#e55;border-color:#e55;">🔄 チェックリストをリセット</button>
       </div>
-      <div id="distributeLog" style="font-size:.78rem;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
+      <div id="distributeLog" style="font-size:.78rem;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:120px;overflow-y:auto;background:var(--surface2);border-radius:6px;padding:4px 8px;scrollbar-width:thin;"></div>
     </div>
 
   </div>`;
