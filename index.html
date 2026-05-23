@@ -4153,6 +4153,17 @@ function renderScriptPanel(char) {
           <button class="btn btn-primary btn-sm" onclick="switchTab('meta')">概要欄を生成 →</button>
         </div>
       </div>
+      ${(() => {
+        const _lines = parseScript(generatedScript).lines;
+        const _charCount = _lines.replace(/\s/g,'').length;
+        const _minRead = Math.round(_charCount / 350);
+        const _secRead = Math.round(_charCount / 350 * 60);
+        return `<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
+          <span>📊 ${_charCount.toLocaleString()}字</span>
+          <span>⏱ 読み上げ約${_secRead < 60 ? _secRead+'秒' : _minRead+'分'+(_secRead%60?(_secRead%60)+'秒':'')}</span>
+          <span style="color:${_charCount < 600 ? '#e67e22' : _charCount > 1200 ? '#e53935' : '#4caf50'};">${_charCount < 600 ? '⚠️ 短め' : _charCount > 1200 ? '⚠️ 長め' : '✅ 適量'}</span>
+        </div>`;
+      })()}
       <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:14px;font-size:.9rem;line-height:2;white-space:pre-wrap;font-family:'Noto Serif JP',serif;">${escHtml(parseScript(generatedScript).lines)}</div>
     </div>` : ''}
   </div>`;
