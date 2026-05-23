@@ -3269,6 +3269,16 @@ function switchTab(tab) {
     const el = document.getElementById('scriptInfoEditor');
     if (el) { try { const p=JSON.parse(generatedScript||'{}'); p.info=el.value; generatedScript=JSON.stringify(p); } catch { generatedScript=JSON.stringify({info:el.value,lines:''}); } saveCurrentEpisode(); }
   }
+  if (_saveXTweetDebounce) {
+    clearTimeout(_saveXTweetDebounce); _saveXTweetDebounce = null;
+    const el = document.getElementById('xTweetText');
+    if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){ep2.xTweet=el.value;saveData(d2);data=d2;} }
+  }
+  if (_saveNoteDebounce) {
+    clearTimeout(_saveNoteDebounce); _saveNoteDebounce = null;
+    const el = document.getElementById('noteArticleArea');
+    if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){ep2.notePost=el.value;ep2.noteArticle=el.value;saveData(d2);data=d2;} }
+  }
   currentTab = tab;
   localStorage.setItem('channelos_last_tab', tab);
   const char = data.characters.find(c => c.id === currentCharId);
