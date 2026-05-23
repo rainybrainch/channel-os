@@ -2346,6 +2346,13 @@ function filterEpisodeList(query) {
   });
 }
 
+function _estimateSceneTime(lines) {
+  const chars = lines.join('').replace(/\s/g,'').length;
+  if (!chars) return '';
+  const sec = Math.max(3, Math.round(chars / 6));
+  return sec + '秒';
+}
+
 function addManualScene() {
   if (!currentEpisodeId) { showToast('動画を選択してください'); return; }
   const key = sbKey();
@@ -11147,6 +11154,14 @@ function saveSceneLines(sceneIdx, value) {
     if (!sb?.scenes[sceneIdx]) return;
     sb.scenes[sceneIdx].lines = value.split('\n').filter(l => l.trim() !== '');
     if (!sb.scenes[sceneIdx].lines.length) sb.scenes[sceneIdx].lines = [value];
+    if (!sb.scenes[sceneIdx].time) {
+      const est = _estimateSceneTime(sb.scenes[sceneIdx].lines);
+      if (est) {
+        sb.scenes[sceneIdx].time = est;
+        const timeEl = document.querySelector(`#storyboardContainer .sb-scene:nth-child(${sceneIdx+2}) .sb-scene-time`);
+        if (timeEl) timeEl.textContent = est;
+      }
+    }
     saveStoryboard();
   }, 600);
 }
