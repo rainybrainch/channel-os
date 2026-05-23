@@ -2794,6 +2794,7 @@ function renderMain() {
       })()}
     </div>
 
+    ${renderWorkflowGuide()}
     ${renderPlanPanel(char)}
     ${renderCreatePanel(char)}
     ${renderScriptPanel(char)}
@@ -2906,6 +2907,10 @@ function switchTab(tab) {
     const el = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
     if (el) el.classList.toggle('active', t === tab);
   });
+
+  // 進捗バー更新
+  const wg = document.getElementById('workflowGuide');
+  if (wg) wg.outerHTML = renderWorkflowGuide();
 }
 
 // ════════════════════════════════════
@@ -3488,6 +3493,7 @@ JSONのみ出力:
       if (_ep2 && !_ep2.title?.trim()) _ep2.title = theme;
     }
     saveCurrentEpisode();
+    _refreshWorkflowGuide();
 
     s2.textContent = '✅ [2/3] 反映完了';
     s3.textContent = '🔄 [3/3] サムネイル自動生成中...';
@@ -3863,6 +3869,48 @@ function renderCreatePanel(char) {
     <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};">
       <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
     </div>
+  </div>`;
+}
+
+// ════════════════════════════════════
+//  Workflow Guide（進捗バー）
+// ════════════════════════════════════
+function _refreshWorkflowGuide() {
+  const wg = document.getElementById('workflowGuide');
+  if (wg) wg.outerHTML = renderWorkflowGuide();
+}
+
+function renderWorkflowGuide() {
+  if (!currentEpisodeId) return '';
+  const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return '';
+  const sb = storyboardData[sbKey()] || {};
+  const hasAudio = (sb.scenes||[]).some(s=>s.audioDataUrl);
+
+  const steps = [
+    { id:'create', label:'企画', icon:'🎬', done: !!(ep.plan||ep.script), tab:'create' },
+    { id:'script', label:'台本', icon:'📝', done: !!ep.script, tab:'script' },
+    { id:'scene',  label:'音声', icon:'🎙', done: hasAudio, tab:'scene' },
+    { id:'post',   label:'サムネ', icon:'🖼', done: !!(ep.thumbnailDataUrl||ep.thumbnailSDataUrl), tab:'post' },
+    { id:'distribute', label:'投稿', icon:'📡', done: !!ep.youtubeUrl, tab:'distribute' },
+  ];
+
+  const nextStep = steps.find(s=>!s.done);
+  const allDone = steps.every(s=>s.done);
+
+  return `<div id="workflowGuide" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+    <span style="font-size:.72rem;color:var(--text-muted);font-weight:600;flex-shrink:0;">制作進捗:</span>
+    ${steps.map((s,i)=>{
+      const isNext = !allDone && nextStep?.id===s.id;
+      const color = s.done?'#4caf50':isNext?'var(--char-color,#c9a84c)':'var(--border)';
+      const textColor = s.done?'#4caf50':isNext?'var(--char-color,#c9a84c)':'var(--text-muted)';
+      return `${i>0?`<span style="color:var(--border);font-size:.8rem;">›</span>`:''}
+      <button onclick="switchTab('${s.tab}')" style="background:none;border:1px solid ${color};border-radius:16px;padding:3px 10px;cursor:pointer;font-size:.75rem;font-weight:${isNext?'700':'400'};color:${textColor};white-space:nowrap;">
+        ${s.icon} ${s.label}${s.done?' ✅':''}${isNext?' ← 次':''}
+      </button>`;
+    }).join('')}
+    ${nextStep&&!allDone?`<button class="btn btn-primary btn-sm" style="margin-left:auto;font-size:.78rem;font-weight:700;" onclick="switchTab('${nextStep.tab}')">→ ${nextStep.label}へ進む</button>`:''}
+    ${allDone?`<span style="margin-left:auto;font-size:.78rem;color:#4caf50;font-weight:700;">🎉 制作完了！</span>`:''}
   </div>`;
 }
 
@@ -4638,6 +4686,7 @@ async function generateVoicevox(sceneIdx) {
       const char2 = data.characters.find(c => c.id === currentCharId);
       const scenePanel = document.getElementById('panelScene');
       if (scenePanel) scenePanel.outerHTML = renderScenePanel(char2);
+      _refreshWorkflowGuide();
       showToast('🎙 音声を生成しました');
     };
     audio.src = dataUrl;
