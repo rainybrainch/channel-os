@@ -4407,8 +4407,11 @@ function renderStoryboard() {
         <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">
           ${scene.audioDataUrl
             ? `<div style="font-size:.72rem;color:#4caf50;margin-bottom:4px;">🎙 ✅ ${escHtml(scene.audioName||'音声あり')} (${scene.audioDuration ? scene.audioDuration.toFixed(1)+'秒' : ''})</div>
-               <button class="btn btn-secondary btn-sm" onclick="generateVoicevox(${i})">🔄 再生成</button>
-               <button class="btn btn-secondary btn-sm" onclick="clearSceneAudio(${i})">✕ 削除</button>`
+               <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                 <button class="btn btn-sm" style="background:#1565c0;color:#fff;font-size:.75rem;" onclick="playSceneAudio(${i})" id="playAudioBtn${i}">▶ 再生</button>
+                 <button class="btn btn-secondary btn-sm" onclick="generateVoicevox(${i})">🔄 再生成</button>
+                 <button class="btn btn-secondary btn-sm" onclick="clearSceneAudio(${i})">✕ 削除</button>
+               </div>`
             : `<button class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="generateVoicevox(${i})">🎙 音声生成</button>
                <label class="btn btn-secondary btn-sm" style="cursor:pointer;font-size:.72rem;">
                  📁 手動アップ
@@ -4729,6 +4732,20 @@ async function generateAllVoicevox() {
   showToast(`✅ ${count}シーンの音声を生成しました！次はサムネイル作成へ`);
   _refreshWorkflowGuide();
   setTimeout(() => switchTab('post'), 800);
+}
+
+let _playingAudio = null;
+function playSceneAudio(idx) {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes?.[idx]?.audioDataUrl) return;
+  if (_playingAudio) { _playingAudio.pause(); _playingAudio = null; }
+  const btn = document.getElementById(`playAudioBtn${idx}`);
+  const audio = new Audio(sb.scenes[idx].audioDataUrl);
+  _playingAudio = audio;
+  if (btn) btn.textContent = '⏸ 停止';
+  audio.onended = () => { _playingAudio = null; if (btn) btn.textContent = '▶ 再生'; };
+  audio.onerror = () => { showToast('音声の再生に失敗しました'); if (btn) btn.textContent = '▶ 再生'; };
+  audio.play();
 }
 
 async function checkVoicevoxConnection() {
