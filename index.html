@@ -11118,6 +11118,7 @@ function copyNoteAndOpen() {
   const el = document.getElementById('noteArticleArea');
   const text = el?.value || el?.textContent || '';
   if (!text || text.includes('一括生成') || text.includes('AI生成')) { showToast('先にNote投稿文を生成してください'); return Promise.resolve(); }
+  if (text.includes('[YT_URL]')) { showToast('⚠️ [YT_URL] が未置換です。STEP 3でYouTube URLを入力してください'); return Promise.resolve(); }
   return navigator.clipboard.writeText(text).then(() => {
     showToast('📋 記事をコピーしました。Note.comに貼り付けてください');
     setTimeout(() => window.open('https://note.com/new', '_blank'), 800);
