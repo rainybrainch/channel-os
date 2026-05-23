@@ -280,12 +280,21 @@
     <div id="charList"></div>
     <div class="sidebar-title" id="epSidebarTitle" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:14px;">動画プロジェクト</div>
     <div id="epSearchWrap" style="display:none;padding:4px 8px;">
-      <div style="position:relative;">
+      <div style="position:relative;margin-bottom:4px;">
         <input type="text" id="epSearchInput" placeholder="🔍 タイトルで絞り込み…" oninput="filterEpisodeList(this.value);document.getElementById('epSearchClear').style.display=this.value?'flex':'none'"
           style="width:100%;padding:5px 28px 5px 8px;font-size:.75rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
         <button id="epSearchClear" onclick="document.getElementById('epSearchInput').value='';filterEpisodeList('');this.style.display='none'"
           style="display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem;padding:2px 4px;line-height:1;">✕</button>
       </div>
+      <select id="epStatusFilter" onchange="filterEpisodeList(document.getElementById('epSearchInput').value)"
+        style="width:100%;padding:4px 6px;font-size:.72rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);">
+        <option value="">全ステータス</option>
+        <option value="draft">📝 下書き</option>
+        <option value="shooting">🎥 撮影中</option>
+        <option value="editing">✂️ 編集中</option>
+        <option value="done">✅ 完成</option>
+        <option value="posted">🌎 投稿済</option>
+      </select>
     </div>
     <div id="episodeList"></div>
     <button class="add-char-btn" onclick="openAddCharModal()">＋ キャラ追加</button>
@@ -2280,9 +2289,14 @@ function copyAllMetaSummary() {
 
 function filterEpisodeList(query) {
   const q = query.toLowerCase().trim();
+  const statusFilter = document.getElementById('epStatusFilter')?.value || '';
   document.querySelectorAll('#episodeList .char-item[onclick^="loadEpisode"]').forEach(el => {
     const title = el.querySelector('div')?.textContent?.toLowerCase() || '';
-    el.style.display = (!q || title.includes(q)) ? '' : 'none';
+    const epId = el.getAttribute('onclick')?.match(/loadEpisode\('([^']+)'\)/)?.[1];
+    const ep = epId ? (data.episodes||[]).find(e=>e.id===epId) : null;
+    const matchTitle = !q || title.includes(q);
+    const matchStatus = !statusFilter || (ep?.status || 'draft') === statusFilter;
+    el.style.display = (matchTitle && matchStatus) ? '' : 'none';
   });
 }
 
