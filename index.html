@@ -4950,6 +4950,10 @@ function renderStoryboard() {
     <span>⏱ 合計 <strong style="color:var(--text)">${durStr}</strong></span>
     <span>✅ <strong style="color:var(--text)">${imgCount}/${totalScenes}</strong> 画像生成済</span>
     <span>☑ 一括対象 <strong style="color:var(--text)">${checkedCount}</strong></span>
+    <span style="margin-left:auto;display:flex;gap:6px;">
+      <button onclick="checkAllScenes(true)" style="font-size:.72rem;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;" title="全シーンを一括対象に">全選択</button>
+      <button onclick="checkAllScenes(false)" style="font-size:.72rem;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;" title="全シーンを一括対象から除外">全解除</button>
+    </span>
   </div>`;
   return summaryBar + sb.scenes.map((scene, i) => `
   <div class="sb-scene" draggable="true" data-scene-idx="${i}"
