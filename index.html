@@ -271,6 +271,10 @@
     <div class="sidebar-title">キャラクター</div>
     <div id="charList"></div>
     <div class="sidebar-title" id="epSidebarTitle" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:14px;">動画プロジェクト</div>
+    <div id="epSearchWrap" style="display:none;padding:4px 8px;">
+      <input type="text" id="epSearchInput" placeholder="🔍 タイトルで絞り込み…" oninput="filterEpisodeList(this.value)"
+        style="width:100%;padding:5px 8px;font-size:.75rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+    </div>
     <div id="episodeList"></div>
     <button class="add-char-btn" onclick="openAddCharModal()">＋ キャラ追加</button>
   </aside>
@@ -2193,6 +2197,14 @@ function sbDrop(e, idx) {
   document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
   showToast(`シーンを移動しました（${_sbDragFrom+1} → ${idx+1}）`);
 }
+function filterEpisodeList(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#episodeList .char-item[onclick^="loadEpisode"]').forEach(el => {
+    const title = el.querySelector('div')?.textContent?.toLowerCase() || '';
+    el.style.display = (!q || title.includes(q)) ? '' : 'none';
+  });
+}
+
 function moveScene(idx, dir) {
   const sb = storyboardData[sbKey()];
   if (!sb?.scenes) return;
@@ -2863,6 +2875,8 @@ function _execBulkDelete() {
 function selectChar(id) {
   currentCharId = id; selectedPlan = null; generatedPlans = []; generatedScript = ''; generatedMeta = null; currentEpisodeId = null;
   document.getElementById('epSidebarTitle').style.display = 'block';
+  const _sw = document.getElementById('epSearchWrap');
+  if (_sw) _sw.style.display = 'block';
   // 最後に開いていたエピソードを復元
   const eps = (data.episodes || []).filter(e => e.charId === id);
   if (eps.length > 0) {
