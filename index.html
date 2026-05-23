@@ -8939,7 +8939,22 @@ function renderPostPanel() {
         <span style="font-size:.85rem;color:${ytToken?'var(--text)':'var(--text-muted)'};">${ytToken?'✅':'⬜'} YouTube 認証済み</span>
         ${!ytToken ? `<button class="btn btn-primary btn-sm" onclick="ytAuth()">🔑 認証</button>` : `<span style="font-size:.75rem;color:var(--text-muted);margin-left:auto;cursor:pointer;text-decoration:underline;" onclick="ytLogout()">ログアウト</span>`}
       </div>
-      ${allReady2 ? `<div style="margin-top:10px;padding:8px 12px;background:#1a3a1a;border-radius:6px;font-size:.82rem;color:#4caf50;">🟢 投稿準備完了です</div>` : `<div style="margin-top:10px;padding:8px 12px;background:#2a2a1a;border-radius:6px;font-size:.82rem;color:#aaa;">チェックが揃ったら投稿できます</div>`}
+      ${(() => {
+        const totalChecks = 5;
+        const doneChecks = [checks.plan, checks.script, checks.meta, checks.sb, checks.thumb].filter(Boolean).length + (ytToken ? 1 : 0);
+        const total6 = totalChecks + 1;
+        const pct = Math.round(doneChecks / total6 * 100);
+        const barColor = pct === 100 ? '#4caf50' : pct >= 60 ? '#c9a84c' : '#e53935';
+        return `<div style="margin-top:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-muted);margin-bottom:4px;">
+            <span>投稿準備</span><span style="color:${barColor};font-weight:700;">${pct}%</span>
+          </div>
+          <div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s;"></div>
+          </div>
+          ${pct === 100 ? '<div style="margin-top:6px;padding:6px 10px;background:#1a3a1a;border-radius:6px;font-size:.8rem;color:#4caf50;">🟢 全項目クリア！投稿できます</div>' : ''}
+        </div>`;
+      })()}
       ${hasMeta ? `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="copyAllMetaSummary()">📋 投稿用まとめを一括コピー</button>` : ''}
       ${(() => {
         const _char = data.characters.find(c=>c.id===currentCharId);
