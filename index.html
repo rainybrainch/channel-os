@@ -5653,7 +5653,7 @@ function renderMetaResult(meta) {
           <label>概要欄</label>
           <span style="font-size:.7rem;color:${descWithVoice.length > 5000 ? '#e74c3c' : descWithVoice.length > 4000 ? '#e67e22' : 'var(--text-muted)'};">${descWithVoice.length}/5000字</span>
         </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;">${escHtml(descWithVoice)}</div>
+        <textarea id="metaDescEditor" rows="6" oninput="_saveMetaDescEdit(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.7;color:var(--text);resize:vertical;">${escHtml(descWithVoice)}</textarea>
         ${voiceCredit ? `<div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">🎙 声: ${escHtml(char.voicevox_name)} / VOICEVOX（自動追記）</div>` : ''}
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
           ${copyBtn(descWithVoice,'概要欄コピー')}
@@ -9200,6 +9200,20 @@ function saveFirstComment(text) {
   saveData(d);
 }
 
+let _saveMetaDescDebounce = null;
+function _saveMetaDescEdit(val) {
+  clearTimeout(_saveMetaDescDebounce);
+  _saveMetaDescDebounce = setTimeout(() => {
+    if (!currentEpisodeId) return;
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep) return;
+    if (!ep.meta) ep.meta = {};
+    ep.meta.description = val;
+    if (generatedMeta) generatedMeta.description = val;
+    saveData(d); data = d;
+  }, 600);
+}
 let _saveNoteDebounce = null;
 function _saveNoteEdit(val) {
   clearTimeout(_saveNoteDebounce);
