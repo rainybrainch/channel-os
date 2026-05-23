@@ -5271,7 +5271,13 @@ function renderMetaResult(meta) {
           </details>
         </div>
       </div>
-      <div><label>タグ</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div></div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <label>タグ（YouTube Studio に貼り付け）</label>
+          <button class="btn btn-secondary btn-sm" onclick="const _tags=${JSON.stringify((meta.tags||[]))};navigator.clipboard.writeText(_tags.join(', ')).then(()=>showToast('✅ タグをコピーしました'))">📋 コピー</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div>
+      </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <label>ハッシュタグ（戦略的配合 10個）</label>
