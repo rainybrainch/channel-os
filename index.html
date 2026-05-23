@@ -2831,6 +2831,9 @@ function renderSidebar() {
   const eps = getEpisodes();
   const statusLabel = { draft:'📝 下書き', shooting:'🎥 撮影中', editing:'✂️ 編集中', done:'✅ 完成', posted:'🌎 投稿済' };
   const statusColor = { draft:'#888', shooting:'#e67e22', editing:'#3498db', done:'#27ae60', posted:'#9b59b6' };
+  // preserve search/filter state
+  const _prevSearch = document.getElementById('epSearchInput')?.value || '';
+  const _prevFilter = document.getElementById('epStatusFilter')?.value || '';
   epListEl.innerHTML = `
     <div style="display:flex;gap:4px;padding:6px 10px;">
       <button class="add-char-btn" style="flex:1;margin:0;" onclick="newEpisode()">＋ 新しい動画</button>
@@ -2889,6 +2892,12 @@ function renderSidebar() {
       </div>`;
       }).join('');
     })()}`;
+  // restore search/filter state after re-render
+  if (_prevSearch || _prevFilter) {
+    const si = document.getElementById('epStatusFilter');
+    if (si && _prevFilter) si.value = _prevFilter;
+    filterEpisodeList(_prevSearch);
+  }
 }
 
 function cycleEpisodeStatus(id) {
