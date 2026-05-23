@@ -4340,8 +4340,11 @@ function renderScriptPanel(char) {
           <span style="color:${_charCount < 600 ? '#e67e22' : _charCount > 1200 ? '#e53935' : '#4caf50'};">${_charCount < 600 ? '⚠️ 短め' : _charCount > 1200 ? '⚠️ 長め' : '✅ 適量'}</span>
         </div>`;
       })()}
-      <textarea id="scriptLinesEditor" rows="18" oninput="saveScriptLinesEdit(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:14px;font-size:.9rem;line-height:2;font-family:'Noto Serif JP',serif;color:var(--text);resize:vertical;">${escHtml(parseScript(generatedScript).lines)}</textarea>
-      <div style="font-size:.7rem;color:var(--text-muted);text-align:right;margin-top:4px;">直接編集可 — 変更は自動保存されます</div>
+      <textarea id="scriptLinesEditor" rows="18" oninput="saveScriptLinesEdit(this.value);_updateScriptStats(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:14px;font-size:.9rem;line-height:2;font-family:'Noto Serif JP',serif;color:var(--text);resize:vertical;">${escHtml(parseScript(generatedScript).lines)}</textarea>
+      <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-muted);margin-top:4px;">
+        <span id="scriptStatsLabel">${(() => { const lines = parseScript(generatedScript).lines.split('\n').filter(l=>l.trim()).length; const sec = Math.round(lines * 3.5); return `${lines}行 ≈ ${sec}秒 (${Math.floor(sec/60)}分${sec%60}秒)`; })()}</span>
+        <span>直接編集可 — 変更は自動保存されます</span>
+      </div>
     </div>` : ''}
   </div>`;
 }
@@ -6530,6 +6533,13 @@ function renderCommentThreads(videoId, threads) {
   }).join('');
 }
 
+function _updateScriptStats(val) {
+  const el = document.getElementById('scriptStatsLabel');
+  if (!el) return;
+  const lines = val.split('\n').filter(l => l.trim()).length;
+  const sec = Math.round(lines * 3.5);
+  el.textContent = `${lines}行 ≈ ${sec}秒 (${Math.floor(sec/60)}分${sec%60}秒)`;
+}
 function _updateTextareaCount(textarea, countId) {
   const el = document.getElementById(countId);
   if (el) el.textContent = textarea.value.length;
