@@ -3033,12 +3033,33 @@ function showEpEditModal(id) {
       <div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">
         <button class="btn btn-secondary btn-sm" style="color:#e55;border-color:#e55;" onclick="_epEditDelete('${id}')">🗑 削除</button>
         <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="_epEditDuplicate('${id}')" title="このエピソードを複製">⊕ 複製</button>
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('epEditOverlay').remove()">キャンセル</button>
           <button class="btn btn-sm" onclick="_epEditSave('${id}')">保存</button>
         </div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+}
+
+function _epEditDuplicate(id) {
+  const ep = (data.episodes || []).find(e => e.id === id);
+  if (!ep) return;
+  const newEp = JSON.parse(JSON.stringify(ep));
+  newEp.id = 'ep_' + Date.now();
+  newEp.title = ep.title + ' (複製)';
+  newEp.status = 'draft';
+  newEp.createdAt = new Date().toISOString();
+  newEp.updatedAt = new Date().toISOString();
+  newEp.youtubeUrl = '';
+  newEp.videoId = '';
+  if (!data.episodes) data.episodes = [];
+  data.episodes.push(newEp);
+  saveData(data);
+  document.getElementById('epEditOverlay')?.remove();
+  renderSidebar();
+  loadEpisode(newEp.id);
+  showToast('✅ エピソードを複製しました');
 }
 
 function _epEditSave(id) {
