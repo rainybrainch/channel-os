@@ -2890,7 +2890,7 @@ function switchTab(tab) {
       script:     () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
       meta:       () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
       assets:     () => { loadDriveAssets(); },
-      scene:      () => { setTimeout(initCanvas, 50); },
+      scene:      () => { setTimeout(initCanvas, 50); setTimeout(checkVoicevoxConnection, 200); },
       calendar:   () => { setTimeout(renderCalendar, 0); },
       post:       () => { const el = document.getElementById('panelPost'); if (el) el.outerHTML = renderPostPanel(); },
       distribute: () => { const el = document.getElementById('panelDistribute'); if (el) el.outerHTML = renderDistributePanel(); },
@@ -4642,6 +4642,30 @@ async function generateAllVoicevox() {
   setTimeout(() => switchTab('post'), 800);
 }
 
+async function checkVoicevoxConnection() {
+  const banner = document.getElementById('vvConnBanner');
+  const status = document.getElementById('vvConnStatus');
+  if (!banner || !status) return;
+  banner.style.display = 'flex';
+  status.textContent = '確認中...';
+  status.style.color = 'var(--text-muted)';
+  try {
+    const r = await fetch('http://localhost:50021/version', { method: 'GET', signal: AbortSignal.timeout(2000) });
+    if (r.ok) {
+      const ver = await r.text();
+      status.textContent = `✅ 起動中 v${ver.replace(/"/g,'')}`;
+      status.style.color = '#4caf50';
+      banner.style.background = '#1a2a1a';
+      banner.style.borderColor = '#4caf5055';
+    } else { throw new Error(); }
+  } catch {
+    status.textContent = '❌ 未起動 — channel-os-local.bat を実行してください';
+    status.style.color = '#e53935';
+    banner.style.background = '#2a1a1a';
+    banner.style.borderColor = '#e5393555';
+  }
+}
+
 async function generateVoicevox(sceneIdx) {
   const sb = storyboardData[sbKey()];
   if (!sb || !sb.scenes[sceneIdx]) return;
@@ -5267,6 +5291,11 @@ function renderScenePanel() {
   const hasImages = sb?.scenes?.some(s => s.imageDataUrl);
   return `
   <div class="panel ${currentTab==='scene'?'active':''}" id="panelScene">
+    <div id="vvConnBanner" style="display:none;background:#1a2a1a;border:1px solid #4caf5055;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.8rem;color:#4caf50;display:flex;align-items:center;gap:10px;">
+      <span>🎙 VOICEVOX</span>
+      <span id="vvConnStatus" style="color:var(--text-muted);">確認中...</span>
+      <button onclick="checkVoicevoxConnection()" style="margin-left:auto;font-size:.72rem;padding:3px 10px;border-radius:10px;border:1px solid #4caf5055;background:transparent;color:#4caf50;cursor:pointer;">再確認</button>
+    </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div class="card-title" style="margin:0;">📽 絵コンテ（シーン分割）</div>
