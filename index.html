@@ -3694,6 +3694,8 @@ JSONのみ出力:
     aiEnd(null);
     renderSidebar();
     showToast(`✅ 一括生成完了！次は音声生成へ`);
+    const _nextEl = document.getElementById('allGenNextSteps');
+    if (_nextEl) _nextEl.style.display = 'block';
     // 絵コンテタブへ自動遷移（次のステップ＝音声生成）
     setTimeout(() => switchTab('scene'), 800);
     const char2 = data.characters.find(c => c.id === currentCharId);
@@ -3993,6 +3995,14 @@ function renderCreatePanel(char) {
           <div id="allStep1" style="color:var(--text-muted);">⬜ [1/3] Gemini が一括生成中（30〜60秒）...</div>
           <div id="allStep2" style="color:var(--text-muted);">⬜ [2/3] 結果を反映中...</div>
           <div id="allStep3" style="color:var(--text-muted);">⬜ [3/3] 完了</div>
+        </div>
+        <div id="allGenNextSteps" style="display:none;margin-top:12px;background:#1a2e1a;border:1px solid #27ae6044;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.8rem;font-weight:700;color:#4caf50;margin-bottom:8px;">🎉 一括生成完了！次のステップ：</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="switchTab('scene')">🎬 音声生成へ →</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('meta')">📋 投稿情報を確認</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('post')">🖼 サムネイル設定</button>
+          </div>
         </div>
       </div>
       ${generatedScript ? `
