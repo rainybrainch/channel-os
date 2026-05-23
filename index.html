@@ -2197,6 +2197,22 @@ function sbDrop(e, idx) {
   document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
   showToast(`シーンを移動しました（${_sbDragFrom+1} → ${idx+1}）`);
 }
+function copyAllMetaSummary() {
+  const ep = currentEpisodeId ? (loadData().episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+  if (!ep) return;
+  const meta = ep.meta || ep.generatedMeta || {};
+  const lines = [
+    `📺 タイトル\n${meta.title || ''}`,
+    meta.title_alt ? `📝 代替タイトル\n${meta.title_alt}` : '',
+    `\n📄 概要欄\n${meta.description || ''}`,
+    meta.hashtags?.length ? `\n#️⃣ ハッシュタグ\n${meta.hashtags.join(' ')}` : '',
+    meta.tags?.length ? `\n🏷 タグ\n${meta.tags.join(', ')}` : '',
+    meta.best_post_time ? `\n⏰ 最適投稿時間\n${meta.best_post_time}` : '',
+    ep.youtubeUrl ? `\n🔗 動画URL\n${ep.youtubeUrl}` : '',
+  ].filter(Boolean).join('\n');
+  navigator.clipboard.writeText(lines).then(() => showToast('✅ 投稿用まとめをコピーしました'));
+}
+
 function filterEpisodeList(query) {
   const q = query.toLowerCase().trim();
   document.querySelectorAll('#episodeList .char-item[onclick^="loadEpisode"]').forEach(el => {
@@ -8489,6 +8505,7 @@ function renderPostPanel() {
         ${!ytToken ? `<button class="btn btn-primary btn-sm" onclick="ytAuth()">🔑 認証</button>` : `<span style="font-size:.75rem;color:var(--text-muted);margin-left:auto;cursor:pointer;text-decoration:underline;" onclick="ytLogout()">ログアウト</span>`}
       </div>
       ${allReady2 ? `<div style="margin-top:10px;padding:8px 12px;background:#1a3a1a;border-radius:6px;font-size:.82rem;color:#4caf50;">🟢 投稿準備完了です</div>` : `<div style="margin-top:10px;padding:8px 12px;background:#2a2a1a;border-radius:6px;font-size:.82rem;color:#aaa;">チェックが揃ったら投稿できます</div>`}
+      ${hasMeta ? `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="copyAllMetaSummary()">📋 投稿用まとめを一括コピー</button>` : ''}
     </div>
 
     <!-- サムネイル -->
