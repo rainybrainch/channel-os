@@ -6856,7 +6856,11 @@ async function addWeeklyPlanToCalendar() {
         🎬 最初の動画を今すぐ作り始める
       </button>` : ''}
     </div>`;
-  showToast(`✅ ${added}本のプランをカレンダーに追加しました`);
+  showToast(`✅ ${added}本追加！最初の動画を作り始めます`);
+  // 最初のエピソードを開いて作成タブへ自動遷移
+  if (firstEpId) {
+    setTimeout(() => { loadEpisode(firstEpId); switchTab('create'); }, 600);
+  }
 }
 
 async function generateSchedule() {
