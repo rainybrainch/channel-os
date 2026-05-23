@@ -5444,7 +5444,11 @@ function renderMetaResult(meta) {
       <div>
         <label>タイトル（推奨）</label>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
-          <span>${escHtml(meta.title)}</span>${copyBtn(meta.title,'コピー')}
+          <span>${escHtml(meta.title)}</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:.7rem;color:${meta.title.length > 40 ? '#e74c3c' : meta.title.length > 32 ? '#e67e22' : 'var(--text-muted)'};">${meta.title.length}/40字</span>
+            ${copyBtn(meta.title,'コピー')}
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
           <div style="font-size:.75rem;color:var(--text-muted);">代替案: ${escHtml(meta.title_alt)}</div>
