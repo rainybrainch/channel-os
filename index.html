@@ -2193,6 +2193,17 @@ function sbDrop(e, idx) {
   document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
   showToast(`シーンを移動しました（${_sbDragFrom+1} → ${idx+1}）`);
 }
+function moveScene(idx, dir) {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= sb.scenes.length) return;
+  const scenes = sb.scenes;
+  [scenes[idx], scenes[newIdx]] = [scenes[newIdx], scenes[idx]];
+  saveStoryboard();
+  document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
+}
+
 function sbDragEnd(e) {
   e.currentTarget.style.opacity = '';
   document.querySelectorAll('.sb-scene').forEach(el => { el.style.borderTop=''; el.style.borderBottom=''; });
@@ -4520,6 +4531,10 @@ function renderStoryboard() {
       <span class="sb-scene-badge">${escHtml(scene.label)}</span>
       <span class="sb-scene-time">${escHtml(scene.time)}</span>
       ${scene.imageDataUrl ? '<span style="font-size:.7rem;color:#4caf50;margin-left:auto;">✅ 生成済</span>' : ''}
+      <div style="display:flex;gap:2px;margin-left:auto;">
+        ${i > 0 ? `<button onclick="moveScene(${i},-1)" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--text-muted);font-size:.72rem;" title="上へ">↑</button>` : '<span style="width:28px;"></span>'}
+        ${i < sb.scenes.length-1 ? `<button onclick="moveScene(${i},1)" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--text-muted);font-size:.72rem;" title="下へ">↓</button>` : '<span style="width:28px;"></span>'}
+      </div>
     </div>
     <div class="sb-scene-body">
       <div class="sb-image-col">
