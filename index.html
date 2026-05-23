@@ -2907,7 +2907,13 @@ function switchTab(tab) {
       calendar:   () => { setTimeout(renderCalendar, 0); },
       post:       () => { const el = document.getElementById('panelPost'); if (el) el.outerHTML = renderPostPanel(); },
       distribute: () => { const el = document.getElementById('panelDistribute'); if (el) el.outerHTML = renderDistributePanel(); },
-      comments:   () => { setTimeout(renderCommentsPanel, 0); },
+      comments:   () => {
+        const el = document.getElementById('panelComments');
+        if (el) el.outerHTML = renderCommentsPanel();
+        // videoIdが既知なら自動取得
+        const ep = currentEpisodeId ? (loadData().episodes||[]).find(e=>e.id===currentEpisodeId) : null;
+        if (ep?.videoId) setTimeout(loadComments, 300);
+      },
     };
     if (renders[tab]) renders[tab]();
   }
@@ -5956,7 +5962,16 @@ let _commentsCache = {};  // videoId → {threads, nextPageToken}
 
 function renderCommentsPanel() {
   const ep = currentEpisodeId ? (loadData().episodes||[]).find(e=>e.id===currentEpisodeId) : null;
-  const videoId = ep?.videoId || '';
+  // youtubeUrlからvideoIdを自動抽出してエピソードに保存
+  let videoId = ep?.videoId || '';
+  if (!videoId && ep?.youtubeUrl) {
+    const m = ep.youtubeUrl.match(/(?:v=|shorts\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (m) {
+      videoId = m[1];
+      const d = loadData(); const ep2 = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+      if (ep2) { ep2.videoId = videoId; saveData(d); }
+    }
+  }
   const ytToken = !!getYtToken(currentCharId);
   return `
   <div class="panel ${currentTab==='comments'?'active':''}" id="panelComments">
