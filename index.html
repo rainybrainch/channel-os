@@ -1008,6 +1008,19 @@ function getEpisodes() {
   return (data.episodes || []).filter(e => e.charId === currentCharId);
 }
 
+function updateEpisodeTitle(val) {
+  if (!currentEpisodeId) return;
+  const d = loadData();
+  const ep = (d.episodes||[]).find(e => e.id === currentEpisodeId);
+  if (!ep) return;
+  ep.title = val || '新しい動画';
+  ep.updatedAt = new Date().toISOString();
+  saveData(d);
+  // サイドバーのタイトルもリアルタイム更新
+  const sideEl = document.querySelector(`.char-item[onclick="loadEpisode('${currentEpisodeId}')"] div`);
+  if (sideEl) sideEl.textContent = val || '新しい動画';
+}
+
 function newEpisode() {
   const id = 'ep_' + Date.now();
   const ep = { id, charId: currentCharId, title: '新しい動画', createdAt: new Date().toISOString(),
@@ -3703,8 +3716,23 @@ function renderCreatePanel(char) {
       .slice(0, 7);
   })();
 
+  const _epTitle = _epInput?.title || '';
+  const _isTitleDefault = !_epTitle || _epTitle === '新しい動画';
+
   return `
   <div class="panel ${currentTab==='create'?'active':''}" id="panelCreate">
+
+    <!-- 動画タイトル -->
+    ${currentEpisodeId ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;background:${_isTitleDefault?'rgba(201,168,76,.07)':'transparent'};border:1px solid ${_isTitleDefault?'var(--char-color,#c9a84c)':'var(--border)'};border-radius:8px;padding:8px 12px;">
+      <span style="font-size:.78rem;color:var(--text-muted);flex-shrink:0;">📹 動画タイトル</span>
+      <input type="text" id="episodeTitleInput" value="${escHtml(_epTitle)}" placeholder="タイトルを入力（一括生成後に自動更新）"
+        style="flex:1;background:transparent;border:none;outline:none;font-size:.9rem;font-weight:700;color:var(--text);padding:0;"
+        oninput="updateEpisodeTitle(this.value)"
+        onfocus="this.style.borderBottom='1px solid var(--char-color)'"
+        onblur="this.style.borderBottom=''">
+      ${_isTitleDefault ? `<span style="font-size:.7rem;color:var(--char-color,#c9a84c);flex-shrink:0;">← 入力推奨</span>` : ''}
+    </div>` : ''}
 
     <!-- 週間プランから選ぶ -->
     ${_calPlanned.length ? `
