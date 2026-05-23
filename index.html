@@ -990,14 +990,14 @@ let data = loadData();
   if (changed) saveData(data);
 }
 let currentCharId = null;
-let currentTab    = 'plan';
+let currentTab    = localStorage.getItem('channelos_last_tab') || 'plan';
 let selectedPlan  = null;
 let generatedPlans = [];
 let generatedScript = '';
 let storyboardData = {};
 let generatedMeta   = null;
 let editingCharId   = null;
-let simpleMode = false; // 廃止（常に全タブ表示）
+let simpleMode = localStorage.getItem('channelos_simple_mode') !== 'false'; // デフォルトON
 
 // ── 動画プロジェクト管理 ──
 let currentEpisodeId = localStorage.getItem('channelos_last_episode') || null;
@@ -2742,6 +2742,8 @@ function selectChar(id) {
     const last = eps.slice().sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).find(e => e.id);
     if (last) { currentEpisodeId = last.id; selectedPlan = last.plan||null; generatedPlans = last.plans||[]; generatedScript = last.script||''; generatedMeta = last.meta||null; }
   }
+  // エピソードがあれば作成タブ、なければ計画タブ
+  currentTab = currentEpisodeId ? 'create' : 'plan';
   renderSidebar(); renderMain();
 }
 
@@ -2782,8 +2784,8 @@ function renderMain() {
     <div class="tabs" id="mainTabs">
       ${(() => {
         const allTabs = ['plan','create','script','meta','scene','assets','post','distribute','comments'];
-        // シンプルモード: 3タブのみ（plan=計画 / create=作成 / distribute=配信）
-        const simpleTabs = ['plan','create','distribute'];
+        // シンプルモード: 主要タブのみ（計画 / 作成 / 絵コンテ＆音声 / 投稿準備 / 配信）
+        const simpleTabs = ['plan','create','scene','post','distribute'];
         const labels = {plan:'📋 計画',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🎬 字幕',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
         const tabs = simpleMode ? simpleTabs : allTabs;
         return tabs.map(t => {
@@ -2831,7 +2833,7 @@ function toggleSimpleMode() {
   }
   // シンプルモード時、隠れているタブにいたら企画タブに戻す
   const simpleTabs = ['plan','create','distribute'];
-  if (simpleMode && !simpleTabs.includes(currentTab)) currentTab = 'plan';
+  if (simpleMode && !['plan','create','scene','post','distribute'].includes(currentTab)) currentTab = 'create';
   renderMain();
 }
 
@@ -2865,6 +2867,7 @@ const ALL_PANELS = ['plan','create','script','meta','scene','assets','calendar',
 
 function switchTab(tab) {
   currentTab = tab;
+  localStorage.setItem('channelos_last_tab', tab);
   const char = data.characters.find(c => c.id === currentCharId);
 
   // 設定：ヘッダーボタン専用
@@ -3692,9 +3695,9 @@ function renderCreatePanel(char) {
     <div class="card" style="border:1px solid #27ae6055;background:linear-gradient(135deg,rgba(39,174,96,.06),transparent);">
       <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="const l=document.getElementById('calPlannedList');const ic=document.getElementById('calPlannedIcon');if(l){const open=l.style.display==='none';l.style.display=open?'flex':'none';ic.textContent=open?'▲':'▼';}">
         <div style="font-weight:700;font-size:.88rem;color:#27ae60;">📅 今週のプラン — 作る動画を選ぶ <span style="font-size:.75rem;color:var(--text-muted);">(${_calPlanned.length}本)</span></div>
-        <span id="calPlannedIcon" style="font-size:.75rem;color:var(--text-muted);">▼</span>
+        <span id="calPlannedIcon" style="font-size:.75rem;color:var(--text-muted);">▲</span>
       </div>
-      <div id="calPlannedList" style="display:none;flex-direction:column;gap:6px;margin-top:10px;">
+      <div id="calPlannedList" style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
         ${_calPlanned.map(e => {
           const ep = (data.episodes||[]).find(ep=>ep.id===e.episodeId);
           const isActive = e.episodeId === currentEpisodeId;
@@ -4663,7 +4666,7 @@ async function generateVoicevox(sceneIdx) {
       const speakerId = char?.voicevox_speaker ?? 13;
       const base = 'http://localhost:50021';
       const qRes = await fetch(`${base}/audio_query?text=${encodeURIComponent(lines)}&speaker=${speakerId}`, { method: 'POST' });
-      if (!qRes.ok) throw new Error('VOICEVOXに接続できません。アプリが起動しているか確認してください。');
+      if (!qRes.ok) throw new Error('VOICEVOXに接続できません。① デスクトップの channel-os-local.bat を実行 ② VOICEVOXが起動するまで待ってから再試行してください。');
       const query = await qRes.json();
       if (char?.voicevox_speed != null)               query.speedScale      = char.voicevox_speed;
       if (char?.voicevox_pitch != null)               query.pitchScale      = char.voicevox_pitch;
