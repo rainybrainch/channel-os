@@ -2236,6 +2236,27 @@ function showChangeLog() {
   setTimeout(() => { document.addEventListener('click', function _close(ev) { if (!el.contains(ev.target) && !ev.target.onclick?.toString().includes('showChangeLog')) { el.remove(); document.removeEventListener('click', _close); } }); }, 100);
 }
 
+async function generateMoreTitles() {
+  const apiKey = localStorage.getItem(GEMINI_KEY_SK);
+  if (!apiKey) { showToast('⚙️ Gemini APIキー未設定'); return; }
+  const area = document.getElementById('moreTitlesArea');
+  if (!area) return;
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><span>タイトル案を生成中...</span></div>';
+  const meta = generatedMeta;
+  if (!meta?.title) { area.innerHTML = ''; return; }
+  try {
+    const prompt = `既存タイトル「${meta.title}」の代替案を5つ生成してください。同じテーマで表現を変えて。JSONのみ: {"titles":["案1","案2","案3","案4","案5"]}`;
+    const text = await callClaude(prompt);
+    const parsed = safeParseJSON(text, {});
+    const titles = parsed.titles || [];
+    area.innerHTML = titles.length
+      ? `<div style="display:flex;flex-direction:column;gap:4px;">${titles.map(t=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface2);border-radius:6px;font-size:.82rem;"><span style="flex:1;">${escHtml(t)}</span><button class="btn btn-secondary btn-sm" style="font-size:.7rem;" onclick="navigator.clipboard.writeText('${escHtml(t).replace(/'/g,'\\x27')}').then(()=>showToast('コピーしました'))">📋</button></div>`).join('')}</div>`
+      : '<div style="font-size:.78rem;color:var(--text-muted);">生成に失敗しました</div>';
+  } catch(e) {
+    area.innerHTML = `<div style="font-size:.78rem;color:#e55;">❌ ${escHtml(e.message)}</div>`;
+  }
+}
+
 function copyAllMetaSummary() {
   const ep = currentEpisodeId ? (loadData().episodes||[]).find(e=>e.id===currentEpisodeId) : null;
   if (!ep) return;
@@ -5386,7 +5407,12 @@ function renderMetaResult(meta) {
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
           <span>${escHtml(meta.title)}</span>${copyBtn(meta.title,'コピー')}
         </div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">代替案: ${escHtml(meta.title_alt)}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
+          <div style="font-size:.75rem;color:var(--text-muted);">代替案: ${escHtml(meta.title_alt)}</div>
+          ${meta.title_alt ? copyBtn(meta.title_alt,'代替コピー') : ''}
+          <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="generateMoreTitles()">✨ さらに案を生成</button>
+        </div>
+        <div id="moreTitlesArea" style="margin-top:6px;"></div>
       </div>
       <div>
         <label>概要欄</label>
