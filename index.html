@@ -2608,13 +2608,29 @@ function renderSidebar() {
           <button onclick="event.stopPropagation();showEpEditModal('${ep.id}')" style="background:none;border:none;color:#666;cursor:pointer;font-size:.78rem;padding:2px 4px;flex-shrink:0;opacity:0.6;" title="編集・削除" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=0.6;this.style.color='#666'">✏️</button>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-          <span style="font-size:.65rem;color:${col};">●</span>
-          <span style="font-size:.65rem;color:var(--text-muted);">${statusLabel[ep.status]||'下書き'}</span>
+          <span onclick="event.stopPropagation();cycleEpisodeStatus('${ep.id}')" title="タップでステータス変更"
+            style="font-size:.65rem;color:${col};cursor:pointer;display:flex;align-items:center;gap:2px;padding:1px 5px;border-radius:8px;border:1px solid ${col}33;background:${col}11;">
+            ● ${statusLabel[ep.status]||'下書き'}
+          </span>
           ${schedBadge}${postedBadge}
         </div>
       </div>`;
       }).join('');
     })()}`;
+}
+
+function cycleEpisodeStatus(id) {
+  const d = loadData();
+  const ep = (d.episodes||[]).find(e => e.id === id);
+  if (!ep) return;
+  const order = ['draft','shooting','editing','done','posted'];
+  const cur = order.indexOf(ep.status || 'draft');
+  ep.status = order[(cur + 1) % order.length];
+  ep.updatedAt = new Date().toISOString();
+  saveData(d);
+  data = d;
+  renderSidebar();
+  showToast(`ステータス: ${{'draft':'📝 下書き','shooting':'🎥 撮影中','editing':'✂️ 編集中','done':'✅ 完成','posted':'🌎 投稿済'}[ep.status]}`);
 }
 
 function renameEpisode(id, el) {
