@@ -1077,7 +1077,8 @@ function updateEpisodeTitle(val) {
 
 function newEpisode() {
   const id = 'ep_' + Date.now();
-  const ep = { id, charId: currentCharId, title: '新しい動画', createdAt: new Date().toISOString(),
+  const existingCount = (data.episodes||[]).filter(e=>e.charId===currentCharId).length;
+  const ep = { id, charId: currentCharId, title: `新しい動画 #${existingCount+1}`, createdAt: new Date().toISOString(),
     plan: null, script: '', meta: null, status: 'draft' };
   data.episodes = data.episodes || [];
   data.episodes.push(ep);
