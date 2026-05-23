@@ -7590,7 +7590,25 @@ function renderSettingsPanel() {
         </div>
       </div>
       <div class="card" style="margin-top:8px;">
-        <div class="card-title">データ管理</div>
+        <div class="card-title">📊 チャンネル統計</div>
+        ${(() => {
+          const _d = loadData();
+          const eps = _d.episodes || [];
+          const total = eps.length;
+          const posted = eps.filter(e => e.status === 'posted' || !!e.youtubeUrl).length;
+          const withScript = eps.filter(e => !!e.script).length;
+          const withMeta = eps.filter(e => !!(e.meta?.title || e.generatedMeta?.title)).length;
+          const _sbRaw = (() => { try { return JSON.parse(localStorage.getItem('channelos_storyboard')||'{}'); } catch(e) { return {}; } })();
+          const withSb = eps.filter(e => !!_sbRaw[`sb_${e.id}`]?.scenes?.length).length;
+          const stat = (label, val, tot, color) => `<div style="text-align:center;padding:8px;background:var(--surface2);border-radius:8px;"><div style="font-size:1.3rem;font-weight:700;color:${color};">${val}</div><div style="font-size:.65rem;color:var(--text-muted);">${label}</div>${tot?`<div style="font-size:.62rem;color:var(--text-muted);">${Math.round(val/tot*100)}%</div>`:''}`;
+          return `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;">
+            ${stat('総動画',total,0,'var(--text)')}
+            ${stat('台本済',withScript,total,'#4a9edd')}
+            ${stat('投稿情報',withMeta,total,'#e67e22')}
+            ${stat('絵コンテ',withSb,total,'#9b59b6')}
+            ${stat('投稿済',posted,total,'#27ae60')}
+          </div>`;
+        })()}
         <div style="display:flex;gap:8px;">
           <button class="btn btn-secondary btn-sm" onclick="exportData()">エクスポート</button>
           <button class="btn btn-secondary btn-sm" onclick="importData()">インポート</button>
