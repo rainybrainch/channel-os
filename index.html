@@ -7945,6 +7945,7 @@ function renderDistributePanel() {
               ? `<button class="btn btn-primary btn-sm" onclick="postToInstagram().then(()=>_markChecklist('igPosted'))">📸 投稿する</button>`
               : `<button class="btn btn-secondary btn-sm" onclick="igAuth('${charId}')">IG に接続</button>`}
             <button class="btn btn-secondary btn-sm" onclick="copyText(document.getElementById('igCaption').value)">📋 コピー</button>
+            <button class="btn btn-secondary btn-sm" onclick="(()=>{const ep2=(loadData().episodes||[]).find(e=>e.id===currentEpisodeId);const meta2=ep2?.meta||{};const tags=(meta2.hashtags||[]).join('\\n');if(tags){navigator.clipboard.writeText(tags).then(()=>showToast('✅ ハッシュタグをコピーしました'));}else{showToast('ハッシュタグがありません');}})()">🏷 ハッシュタグ</button>
           </div>
         </div>`
       )}
