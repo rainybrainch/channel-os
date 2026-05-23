@@ -6708,8 +6708,10 @@ function _updateXCharCount(textarea) {
   const el = document.getElementById('xCharCount');
   if (!el) return;
   const len = textarea.value.length;
-  el.textContent = `${len}/280`;
-  el.style.color = len > 260 ? '#e53935' : len > 230 ? '#e67e22' : 'var(--text-muted)';
+  const over = len - 280;
+  el.textContent = over > 0 ? `${len}/280 (${over}字超過)` : `${len}/280`;
+  el.style.color = len > 280 ? '#e53935' : len > 260 ? '#e67e22' : len > 230 ? '#e67e22' : 'var(--text-muted)';
+  el.style.fontWeight = over > 0 ? '700' : '';
 }
 
 function toggleHeaderCharMenu() {
