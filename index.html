@@ -265,7 +265,7 @@
   <span id="headerClock" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);font-family:monospace;flex-shrink:0;"></span>
   <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
   <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（画面内常時表示 / 別窓で最前面表示も可）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
-  <button onclick="showChangeLog()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;position:relative;" title="最近の改善履歴（cycle85まで）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📋 <span style="font-size:.6rem;color:var(--accent);font-weight:700;">c85</span></button>
+  <button onclick="showChangeLog()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;position:relative;" title="最近の改善履歴（cycle108まで）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📋 <span style="font-size:.6rem;color:var(--accent);font-weight:700;">c108</span></button>
   <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
 </header>
 
@@ -2220,6 +2220,32 @@ function sbDrop(e, idx) {
   showToast(`シーンを移動しました（${_sbDragFrom+1} → ${idx+1}）`);
 }
 const CHANGELOG = [
+  ['cycle108','IGキャプション欄にハッシュタグ専用コピーボタン'],
+  ['cycle107','シーン台詞入力時に時間を文字数から自動推定'],
+  ['cycle106','エピソード編集モーダルに複製ボタン'],
+  ['cycle105','絵コンテ各シーン台詞エリアに文字数カウンター'],
+  ['cycle104','絵コンテに「未生成のみ」フィルターボタン'],
+  ['cycle103','メタ情報タグ・ハッシュタグにワンクリック削除ボタン'],
+  ['cycle102','エピソードリストに今日の更新件数バッジ'],
+  ['cycle101','ラジオ文字起こし欄に字数・行数カウンター'],
+  ['cycle100','台本エディタでTabキーが全角スペースを挿入'],
+  ['cycle99','エピソードリストに相対時刻バッジ（N分前）'],
+  ['cycle98','投稿チェックリストに達成率プログレスバー'],
+  ['cycle97','絵コンテ上部にサマリーバー（シーン数・合計時間）'],
+  ['cycle96','メタタイトル/説明文のデバウンスをタブ切替時フラッシュ'],
+  ['cycle95','メタタイトルをインライン編集可能テキストエリアに変更'],
+  ['cycle94','メタ説明文をインライン編集可能テキストエリアに変更'],
+  ['cycle93','Xツイート・Note本文タブ切替時デバウンスフラッシュ'],
+  ['cycle92','台本エディタに空行除去ボタン'],
+  ['cycle91','台本エディタの字数・行数を上部にも表示'],
+  ['cycle90','配信タブのSTEP完了チェックUI強化'],
+  ['cycle89','Xツイート・Note本文の自動保存デバウンス'],
+  ['cycle88','NoteテキストエリアのYT_URL置換プレビュー'],
+  ['cycle87','Xツイートの自動保存デバウンス'],
+  ['cycle86','ChangeLog最新化・説明文修正'],
+  ['cycle85','台本パネルUI整理・字数カウンタ色分け'],
+  ['cycle84','台本エリアに空白除外の正確な文字数表示'],
+  ['cycle83','投稿チェックリストにYT Studio リンクボタン'],
   ['cycle82','サイドバー再描画時に検索・フィルター状態保持'],
   ['cycle81','YouTube URL自動正規化（youtu.be対応）'],
   ['cycle80','全STEP完了でコンフェッティ🎉'],
