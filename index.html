@@ -1675,13 +1675,20 @@ function _desktopNotify(msg) {
 }
 
 function showToast(msg, notify = false) {
+  // 既存トーストを削除（スタック防止）
+  document.querySelectorAll('.channel-os-toast').forEach(el => el.remove());
+  const isError   = msg.startsWith('❌') || msg.startsWith('⚠️');
+  const isSuccess = msg.startsWith('✅') || msg.startsWith('🎉');
+  const bg = isError ? '#b71c1c' : isSuccess ? '#1b5e20' : '#333';
+  const duration = isError ? 5000 : isSuccess ? 3500 : 2800;
   const t = document.createElement('div');
+  t.className = 'channel-os-toast';
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;z-index:9999;';
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${bg};color:#fff;padding:10px 22px;border-radius:20px;font-size:.82rem;z-index:9999;max-width:90vw;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer;`;
+  t.onclick = () => t.remove();
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
-  // 完了・エラー通知はデスクトップ通知も発火
-  if (notify || msg.startsWith('✅') || msg.startsWith('🎉')) _desktopNotify(msg);
+  setTimeout(() => t.remove(), duration);
+  if (notify || isSuccess) _desktopNotify(msg);
 }
 
 // Scene state
