@@ -2919,6 +2919,7 @@ function renderSidebar() {
             ● ${statusLabel[ep.status]||'下書き'}
           </span>
           ${schedBadge}${postedBadge}
+          ${ep.updatedAt ? `<span style="font-size:.6rem;color:var(--text-muted);margin-left:auto;" title="最終更新: ${new Date(ep.updatedAt).toLocaleString('ja-JP')}">${(() => { const d = new Date(ep.updatedAt); const now = new Date(); const diff = Math.floor((now - d)/60000); return diff < 60 ? `${diff}分前` : diff < 1440 ? `${Math.floor(diff/60)}時間前` : `${Math.floor(diff/1440)}日前`; })()}</span>` : ''}
         </div>
       </div>`;
       }).join('');
