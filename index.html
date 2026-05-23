@@ -2281,6 +2281,30 @@ function filterEpisodeList(query) {
   });
 }
 
+function addManualScene() {
+  if (!currentEpisodeId) { showToast('動画を選択してください'); return; }
+  const key = sbKey();
+  if (!storyboardData[key]) storyboardData[key] = { scenes: [] };
+  const idx = storyboardData[key].scenes.length + 1;
+  storyboardData[key].scenes.push({
+    label: `シーン${idx}`, time: '', lines: ['（テキストを入力してください）'],
+    imageDataUrl: null, audioDataUrl: null, extraPrompt: '', skipBulk: false
+  });
+  saveStoryboard();
+  document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
+  showToast(`✅ シーン${idx}を追加しました`);
+}
+
+function clearAllScenes() {
+  if (!currentEpisodeId) return;
+  if (!confirm('全シーンを削除しますか？この操作は元に戻せません。')) return;
+  const key = sbKey();
+  storyboardData[key] = { scenes: [] };
+  saveStoryboard();
+  document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
+  showToast('全シーンを削除しました');
+}
+
 function moveScene(idx, dir) {
   const sb = storyboardData[sbKey()];
   if (!sb?.scenes) return;
@@ -5826,6 +5850,10 @@ function renderScenePanel() {
       <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">Drive素材フォルダの画像をシーンに配置できます。</p>
 
       <div class="storyboard-grid" id="storyboardContainer">${renderStoryboard()}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="addManualScene()" style="flex:1;">＋ シーンを手動追加</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearAllScenes()" style="color:#e55;">🗑 全シーンクリア</button>
+      </div>
     </div>
 
     <!-- 動画自動合成 -->
