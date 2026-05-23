@@ -2300,6 +2300,12 @@ function addManualScene() {
   showToast(`✅ シーン${idx}を追加しました`);
 }
 
+function copyAllSceneLines() {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes?.length) { showToast('シーンがありません'); return; }
+  const text = sb.scenes.map((s, i) => `【${s.label}】\n${s.lines.join('\n')}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => showToast(`✅ 全${sb.scenes.length}シーンの台本をコピーしました`));
+}
 function insertSceneAt(afterIdx) {
   if (!currentEpisodeId) { showToast('動画を選択してください'); return; }
   const key = sbKey();
@@ -5922,9 +5928,10 @@ function renderScenePanel() {
       <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">Drive素材フォルダの画像をシーンに配置できます。</p>
 
       <div class="storyboard-grid" id="storyboardContainer">${renderStoryboard()}</div>
-      <div style="margin-top:10px;display:flex;gap:8px;">
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="addManualScene()" style="flex:1;">＋ シーンを手動追加</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearAllScenes()" style="color:#e55;">🗑 全シーンクリア</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyAllSceneLines()" style="flex:1;">📋 全台本コピー</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearAllScenes()" style="color:#e55;">🗑 全クリア</button>
       </div>
     </div>
 
