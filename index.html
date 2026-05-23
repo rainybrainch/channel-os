@@ -262,7 +262,8 @@
   <div id="headerCharMenu" style="display:none;position:absolute;top:52px;left:14px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:180px;box-shadow:0 8px 20px rgba(0,0,0,.5);overflow:hidden;"></div>
   <span id="syncStatusBadge" style="font-size:.75rem;color:#aaa;cursor:pointer;" onclick="syncFromDrive()" title="クリックでDriveから最新データ取得">💾</span>
   <span id="saveIndicator" style="margin-left:8px;font-size:.75rem;color:var(--text-muted);opacity:0;transition:opacity .5s;">💾 保存済</span>
-  <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
+  <span id="headerClock" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);font-family:monospace;flex-shrink:0;"></span>
+  <button onclick="openDailyDashboard()" id="dailyDashBtn" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="全キャラの今日の投稿状況" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📅</button>
   <button onclick="toggleStatusWidget()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="作業進捗ウィジェット（画面内常時表示 / 別窓で最前面表示も可）" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🪟</button>
   <button onclick="showChangeLog()" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" title="最近の改善履歴" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📋</button>
   <button onclick="switchTab('settings')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);padding:6px 12px;cursor:pointer;font-size:.8rem;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙️</button>
@@ -3000,7 +3001,19 @@ function selectChar(id) {
 // ════════════════════════════════════
 //  Main render
 // ════════════════════════════════════
+function _startHeaderClock() {
+  if (window._headerClockTimer) return;
+  function _tick() {
+    const el = document.getElementById('headerClock');
+    if (!el) return;
+    const n = new Date();
+    el.textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+  }
+  _tick();
+  window._headerClockTimer = setInterval(_tick, 1000);
+}
 function renderMain() {
+  _startHeaderClock();
   const char = data.characters.find(c => c.id === currentCharId);
   if (!char) {
     _renderSetupDashboard();
