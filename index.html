@@ -7833,6 +7833,16 @@ function generateDefaultFirstComment(meta) {
 
 function applyYtUrl(url) {
   if (!url) return;
+  // normalize youtu.be short links and bare video IDs
+  const shortMatch = url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+  const longMatch  = url.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  const bareMatch  = !url.includes('http') && url.match(/^([A-Za-z0-9_-]{11})$/);
+  const videoId = (shortMatch || longMatch || bareMatch)?.[1];
+  if (videoId && url !== `https://www.youtube.com/watch?v=${videoId}`) {
+    url = `https://www.youtube.com/watch?v=${videoId}`;
+    const inp = document.getElementById('distVideoUrl');
+    if (inp && inp.value !== url) inp.value = url;
+  }
   // テキストエリア内の [YT_URL] をリアルタイム置換
   ['xTweetText','noteArticleArea'].forEach(id => {
     const el = document.getElementById(id);
