@@ -8557,6 +8557,13 @@ function renderPostPanel() {
       </div>
       ${allReady2 ? `<div style="margin-top:10px;padding:8px 12px;background:#1a3a1a;border-radius:6px;font-size:.82rem;color:#4caf50;">🟢 投稿準備完了です</div>` : `<div style="margin-top:10px;padding:8px 12px;background:#2a2a1a;border-radius:6px;font-size:.82rem;color:#aaa;">チェックが揃ったら投稿できます</div>`}
       ${hasMeta ? `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="copyAllMetaSummary()">📋 投稿用まとめを一括コピー</button>` : ''}
+      ${(() => {
+        const _char = data.characters.find(c=>c.id===currentCharId);
+        const _chId = _char?.channel_id;
+        const _vid = (loadData().episodes||[]).find(e=>e.id===currentEpisodeId)?.videoId;
+        const _studioUrl = _vid ? `https://studio.youtube.com/video/${_vid}/edit` : (_chId ? `https://studio.youtube.com/channel/${_chId}/videos` : 'https://studio.youtube.com');
+        return `<a href="${_studioUrl}" target="_blank" class="btn btn-secondary btn-sm" style="width:100%;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;">🎬 YouTube Studio で開く</a>`;
+      })()}
     </div>
 
     <!-- サムネイル -->
