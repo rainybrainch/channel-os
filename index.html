@@ -7815,7 +7815,7 @@ function renderDistributePanel() {
       ${clItem(!!cl.notePosted, 'STEP 5', '📒 Note 投稿',
         cl.notePosted ? '投稿済み（コピー完了）' : 'コピーしてNote.comに貼るだけ（1クリック）',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="noteArticleArea" style="min-height:120px;font-size:.82rem;line-height:1.8;" oninput="_updateTextareaCount(this,'noteCharCount')">${escHtml(replaceUrl(noteText||'（一括生成で自動生成されます）'))}</textarea>
+          <textarea id="noteArticleArea" style="min-height:120px;font-size:.82rem;line-height:1.8;" oninput="_updateTextareaCount(this,'noteCharCount');_saveNoteEdit(this.value)">${escHtml(replaceUrl(noteText||'（一括生成で自動生成されます）'))}</textarea>
           <div style="text-align:right;font-size:.7rem;color:var(--text-muted);margin-top:-4px;"><span id="noteCharCount">${(replaceUrl(noteText||'')).length}</span>字</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="copyNoteAndOpen().then(()=>_markChecklist('notePosted'))">📋 コピー＆Note開く</button>
@@ -9177,6 +9177,18 @@ function saveFirstComment(text) {
   saveData(d);
 }
 
+let _saveNoteDebounce = null;
+function _saveNoteEdit(val) {
+  clearTimeout(_saveNoteDebounce);
+  _saveNoteDebounce = setTimeout(() => {
+    if (!currentEpisodeId) return;
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep) return;
+    ep.notePost = val; ep.noteArticle = val;
+    saveData(d); data = d;
+  }, 600);
+}
 let _saveXTweetDebounce = null;
 function _saveXTweetEdit(val) {
   clearTimeout(_saveXTweetDebounce);
