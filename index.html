@@ -279,8 +279,12 @@
     <div id="charList"></div>
     <div class="sidebar-title" id="epSidebarTitle" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:14px;">動画プロジェクト</div>
     <div id="epSearchWrap" style="display:none;padding:4px 8px;">
-      <input type="text" id="epSearchInput" placeholder="🔍 タイトルで絞り込み…" oninput="filterEpisodeList(this.value)"
-        style="width:100%;padding:5px 8px;font-size:.75rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+      <div style="position:relative;">
+        <input type="text" id="epSearchInput" placeholder="🔍 タイトルで絞り込み…" oninput="filterEpisodeList(this.value);document.getElementById('epSearchClear').style.display=this.value?'flex':'none'"
+          style="width:100%;padding:5px 28px 5px 8px;font-size:.75rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+        <button id="epSearchClear" onclick="document.getElementById('epSearchInput').value='';filterEpisodeList('');this.style.display='none'"
+          style="display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem;padding:2px 4px;line-height:1;">✕</button>
+      </div>
     </div>
     <div id="episodeList"></div>
     <button class="add-char-btn" onclick="openAddCharModal()">＋ キャラ追加</button>
