@@ -10945,6 +10945,7 @@ async function postToX(charId = currentCharId) {
   if (!token) { showToast('X未接続です。設定タブから接続してください'); return; }
   const text = document.getElementById('xTweetText')?.value.trim();
   if (!text) { showToast('投稿テキストを入力してください'); return; }
+  if (text.includes('[YT_URL]')) { showToast('⚠️ [YT_URL] が未置換です。STEP 3でYouTube URLを入力してください'); return; }
   if (text.length > 280) { showToast('280字を超えています'); return; }
   aiStart('Xに投稿中...');
   try {
