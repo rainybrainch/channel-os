@@ -5505,7 +5505,10 @@ function renderMetaResult(meta) {
           <div style="font-size:.72rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">最適投稿時間</div>
           <div style="font-size:.9rem;font-weight:700;color:#4caf50;">${escHtml(meta.best_post_time)}</div>
         </div>
-        <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="navigator.clipboard.writeText('${escHtml(meta.best_post_time).replace(/'/g,"\\x27")}').then(()=>showToast('コピーしました'))">📋</button>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${escHtml(meta.best_post_time).replace(/'/g,"\\x27")}').then(()=>showToast('コピーしました'))">📋</button>
+          <button class="btn btn-secondary btn-sm" style="font-size:.72rem;" onclick="registerBestPostTime('${escHtml(meta.best_post_time).replace(/'/g,"\\x27")}')">📅 カレンダー登録</button>
+        </div>
       </div>` : ''}
     </div>
   </div>
@@ -7030,6 +7033,30 @@ function updateCalEpList(charId) {
   if (!sel) return;
   sel.innerHTML = '<option value="">-- 未設定 --</option>' +
     episodes.map(e => `<option value="${e.id}">${escHtml(e.title||e.theme||e.id)}</option>`).join('');
+}
+
+function registerBestPostTime(bestPostTimeStr) {
+  // Parse "月曜〜金曜 18:00〜21:00" style strings and extract a date/time
+  // Open the calendar modal with pre-filled best post time
+  if (!currentEpisodeId) { showToast('エピソードを選択してください'); return; }
+  const ep = (loadData().episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return;
+  // Try to parse a time from the string (e.g. "18:00" or "19:00")
+  const timeMatch = bestPostTimeStr.match(/(\d{1,2}):(\d{2})/);
+  const timeStr = timeMatch ? `${String(timeMatch[1]).padStart(2,'0')}:${timeMatch[2]}` : '18:00';
+  // Default to 7 days from now
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  openCalModal(dateStr, currentCharId);
+  setTimeout(() => {
+    const ti = document.getElementById('calTime');
+    if (ti) ti.value = timeStr;
+    const epSel = document.getElementById('calEp');
+    if (epSel) epSel.value = currentEpisodeId;
+    const titleEl = document.getElementById('calTitle2');
+    if (titleEl && !titleEl.value) titleEl.value = ep.title || ep.theme || '';
+    showToast(`📅 投稿時間 ${timeStr} をセットしました`);
+  }, 200);
 }
 
 function saveCalEntry(existingId) {
