@@ -2320,6 +2320,18 @@ function copyAllSceneLines() {
   const text = sb.scenes.map((s, i) => `【${s.label}】\n${s.lines.join('\n')}`).join('\n\n');
   navigator.clipboard.writeText(text).then(() => showToast(`✅ 全${sb.scenes.length}シーンの台本をコピーしました`));
 }
+function saveSceneLabel(idx, val) {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes[idx]) return;
+  sb.scenes[idx].label = val || `シーン${idx+1}`;
+  saveStoryboard();
+}
+function saveSceneTime(idx, val) {
+  const sb = storyboardData[sbKey()];
+  if (!sb?.scenes[idx]) return;
+  sb.scenes[idx].time = val;
+  saveStoryboard();
+}
 function duplicateScene(idx) {
   const key = sbKey();
   const scenes = storyboardData[key]?.scenes;
@@ -4777,8 +4789,8 @@ function renderStoryboard() {
         <input type="checkbox" id="sbCheck${i}" ${scene.skipBulk ? '' : 'checked'} onchange="toggleSceneCheck(${i},this.checked)" style="accent-color:var(--char-color);width:15px;height:15px;">
       </label>
       <span style="cursor:grab;color:#555;font-size:.8rem;margin-right:2px;" title="ドラッグで並び替え">⠿</span>
-      <span class="sb-scene-badge">${escHtml(scene.label)}</span>
-      <span class="sb-scene-time">${escHtml(scene.time)}</span>
+      <span class="sb-scene-badge" contenteditable="true" title="クリックで編集" onblur="saveSceneLabel(${i},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escHtml(scene.label)}</span>
+      <span class="sb-scene-time" contenteditable="true" title="秒数を編集" onblur="saveSceneTime(${i},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escHtml(scene.time)}</span>
       ${scene.imageDataUrl ? '<span style="font-size:.7rem;color:#4caf50;margin-left:auto;">✅ 生成済</span>' : ''}
       <div style="display:flex;gap:2px;margin-left:auto;">
         ${i > 0 ? `<button onclick="moveScene(${i},-1)" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--text-muted);font-size:.72rem;" title="上へ">↑</button>` : '<span style="width:28px;"></span>'}
