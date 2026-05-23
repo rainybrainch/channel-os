@@ -7597,7 +7597,8 @@ function renderDistributePanel() {
       ${clItem(!!cl.commentPosted, 'STEP 7', '💬 ファーストコメント投稿',
         cl.commentPosted ? 'コメント投稿済み' : 'STEP 3の自動取得時に連動して自動投稿されます。または手動でここから投稿。',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="firstCommentTextPost" style="min-height:70px;font-size:.82rem;">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+          <textarea id="firstCommentTextPost" style="min-height:70px;font-size:.82rem;" oninput="_updateTextareaCount(this,'commentCharCount')">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+          <div style="text-align:right;font-size:.72rem;color:var(--text-muted);margin-top:-4px;"><span id="commentCharCount">${(ep?.firstComment || generateDefaultFirstComment(meta)).length}</span>字 / 150目安</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="postFirstComment().then(()=>_markChecklist('commentPosted'))">💬 投稿する</button>
             <button class="btn btn-secondary btn-sm" onclick="generateFirstComment()">✨ AIで再生成</button>
