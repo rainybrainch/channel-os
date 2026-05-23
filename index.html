@@ -7582,7 +7582,7 @@ function renderDistributePanel() {
       ${clItem(!!cl.igPosted, 'STEP 6', '📸 Instagram 投稿',
         igToken ? (cl.igPosted ? '投稿済み' : 'キャプションを確認して投稿') : 'IG連携が必要です（設定タブ）',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="igCaption" style="min-height:90px;font-size:.82rem;line-height:1.7;" oninput="_updateIgCount(this)">${escHtml(igCaptionText)}</textarea>
+          <textarea id="igCaption" style="min-height:90px;font-size:.82rem;line-height:1.7;" oninput="saveIgCaptionEdit(this.value)">${escHtml(igCaptionText)}</textarea>
           <div style="text-align:right;font-size:.72rem;color:var(--text-muted);margin-top:-4px;"><span id="igCharCount">${igCaptionText.length}</span>字 <span id="igCharLimit" style="color:${igCaptionText.length>2200?'#e74c3c':'var(--text-muted)'}">/ 2200</span></div>
           ${hasThumb ? `<div style="font-size:.72rem;color:var(--text-muted);">📎 サムネイル画像を使用します</div>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -7597,7 +7597,7 @@ function renderDistributePanel() {
       ${clItem(!!cl.commentPosted, 'STEP 7', '💬 ファーストコメント投稿',
         cl.commentPosted ? 'コメント投稿済み' : 'STEP 3の自動取得時に連動して自動投稿されます。または手動でここから投稿。',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="firstCommentTextPost" style="min-height:70px;font-size:.82rem;" oninput="_updateTextareaCount(this,'commentCharCount')">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
+          <textarea id="firstCommentTextPost" style="min-height:70px;font-size:.82rem;" oninput="_updateTextareaCount(this,'commentCharCount');saveFirstComment(this.value)">${escHtml(ep?.firstComment || generateDefaultFirstComment(meta))}</textarea>
           <div style="text-align:right;font-size:.72rem;color:var(--text-muted);margin-top:-4px;"><span id="commentCharCount">${(ep?.firstComment || generateDefaultFirstComment(meta)).length}</span>字 / 150目安</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="postFirstComment().then(()=>_markChecklist('commentPosted'))">💬 投稿する</button>
@@ -8919,6 +8919,20 @@ function saveFirstComment(text) {
   if (!ep) return;
   ep.firstComment = text;
   saveData(d);
+}
+
+let _saveIgCaptionDebounce = null;
+function saveIgCaptionEdit(val) {
+  _updateIgCount(document.getElementById('igCaption'));
+  clearTimeout(_saveIgCaptionDebounce);
+  _saveIgCaptionDebounce = setTimeout(() => {
+    if (!currentEpisodeId) return;
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep) return;
+    ep.igCaption = val;
+    saveData(d); data = d;
+  }, 600);
 }
 
 function syncVideoId(src) {
