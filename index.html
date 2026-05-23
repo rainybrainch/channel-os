@@ -4685,7 +4685,8 @@ function renderStoryboard() {
         </div>
       </div>
       <div class="sb-text-col">
-        <div class="sb-script-lines">${escHtml(scene.lines.join('\n'))}</div>
+        <textarea rows="4" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.84rem;line-height:1.8;color:var(--text);resize:vertical;font-family:'Noto Serif JP',serif;"
+          oninput="saveSceneLines(${i},this.value)">${escHtml(scene.lines.join('\n'))}</textarea>
         <input type="text" placeholder="追加指示（例: 赤いバンダナ、ジム内、汗をかいている）" value="${escHtml(scene.extraPrompt||'')}"
           style="width:100%;margin-top:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.78rem;"
           oninput="saveSceneExtraPrompt(${i}, this.value)">
@@ -10682,6 +10683,18 @@ ${charInfo ? `【キャラクター情報】\n${charInfo}\n\n` : ''}${fullMeta}`
   copyText(text);
   showToast('🖼 サムネイル用コピーしました');
 }
+let _saveSceneLinesDebounce = {};
+function saveSceneLines(sceneIdx, value) {
+  clearTimeout(_saveSceneLinesDebounce[sceneIdx]);
+  _saveSceneLinesDebounce[sceneIdx] = setTimeout(() => {
+    const sb = storyboardData[sbKey()];
+    if (!sb?.scenes[sceneIdx]) return;
+    sb.scenes[sceneIdx].lines = value.split('\n').filter(l => l.trim() !== '');
+    if (!sb.scenes[sceneIdx].lines.length) sb.scenes[sceneIdx].lines = [value];
+    saveStoryboard();
+  }, 600);
+}
+
 function saveSceneExtraPrompt(sceneIdx, value) {
   const sb = storyboardData[sbKey()];
   if (!sb?.scenes[sceneIdx]) return;
