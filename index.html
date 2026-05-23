@@ -3795,7 +3795,10 @@ function renderCreatePanel(char) {
     <div class="card" style="border:1px solid var(--char-color,#c9a84c);background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div class="card-title" style="margin:0;">🎬 動画を作る</div>
-        ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規動画を開始</button>`}
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${currentEpisodeId ? `<span style="font-size:.72rem;color:var(--text-muted);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📁 ${escHtml((data.episodes||[]).find(e=>e.id===currentEpisodeId)?.title||'')}</span>` : `<button class="btn btn-secondary btn-sm" onclick="newEpisode()">＋ 新規</button>`}
+          <button class="btn btn-primary btn-sm" onclick="switchTab('create')" style="font-size:.78rem;font-weight:700;">作成タブへ →</button>
+        </div>
       </div>
 
       <!-- 制作モード切替 -->
@@ -4707,12 +4710,22 @@ function _stripCharPrefix(lineText) {
 async function generateAllVoicevox() {
   const sb = storyboardData[sbKey()];
   if (!sb?.scenes?.length) { showToast('絵コンテがありません'); return; }
-  let count = 0;
-  for (let i = 0; i < sb.scenes.length; i++) {
-    if (sb.scenes[i].audioDataUrl) continue; // 生成済みはスキップ
-    await generateVoicevox(i);
-    count++;
+  // 先に接続確認
+  try {
+    const r = await fetch('http://localhost:50021/version', { method:'GET', signal: AbortSignal.timeout(2000) });
+    if (!r.ok) throw new Error();
+  } catch {
+    showToast('❌ VOICEVOXが起動していません。channel-os-local.bat を実行してください');
+    await checkVoicevoxConnection();
+    return;
   }
+  let count = 0, errors = 0;
+  for (let i = 0; i < sb.scenes.length; i++) {
+    if (sb.scenes[i].audioDataUrl) continue;
+    try { await generateVoicevox(i); count++; }
+    catch { errors++; }
+  }
+  if (errors > 0) { showToast(`⚠️ ${count}シーン生成・${errors}シーン失敗`); return; }
   showToast(`✅ ${count}シーンの音声を生成しました！次はサムネイル作成へ`);
   _refreshWorkflowGuide();
   setTimeout(() => switchTab('post'), 800);
