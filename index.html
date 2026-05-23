@@ -2545,7 +2545,11 @@ function renderSidebar() {
       <button class="add-char-btn" style="flex:1;margin:0;" onclick="newEpisode()">＋ 新しい動画</button>
       ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showEpManageModal()" title="プロジェクト管理・削除">📋</button>` : ''}
     </div>
-    ${eps.length === 0 ? `<div style="padding:8px 16px;font-size:.75rem;color:var(--text-muted);">動画なし</div>` : ''}
+    ${eps.length === 0 ? `<div style="padding:14px 14px 10px;text-align:center;">
+      <div style="font-size:1.5rem;margin-bottom:6px;">🎬</div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">まだ動画がありません。<br>「＋ 新しい動画」で始めよう！</div>
+      <button class="btn btn-primary btn-sm" style="width:100%;font-size:.8rem;" onclick="newEpisode()">🚀 最初の動画を作る</button>
+    </div>` : ''}
     ${(() => {
       const calAll = loadCalendar();
       const _ld = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -3832,6 +3836,14 @@ function renderCreatePanel(char) {
           <div id="allStep3" style="color:var(--text-muted);">⬜ [3/3] 完了</div>
         </div>
       </div>
+      ${generatedScript ? `
+      <details style="margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <summary style="padding:10px 14px;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--surface2);display:flex;align-items:center;gap:8px;">
+          📝 生成済み台本を確認 <span style="font-size:.72rem;font-weight:400;color:var(--text-muted);">（タップで展開）</span>
+          <button onclick="event.stopPropagation();event.preventDefault();toggleSimpleMode();setTimeout(()=>switchTab('script'),50)" style="margin-left:auto;font-size:.72rem;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);">詳細タブで開く →</button>
+        </summary>
+        <div style="padding:12px 14px;font-size:.84rem;line-height:1.9;white-space:pre-wrap;font-family:'Noto Serif JP',serif;max-height:300px;overflow-y:auto;background:var(--surface);">${escHtml(parseScript(generatedScript).lines)}</div>
+      </details>` : ''}
       </div><!-- /planVideoMode -->
 
       <!-- ラジオモード -->
