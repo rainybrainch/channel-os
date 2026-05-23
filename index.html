@@ -4362,11 +4362,19 @@ function renderScriptPanel(char) {
         <span id="scriptStatsLabel">${(() => { const v=parseScript(generatedScript).lines; const lines=v.split('\n').filter(l=>l.trim()).length; const chars=v.replace(/\s/g,'').length; const sec=Math.round(lines*3.5); const col=chars<600?'#e67e22':chars>1200?'#e53935':'#4caf50'; return `${lines}行 ≈ ${sec}秒 (${Math.floor(sec/60)}分${sec%60}秒) &nbsp;<span style="color:${col}">${chars}字</span>`; })()}</span>
         <div style="display:flex;align-items:center;gap:8px;">
           <button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="copyText(document.getElementById('scriptLinesEditor').value);showToast('✅ 台本をコピーしました')">📋 全コピー</button>
+          <button class="btn btn-primary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="_scriptToStoryboardAndSwitch()">🎬 絵コンテへ</button>
           <span>直接編集可 — 変更は自動保存されます</span>
         </div>
       </div>
     </div>` : ''}
   </div>`;
+}
+
+function _scriptToStoryboardAndSwitch() {
+  const el = document.getElementById('scriptLinesEditor');
+  if (el) { try { const p=JSON.parse(generatedScript||'{}'); p.lines=el.value; generatedScript=JSON.stringify(p); } catch { generatedScript=JSON.stringify({info:'',lines:el.value}); } saveCurrentEpisode(); }
+  switchTab('scene');
+  showToast('🎬 絵コンテタブへ移動しました');
 }
 
 // 2026年横動画（3分）戦略フレームワーク（horizontal-strategy-2026.md より抽出）
