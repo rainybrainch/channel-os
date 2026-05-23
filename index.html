@@ -3573,10 +3573,22 @@ JSONのみ出力:
       if (sbEl) sbEl.innerHTML = renderStoryboard();
     }
 
-    // エピソードタイトルをテーマで更新
+    // エピソードタイトルを自動更新（デフォルト or 空の場合）
     if (currentEpisodeId) {
       const _ep2 = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
-      if (_ep2 && !_ep2.title?.trim()) _ep2.title = theme;
+      if (_ep2 && (!_ep2.title?.trim() || _ep2.title === '新しい動画')) {
+        // meta.titleがあればそちら優先、なければテーマ
+        const _autoTitle = generatedMeta?.title || theme;
+        if (_autoTitle) {
+          _ep2.title = _autoTitle;
+          // サイドバーもリアルタイム更新
+          const sideEl = document.querySelector(`.char-item[onclick="loadEpisode('${currentEpisodeId}')"] div`);
+          if (sideEl) sideEl.textContent = _autoTitle;
+          // createタブの入力欄も更新
+          const titleInp = document.getElementById('episodeTitleInput');
+          if (titleInp) titleInp.value = _autoTitle;
+        }
+      }
     }
     saveCurrentEpisode();
     _refreshWorkflowGuide();
