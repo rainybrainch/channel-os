@@ -3381,11 +3381,29 @@ function renderMetaFormatSwitch() {
   if (lbl)  lbl.textContent = fmt === 'shorts' ? '1080×1920px' : '1280×720px';
 }
 
+function _jumpToApiKeySetting() {
+  if (typeof toggleSimpleMode === 'function') {
+    const el = document.querySelector('.tab[id="tab_settings"]');
+    if (!el) { simpleMode = false; renderMain(); }
+  }
+  setTimeout(() => {
+    switchTab('settings');
+    setTimeout(() => {
+      const inp = document.getElementById('geminiApiKey');
+      if (inp) { inp.focus(); inp.scrollIntoView({ behavior:'smooth', block:'center' }); inp.style.outline = '2px solid var(--accent)'; setTimeout(() => inp.style.outline = '', 1500); }
+    }, 300);
+  }, 50);
+}
+
 async function generateAll() {
   const char = data.characters.find(c => c.id === currentCharId);
   if (!char) { showToast('キャラクターを選択してください'); return; }
   const apiKey = localStorage.getItem(GEMINI_KEY_SK);
-  if (!apiKey) { showToast('設定タブでGemini APIキーを入力してください'); return; }
+  if (!apiKey) {
+    showToast('⚙️ Gemini APIキーが未設定です → 設定タブへ移動します');
+    _jumpToApiKeySetting();
+    return;
+  }
   const pattern = document.getElementById('allGenPattern')?.value || 'explanation';
   // ラジオパターン時はstartRadioFromPlanに委譲
   if (pattern === 'radio') {
