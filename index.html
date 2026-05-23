@@ -210,6 +210,7 @@
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
   @media (max-width: 768px) {
+    #fabGenBtn { display: flex !important; }
     aside { width: 60px; transition: width .2s ease; }
     aside.expanded { width: 220px; }
     aside:not(.expanded) .char-name,
@@ -231,6 +232,11 @@
   <div class="spin"></div>
   <span id="globalAiLabel">AI処理中...</span>
 </div>
+
+<!-- モバイル用フローティング一括生成ボタン -->
+<button id="fabGenBtn" onclick="currentEpisodeId?generateAll():showToast('動画を選択してください')"
+  style="display:none;position:fixed;bottom:20px;right:20px;z-index:8888;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#000;border:none;font-size:1.4rem;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5);align-items:center;justify-content:center;font-weight:700;"
+  title="一括生成（Ctrl+Enter）">🚀</button>
 
 <!-- ログインバナー（ページ上部に表示、アプリは使える） -->
 <div id="loginGate" style="display:none;background:#1a2030;border-bottom:2px solid var(--accent);padding:10px 20px;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:9999;">
