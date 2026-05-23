@@ -5730,6 +5730,17 @@ function renderScenePanel() {
       <div style="background:linear-gradient(135deg,rgba(21,101,192,.12),transparent);border:1px solid #1565c055;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="font-size:.82rem;font-weight:700;color:#64b5f6;">🎙 一括音声生成</div>
         <button class="btn btn-sm" style="background:#1565c0;color:#fff;" onclick="generateAllVoicevox()">⚡ 全シーンを一括生成</button>
+        ${(() => {
+          const sb = storyboardData[`sb_${currentEpisodeId}`];
+          if (!sb?.scenes?.length) return '';
+          const total = sb.scenes.length;
+          const done = sb.scenes.filter(s => s.audioDataUrl).length;
+          const pct = Math.round(done/total*100);
+          return `<div style="margin-left:auto;text-align:right;">
+            <div style="font-size:.75rem;font-weight:700;color:${done===total?'#4caf50':'#64b5f6'};">${done}/${total} シーン完了</div>
+            <div style="width:80px;height:4px;background:var(--border);border-radius:2px;margin-top:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${done===total?'#4caf50':'#1565c0'};border-radius:2px;"></div></div>
+          </div>`;
+        })()}
         <span style="font-size:.72rem;color:var(--text-muted);">※VOICEVOXが起動中の場合のみ動作します</span>
       </div>
 
