@@ -11373,8 +11373,27 @@ function _markChecklist(key) {
   }
   const panel = document.getElementById('panelDistribute');
   if (panel) panel.outerHTML = renderDistributePanel();
+  // 全完了チェック
+  const cl2 = ep.postingChecklist || {};
+  const hasBulk2 = !!(ep.xTweet || ep.notePost);
+  const hasThumb2 = !!(ep.thumbnailDataUrl || ep.thumbnailSDataUrl);
+  const hasUrl2 = !!ep.youtubeUrl;
+  const allDone = [hasBulk2, hasThumb2, hasUrl2, cl2.xPosted, cl2.notePosted, cl2.igPosted, cl2.commentPosted].every(Boolean);
+  if (allDone) _celebrateAllDone();
 }
-
+function _celebrateAllDone() {
+  showToast('🎉 全ステップ完了！お疲れ様でした！');
+  const colors = ['#c9a84c','#e5393520','#4caf50','#9b59b6','#3498db'];
+  for (let j = 0; j < 30; j++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;top:-10px;left:${Math.random()*100}%;width:8px;height:8px;border-radius:50%;background:${colors[Math.floor(Math.random()*colors.length)]};pointer-events:none;z-index:99999;transition:transform 2s ease-in,opacity 2s;`;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => { el.style.transform = `translateY(${80+Math.random()*20}vh) rotate(${Math.random()*720}deg)`; el.style.opacity = '0'; });
+      setTimeout(() => el.remove(), 2100);
+    }, j * 60);
+  }
+}
 function _resetChecklist() {
   if (!currentEpisodeId) return;
   const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
