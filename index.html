@@ -4853,12 +4853,25 @@ async function generateAllVoicevox() {
     await checkVoicevoxConnection();
     return;
   }
+  const total = sb.scenes.filter(s => !s.audioDataUrl).length;
+  if (total === 0) { showToast('✅ 全シーンの音声が生成済みです'); return; }
   let count = 0, errors = 0;
+  // 進捗バーを挿入
+  const _progWrap = document.createElement('div');
+  _progWrap.id = 'vvAllProgress';
+  _progWrap.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 20px;z-index:9999;min-width:260px;box-shadow:0 4px 16px rgba(0,0,0,.5);text-align:center;';
+  _progWrap.innerHTML = `<div style="font-size:.82rem;margin-bottom:8px;">🎤 音声生成中 <span id="vvProgTxt">0 / ${total}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div id="vvProgBar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .3s;"></div></div>`;
+  document.body.appendChild(_progWrap);
+  const _updateProg = (n) => {
+    const t = document.getElementById('vvProgTxt'); if (t) t.textContent = `${n} / ${total}`;
+    const b = document.getElementById('vvProgBar'); if (b) b.style.width = `${Math.round(n/total*100)}%`;
+  };
   for (let i = 0; i < sb.scenes.length; i++) {
     if (sb.scenes[i].audioDataUrl) continue;
-    try { await generateVoicevox(i); count++; }
-    catch { errors++; }
+    try { await generateVoicevox(i); count++; _updateProg(count + errors); }
+    catch { errors++; _updateProg(count + errors); }
   }
+  _progWrap.remove();
   if (errors > 0) { showToast(`⚠️ ${count}シーン生成・${errors}シーン失敗`); return; }
   showToast(`✅ ${count}シーンの音声を生成しました！次はサムネイル作成へ`);
   _refreshWorkflowGuide();
