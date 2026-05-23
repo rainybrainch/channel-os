@@ -5761,7 +5761,12 @@ function renderScenePanel() {
         <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--surface2);border-radius:0 0 8px 8px;border:1px solid var(--border);border-top:none;">
           <button class="btn btn-secondary btn-sm" onclick="openReverseStoryboard()" title="動画をアップロードしてシーンを自動生成">🎬 逆台本（動画→絵コンテ）</button>
           <button class="btn btn-secondary btn-sm" onclick="exportCapCutProject()" title="CapCut/DaVinci用にシーン構成をJSON書き出し">📤 CapCut書き出し</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL</button>
+          ${(() => {
+            const _sb = storyboardData[`sb_${currentEpisodeId}`];
+            const _imgCount = _sb?.scenes?.filter(s=>s.imageDataUrl&&!s.imageDataUrl.startsWith('drive:')).length || 0;
+            const _audCount = _sb?.scenes?.filter(s=>s.audioDataUrl).length || 0;
+            return `<button class="btn btn-secondary btn-sm" onclick="exportScenesZip()" title="全シーン画像＋音声をまとめてダウンロード">💾 素材一括DL（画像${_imgCount}枚・音声${_audCount}件）</button>`;
+          })()}
         </div>
       </details>
 
