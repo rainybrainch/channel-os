@@ -6263,6 +6263,8 @@ function renderCommentThreads(videoId, threads) {
           <div class="comment-meta">
             <span>👍 ${top.likeCount||0}</span>
             <span>${new Date(top.publishedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+            <button class="comment-action" onclick="event.stopPropagation();copyCommentText('${escHtml(top.textDisplay).replace(/'/g,'\\x27')}',this)">📋</button>
+            <button class="comment-action" onclick="aiReplyComment('${threadId}','${escHtml(top.textDisplay).replace(/'/g,'\\x27').replace(/\n/g,' ').slice(0,200)}')">🤖 AI返信</button>
             <button class="comment-action" onclick="openReplyBox('${threadId}')">↩ 返信</button>
             ${top.authorChannelId?.value === '' ? `<button class="comment-action" onclick="deleteComment('${topId}')">🗑 削除</button>` : ''}
           </div>
@@ -6290,6 +6292,36 @@ function renderCommentThreads(videoId, threads) {
       </div>
     </div>`;
   }).join('');
+}
+
+function copyCommentText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+async function aiReplyComment(threadId, commentText) {
+  const char = data.characters.find(c => c.id === currentCharId);
+  if (!char) { showToast('チャンネルが未選択です'); return; }
+  const apiKey = localStorage.getItem(GEMINI_KEY_SK);
+  if (!apiKey) { showToast('⚙️ Gemini APIキー未設定'); _jumpToApiKeySetting(); return; }
+  const box = document.getElementById(`replyBox_${threadId}`);
+  if (box) { box.style.display = 'flex'; }
+  const input = document.getElementById(`replyInput_${threadId}`);
+  if (input) input.value = '生成中...';
+  try {
+    const prompt = `YouTubeチャンネル「${char.name}」として視聴者コメントに返信してください。
+キャラ口調: ${char.tone}
+コメント: ${commentText}
+短く自然な返信を1文だけ。JSONなし。`;
+    const reply = await callClaude(prompt);
+    if (input) { input.value = reply.trim(); input.focus(); }
+  } catch(e) {
+    if (input) input.value = '';
+    showToast('❌ ' + e.message);
+  }
 }
 
 function openReplyBox(threadId) {
