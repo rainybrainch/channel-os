@@ -4498,6 +4498,7 @@ function renderScriptPanel(char) {
         <div style="display:flex;align-items:center;gap:8px;">
           <button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="copyText(document.getElementById('scriptLinesEditor').value);showToast('✅ 台本をコピーしました')">📋 全コピー</button>
           <button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="_splitScriptByPeriod()">✂️ 句点で分割</button>
+          <button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="_trimScriptLines()">🧹 空行除去</button>
           <button class="btn btn-primary btn-sm" style="font-size:.7rem;padding:2px 8px;" onclick="_scriptToStoryboardAndSwitch()">🎬 絵コンテへ</button>
           <span>直接編集可 — 変更は自動保存されます</span>
         </div>
@@ -4506,6 +4507,14 @@ function renderScriptPanel(char) {
   </div>`;
 }
 
+function _trimScriptLines() {
+  const ta = document.getElementById('scriptLinesEditor');
+  if (!ta) return;
+  ta.value = ta.value.split('\n').filter(l => l.trim()).join('\n');
+  saveScriptLinesEdit(ta.value);
+  _updateScriptStats(ta.value);
+  showToast('✅ 空行を除去しました');
+}
 function _splitScriptByPeriod() {
   const ta = document.getElementById('scriptLinesEditor');
   if (!ta) return;
