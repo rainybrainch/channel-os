@@ -5369,7 +5369,8 @@ function renderMetaResult(meta) {
   };
   const char = data.characters.find(c => c.id === currentCharId);
   const voiceCredit = char?.voicevox_name ? `\n\n🎙 声: ${char.voicevox_name} / VOICEVOX` : '';
-  const descWithVoice = meta.description + voiceCredit;
+  const chSubLink = char?.channel_id ? `\n\n▼ チャンネル登録はこちら\nhttps://www.youtube.com/channel/${char.channel_id}?sub_confirmation=1` : '';
+  const descWithVoice = meta.description + voiceCredit + chSubLink;
   return `
   <div class="card">
     <div class="result-header"><span class="result-label">📝 タイトル・概要欄</span>${copyBtn(meta.title+'\n\n'+descWithVoice+'\n\n'+(meta.hashtags||[]).join(' '),'全コピー')}</div>
