@@ -5634,10 +5634,10 @@ function renderMetaResult(meta) {
     <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px;">
       <div>
         <label>タイトル（推奨）</label>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
-          <span>${escHtml(meta.title)}</span>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:.7rem;color:${meta.title.length > 40 ? '#e74c3c' : meta.title.length > 32 ? '#e67e22' : 'var(--text-muted)'};">${meta.title.length}/40字</span>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+          <input id="metaTitleEditor" type="text" value="${escHtml(meta.title)}" oninput="_saveMetaTitleEdit(this.value)" style="flex:1;background:transparent;border:none;outline:none;font-size:.95rem;font-weight:600;color:var(--text);">
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <span id="metaTitleCharCount" style="font-size:.7rem;color:${meta.title.length > 40 ? '#e74c3c' : meta.title.length > 32 ? '#e67e22' : 'var(--text-muted)'};">${meta.title.length}/40字</span>
             ${copyBtn(meta.title,'コピー')}
           </div>
         </div>
@@ -9200,6 +9200,22 @@ function saveFirstComment(text) {
   saveData(d);
 }
 
+let _saveMetaTitleDebounce = null;
+function _saveMetaTitleEdit(val) {
+  const cnt = document.getElementById('metaTitleCharCount');
+  if (cnt) { cnt.textContent = `${val.length}/40字`; cnt.style.color = val.length > 40 ? '#e74c3c' : val.length > 32 ? '#e67e22' : 'var(--text-muted)'; }
+  clearTimeout(_saveMetaTitleDebounce);
+  _saveMetaTitleDebounce = setTimeout(() => {
+    if (!currentEpisodeId) return;
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep) return;
+    if (!ep.meta) ep.meta = {};
+    ep.meta.title = val;
+    if (generatedMeta) generatedMeta.title = val;
+    saveData(d); data = d;
+  }, 600);
+}
 let _saveMetaDescDebounce = null;
 function _saveMetaDescEdit(val) {
   clearTimeout(_saveMetaDescDebounce);
