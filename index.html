@@ -7692,7 +7692,22 @@ function renderDistributePanel() {
     <!-- ヘッダー -->
     <div style="background:linear-gradient(135deg,rgba(201,168,76,.1),transparent);border:1px solid var(--char-color,#c9a84c)44;border-radius:10px;padding:14px 16px;margin-bottom:4px;display:flex;align-items:center;gap:12px;">
       <div style="flex:1;">
-        <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;">📡 投稿フロー</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:.95rem;">📡 投稿フロー</div>
+          ${(() => {
+            const steps = [hasBulkGen, hasThumb, hasUrl, cl.xPosted, cl.notePosted, cl.igPosted, cl.commentPosted];
+            const done = steps.filter(Boolean).length;
+            const pct = Math.round(done / steps.length * 100);
+            const col = done === steps.length ? '#9b59b6' : done >= 4 ? '#4caf50' : done >= 2 ? '#e67e22' : 'var(--text-muted)';
+            return `<span style="font-size:.72rem;color:${col};font-weight:700;">${done}/${steps.length} 完了</span>`;
+          })()}
+        </div>
+        ${(() => {
+          const steps = [hasBulkGen, hasThumb, hasUrl, cl.xPosted, cl.notePosted, cl.igPosted, cl.commentPosted];
+          const pct = Math.round(steps.filter(Boolean).length / steps.length * 100);
+          const col = pct===100?'#9b59b6':pct>=57?'#4caf50':pct>=28?'#e67e22':'var(--border)';
+          return `<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px;"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;transition:width .5s;"></div></div>`;
+        })()}
         <div style="font-size:.75rem;color:var(--text-muted);">チェックを順番にこなすだけ。AI自動化済み項目は押さなくてOK。</div>
       </div>
       <button class="btn btn-secondary btn-sm" onclick="switchTab('calendar');" title="投稿カレンダーを見る">📅 カレンダー</button>
