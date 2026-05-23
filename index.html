@@ -2865,11 +2865,14 @@ function renderSidebar() {
   // preserve search/filter state
   const _prevSearch = document.getElementById('epSearchInput')?.value || '';
   const _prevFilter = document.getElementById('epStatusFilter')?.value || '';
+  const _todayStr = new Date().toISOString().slice(0,10);
+  const _todayUpdatedCount = eps.filter(e => (e.updatedAt||e.createdAt||'').startsWith(_todayStr)).length;
   epListEl.innerHTML = `
-    <div style="display:flex;gap:4px;padding:6px 10px;">
+    <div style="display:flex;gap:4px;padding:6px 10px;align-items:center;">
       <button class="add-char-btn" style="flex:1;margin:0;" onclick="newEpisode()">＋ 新しい動画</button>
       ${eps.length > 1 ? `<button class="add-char-btn" style="margin:0;padding:6px 8px;font-size:.72rem;" onclick="showEpManageModal()" title="プロジェクト管理・削除">📋</button>` : ''}
     </div>
+    ${_todayUpdatedCount > 0 ? `<div style="padding:3px 12px 6px;font-size:.7rem;color:var(--text-muted);">🕐 今日 <strong style="color:var(--text)">${_todayUpdatedCount}</strong> 件更新</div>` : ''}
     ${eps.length === 0 ? `<div style="padding:14px 14px 10px;text-align:center;">
       <div style="font-size:1.5rem;margin-bottom:6px;">🎬</div>
       <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">まだ動画がありません。<br>「＋ 新しい動画」で始めよう！</div>
