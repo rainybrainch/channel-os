@@ -3280,6 +3280,16 @@ function switchTab(tab) {
     const el = document.getElementById('noteArticleArea');
     if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){ep2.notePost=el.value;ep2.noteArticle=el.value;saveData(d2);data=d2;} }
   }
+  if (_saveMetaTitleDebounce) {
+    clearTimeout(_saveMetaTitleDebounce); _saveMetaTitleDebounce = null;
+    const el = document.getElementById('metaTitleEditor');
+    if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){if(!ep2.meta)ep2.meta={};ep2.meta.title=el.value;if(generatedMeta)generatedMeta.title=el.value;saveData(d2);data=d2;} }
+  }
+  if (_saveMetaDescDebounce) {
+    clearTimeout(_saveMetaDescDebounce); _saveMetaDescDebounce = null;
+    const el = document.getElementById('metaDescEditor');
+    if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){if(!ep2.meta)ep2.meta={};ep2.meta.description=el.value;if(generatedMeta)generatedMeta.description=el.value;saveData(d2);data=d2;} }
+  }
   currentTab = tab;
   localStorage.setItem('channelos_last_tab', tab);
   const char = data.characters.find(c => c.id === currentCharId);
