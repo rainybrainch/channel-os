@@ -4850,7 +4850,21 @@ function loadStoryboard() {
 function renderStoryboard() {
   const sb = storyboardData[sbKey()];
   if (!sb || !sb.scenes) return '<p style="font-size:.82rem;color:var(--text-muted);">「横動画で生成」または「ショートで生成」ボタンを押してください。</p>';
-  return sb.scenes.map((scene, i) => `
+  const totalScenes = sb.scenes.length;
+  const totalSec = sb.scenes.reduce((sum, s) => {
+    const m = String(s.time||'').match(/(\d+)/);
+    return sum + (m ? parseInt(m[1]) : 0);
+  }, 0);
+  const durStr = totalSec >= 60 ? `${Math.floor(totalSec/60)}分${totalSec%60}秒` : `${totalSec}秒`;
+  const checkedCount = sb.scenes.filter(s => !s.skipBulk).length;
+  const imgCount = sb.scenes.filter(s => s.imageDataUrl).length;
+  const summaryBar = `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.8rem;color:var(--text-muted);">
+    <span>🎬 <strong style="color:var(--text)">${totalScenes}</strong> シーン</span>
+    <span>⏱ 合計 <strong style="color:var(--text)">${durStr}</strong></span>
+    <span>✅ <strong style="color:var(--text)">${imgCount}/${totalScenes}</strong> 画像生成済</span>
+    <span>☑ 一括対象 <strong style="color:var(--text)">${checkedCount}</strong></span>
+  </div>`;
+  return summaryBar + sb.scenes.map((scene, i) => `
   <div class="sb-scene" draggable="true" data-scene-idx="${i}"
        ondragstart="sbDragStart(event,${i})" ondragover="sbDragOver(event,${i})" ondrop="sbDrop(event,${i})" ondragend="sbDragEnd(event)">
     <div class="sb-scene-header">
