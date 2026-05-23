@@ -210,12 +210,19 @@
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
   @media (max-width: 768px) {
-    aside { width: 60px; }
-    .char-name, .char-theme, .sidebar-title { display: none; }
-    .char-item { justify-content: center; padding: 12px 8px; }
+    aside { width: 60px; transition: width .2s ease; }
+    aside.expanded { width: 220px; }
+    aside:not(.expanded) .char-name,
+    aside:not(.expanded) .char-theme,
+    aside:not(.expanded) .sidebar-title { display: none; }
+    aside:not(.expanded) .char-item { justify-content: center; padding: 12px 8px; }
+    aside:not(.expanded) .add-char-btn { font-size: 0; padding: 10px; }
+    aside:not(.expanded) .add-char-btn::after { content: '＋'; font-size: .9rem; }
+    #sidebarToggleBtn { display: flex; }
     main { padding: 16px; }
     .scene-layout { grid-template-columns: 1fr; }
   }
+  @media (min-width: 769px) { #sidebarToggleBtn { display: none; } }
 </style>
 </head>
 <body>
@@ -254,7 +261,10 @@
 </header>
 
 <div class="layout">
-  <aside>
+  <aside id="mainSidebar">
+    <!-- モバイル展開ボタン -->
+    <button id="sidebarToggleBtn" onclick="const s=document.getElementById('mainSidebar');s.classList.toggle('expanded');this.textContent=s.classList.contains('expanded')?'◀':'☰';"
+      style="display:none;width:100%;background:none;border:none;border-bottom:1px solid var(--border);padding:10px;font-size:1.1rem;cursor:pointer;color:var(--text-muted);">☰</button>
     <!-- 接続状況バー -->
     <div id="connectionBar" style="padding:8px 10px;margin-bottom:6px;"></div>
     <div class="sidebar-title">キャラクター</div>
