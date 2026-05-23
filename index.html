@@ -3554,13 +3554,9 @@ JSONのみ出力:
     s3.style.color = '#4caf50';
     aiEnd(null);
     renderSidebar();
-    showToast(`✅ 一括生成完了 — 台本・概要欄・X/Note/IG/コメント文・サムネイルまで全部揃いました`);
-    // 他タブへの通知
-    ['script','meta','scene','distribute'].forEach(t => {
-      const el = document.getElementById('tab_' + t);
-      if (el) el.classList.add('has-notif');
-    });
-    // 企画タブに留まる（自動タブ切替なし）
+    showToast(`✅ 一括生成完了！次は音声生成へ`);
+    // 絵コンテタブへ自動遷移（次のステップ＝音声生成）
+    setTimeout(() => switchTab('scene'), 800);
     const char2 = data.characters.find(c => c.id === currentCharId);
     if (char2) {
       const el = document.getElementById('panelMeta');
@@ -4637,7 +4633,9 @@ async function generateAllVoicevox() {
     await generateVoicevox(i);
     count++;
   }
-  showToast(`✅ ${count}シーンの音声を生成しました`);
+  showToast(`✅ ${count}シーンの音声を生成しました！次はサムネイル作成へ`);
+  _refreshWorkflowGuide();
+  setTimeout(() => switchTab('post'), 800);
 }
 
 async function generateVoicevox(sceneIdx) {
