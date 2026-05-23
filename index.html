@@ -2829,9 +2829,16 @@ function renderMain() {
           ${char.channel_id?`<span class="badge">CH: ${char.channel_id}</span>`:''}
         </div>
       </div>
-      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-        <span id="yt_account_badge_${char.id}" style="display:inline-flex;align-items:center;gap:3px;font-size:.72rem;color:#4a8;">${getYtToken(char.id)?'📺':''}</span>
-        <button class="btn btn-secondary btn-sm" onclick="openEditChar('${char.id}')" style="font-size:.74rem;padding:5px 10px;">編集</button>
+      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span id="yt_account_badge_${char.id}" style="display:inline-flex;align-items:center;gap:3px;font-size:.72rem;color:#4a8;">${getYtToken(char.id)?'📺':''}</span>
+          <button class="btn btn-secondary btn-sm" onclick="openEditChar('${char.id}')" style="font-size:.74rem;padding:5px 10px;">編集</button>
+        </div>
+        ${currentEpisodeId ? (() => {
+          const _ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
+          const _st = {'draft':'📝','shooting':'🎥','editing':'✂️','done':'✅','posted':'🌎'}[_ep?.status||'draft']||'📝';
+          return _ep ? `<div style="font-size:.72rem;color:var(--text-muted);max-width:160px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(_ep.title)}">${_st} ${escHtml(_ep.title)}</div>` : '';
+        })() : '<div style="font-size:.7rem;color:var(--text-muted);">動画未選択</div>'}
       </div>
     </div>
 
