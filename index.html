@@ -5304,6 +5304,15 @@ function renderMetaResult(meta) {
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${(meta.hashtags||[]).map(t=>`<span style="background:var(--surface2);border:1px solid var(--char-color);border-radius:4px;padding:3px 8px;font-size:.78rem;color:var(--char-color);">${escHtml(t)}</span>`).join('')}</div>
         ${meta.hashtag_strategy ? `<div style="font-size:.76rem;color:var(--text-muted);background:var(--surface2);border-left:3px solid var(--char-color);padding:8px 12px;border-radius:0 6px 6px 0;line-height:1.6;">💡 ${escHtml(meta.hashtag_strategy)}</div>` : ''}
       </div>
+      ${meta.best_post_time ? `
+      <div style="background:linear-gradient(135deg,rgba(39,174,96,.1),transparent);border:1px solid #27ae6044;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+        <div style="font-size:1.4rem;">⏰</div>
+        <div>
+          <div style="font-size:.72rem;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">最適投稿時間</div>
+          <div style="font-size:.9rem;font-weight:700;color:#4caf50;">${escHtml(meta.best_post_time)}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="navigator.clipboard.writeText('${escHtml(meta.best_post_time).replace(/'/g,"\\x27")}').then(()=>showToast('コピーしました'))">📋</button>
+      </div>` : ''}
     </div>
   </div>
 
