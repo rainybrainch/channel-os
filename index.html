@@ -1008,6 +1008,24 @@ function getEpisodes() {
   return (data.episodes || []).filter(e => e.charId === currentCharId);
 }
 
+function saveCreateInputs() {
+  if (!currentEpisodeId) return;
+  const theme  = document.getElementById('planTheme')?.value  || '';
+  const note   = document.getElementById('allGenNote')?.value  || '';
+  const detail = document.getElementById('allGenDetail')?.value || '';
+  const ep = (data.episodes||[]).find(e => e.id === currentEpisodeId);
+  if (!ep) return;
+  let changed = false;
+  if (theme  && ep.inputTheme  !== theme)  { ep.inputTheme  = theme;  changed = true; }
+  if (note   && ep.inputNote   !== note)   { ep.inputNote   = note;   changed = true; }
+  if (detail && ep.inputDetail !== detail) { ep.inputDetail = detail; changed = true; }
+  if (changed) { ep.updatedAt = new Date().toISOString(); saveData(data); }
+  // localStorage キャッシュも更新
+  if (theme)  localStorage.setItem('channelos_last_theme',  theme);
+  if (note)   localStorage.setItem('channelos_last_note',   note);
+  if (detail) localStorage.setItem('channelos_last_detail', detail);
+}
+
 function updateEpisodeTitle(val) {
   if (!currentEpisodeId) return;
   const d = loadData();
@@ -3858,19 +3876,22 @@ function renderCreatePanel(char) {
         <div id="themeSuggestArea" style="display:none;margin-bottom:8px;"></div>
         <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣、睡眠を劇的に改善する方法…" value="${escHtml(_savedTheme)}"
           style="width:100%;font-size:1rem;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
-          onkeydown="if(event.key==='Enter')generateAll()">
+          onkeydown="if(event.key==='Enter')generateAll()"
+          onblur="saveCreateInputs()">
       </div>
 
       <div style="margin-bottom:16px;">
         <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">追加指示（任意）</label>
         <input type="text" id="allGenNote" placeholder="例: ギャグ多め、感情的に訴える、データ重視で信頼感を出す…" value="${escHtml(_savedNote)}"
-          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
+          onblur="saveCreateInputs()">
       </div>
 
       <div style="margin-bottom:20px;">
         <label style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em;">詳細指示（任意）</label>
         <textarea id="allGenDetail" placeholder="例: この動画は新規視聴者向け。冒頭に統計データを入れる。最後はLINE登録に誘導する。"
-          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;">${escHtml(_savedDetail)}</textarea>
+          style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:72px;resize:vertical;font-size:.88rem;line-height:1.6;"
+          onblur="saveCreateInputs()">${escHtml(_savedDetail)}</textarea>
       </div>
 
       <div id="strategyHint" style="display:none;margin-bottom:12px;"></div>
