@@ -7864,8 +7864,8 @@ function renderDistributePanel() {
       )}
 
       <div style="padding:14px 0;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" style="flex:1;min-width:160px;padding:12px;font-size:.9rem;font-weight:700;"
-          onclick="distributeAll()">⚡ X+Note+コメント 一括実行</button>
+        <button class="btn btn-primary" style="flex:1;min-width:160px;padding:12px;font-size:.9rem;font-weight:700;${(cl.xPosted && cl.notePosted && cl.commentPosted) ? 'opacity:.5;cursor:not-allowed;' : ''}"
+          onclick="distributeAll()" ${(cl.xPosted && cl.notePosted && cl.commentPosted) ? 'disabled title="すべて投稿済みです"' : ''}>⚡ X+Note+コメント 一括実行</button>
         <button class="btn btn-secondary btn-sm" onclick="_resetChecklist()" style="color:#e55;border-color:#e55;">🔄 チェックリストをリセット</button>
       </div>
       <div id="distributeLog" style="font-size:.78rem;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:120px;overflow-y:auto;background:var(--surface2);border-radius:6px;padding:4px 8px;scrollbar-width:thin;"></div>
