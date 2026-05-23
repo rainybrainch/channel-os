@@ -2302,6 +2302,21 @@ async function generateMoreTitles() {
   }
 }
 
+function removeMetaTag(idx, type) {
+  if (!currentEpisodeId) return;
+  const d = loadData();
+  const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+  if (!ep) return;
+  if (!ep.meta) ep.meta = {};
+  const key = type === 'hashtag' ? 'hashtags' : 'tags';
+  if (ep.meta[key]) { ep.meta[key].splice(idx, 1); }
+  if (generatedMeta && generatedMeta[key]) { generatedMeta[key].splice(idx, 1); }
+  saveData(d); data = d;
+  const el = document.getElementById('panelCreate');
+  if (el) el.outerHTML = renderCreatePanel();
+  showToast('✅ タグを削除しました');
+}
+
 function copyAllMetaSummary() {
   const ep = currentEpisodeId ? (loadData().episodes||[]).find(e=>e.id===currentEpisodeId) : null;
   if (!ep) return;
@@ -5705,14 +5720,14 @@ function renderMetaResult(meta) {
           <label>タグ（YouTube Studio に貼り付け）</label>
           <button class="btn btn-secondary btn-sm" onclick="const _tags=${JSON.stringify((meta.tags||[]))};navigator.clipboard.writeText(_tags.join(', ')).then(()=>showToast('✅ タグをコピーしました'))">📋 コピー</button>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map(t=>`<span class="badge">${escHtml(t)}</span>`).join('')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${(meta.tags||[]).map((t,ti)=>`<span class="badge" style="display:inline-flex;align-items:center;gap:4px;">${escHtml(t)}<button onclick="removeMetaTag(${ti},'tag')" style="background:none;border:none;color:#999;cursor:pointer;padding:0 2px;font-size:.75rem;line-height:1;" title="削除">✕</button></span>`).join('')}</div>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <label>ハッシュタグ（戦略的配合 10個）</label>
           ${copyBtn((meta.hashtags||[]).join(' '),'コピー')}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${(meta.hashtags||[]).map(t=>`<span style="background:var(--surface2);border:1px solid var(--char-color);border-radius:4px;padding:3px 8px;font-size:.78rem;color:var(--char-color);">${escHtml(t)}</span>`).join('')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${(meta.hashtags||[]).map((t,ti)=>`<span style="background:var(--surface2);border:1px solid var(--char-color);border-radius:4px;padding:3px 8px;font-size:.78rem;color:var(--char-color);display:inline-flex;align-items:center;gap:4px;">${escHtml(t)}<button onclick="removeMetaTag(${ti},'hashtag')" style="background:none;border:none;color:#999;cursor:pointer;padding:0 2px;font-size:.75rem;line-height:1;" title="削除">✕</button></span>`).join('')}</div>
         ${meta.hashtag_strategy ? `<div style="font-size:.76rem;color:var(--text-muted);background:var(--surface2);border-left:3px solid var(--char-color);padding:8px 12px;border-radius:0 6px 6px 0;line-height:1.6;">💡 ${escHtml(meta.hashtag_strategy)}</div>` : ''}
       </div>
       ${meta.best_post_time ? `
