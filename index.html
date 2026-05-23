@@ -3990,7 +3990,12 @@ function renderCreatePanel(char) {
         <input type="text" id="planTheme" placeholder="例: 初心者でも続く腕立て習慣、睡眠を劇的に改善する方法…" value="${escHtml(_savedTheme)}"
           style="width:100%;font-size:1rem;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);"
           onkeydown="if(event.key==='Enter')generateAll()"
-          onblur="saveCreateInputs()">
+          onblur="saveCreateInputs();_addThemeHistory(this.value)">
+        ${(() => {
+          const hist = JSON.parse(localStorage.getItem('channelos_theme_history') || '[]').filter(t => t && t !== _savedTheme).slice(0, 5);
+          if (!hist.length) return '';
+          return `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">${hist.map(t => `<button onclick="document.getElementById('planTheme').value='${escHtml(t).replace(/'/g,'\\x27')}';saveCreateInputs();" style="font-size:.7rem;padding:2px 9px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(t)}" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">${escHtml(t)}</button>`).join('')}</div>`;
+        })()}
       </div>
 
       <div style="margin-bottom:16px;">
@@ -6314,6 +6319,13 @@ function renderCommentThreads(videoId, threads) {
       </div>
     </div>`;
   }).join('');
+}
+
+function _addThemeHistory(val) {
+  if (!val?.trim()) return;
+  const hist = JSON.parse(localStorage.getItem('channelos_theme_history') || '[]');
+  const updated = [val.trim(), ...hist.filter(t => t !== val.trim())].slice(0, 20);
+  localStorage.setItem('channelos_theme_history', JSON.stringify(updated));
 }
 
 function _updateXCharCount(textarea) {
