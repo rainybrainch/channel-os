@@ -3170,6 +3170,11 @@ function switchTab(tab) {
     const el = document.getElementById('igCaption');
     if (el && currentEpisodeId) { const d2=loadData(); const ep2=(d2.episodes||[]).find(e=>e.id===currentEpisodeId); if(ep2){ep2.igCaption=el.value;saveData(d2);data=d2;} }
   }
+  if (_saveScriptInfoDebounce) {
+    clearTimeout(_saveScriptInfoDebounce); _saveScriptInfoDebounce = null;
+    const el = document.getElementById('scriptInfoEditor');
+    if (el) { try { const p=JSON.parse(generatedScript||'{}'); p.info=el.value; generatedScript=JSON.stringify(p); } catch { generatedScript=JSON.stringify({info:el.value,lines:''}); } saveCurrentEpisode(); }
+  }
   currentTab = tab;
   localStorage.setItem('channelos_last_tab', tab);
   const char = data.characters.find(c => c.id === currentCharId);
