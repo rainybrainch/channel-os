@@ -4356,8 +4356,11 @@ function renderScriptPanel(char) {
     </div>
     ${generatedScript ? `
     <div class="card">
-      <div class="card-title">📋 動画情報</div>
-      <div style="background:var(--surface2);border-radius:6px;padding:12px 14px;font-size:.82rem;line-height:1.8;white-space:pre-wrap;">${escHtml(parseScript(generatedScript).info)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">📋 動画情報（構成メモ）</div>
+        <span style="font-size:.68rem;color:var(--text-muted);">直接編集可</span>
+      </div>
+      <textarea id="scriptInfoEditor" rows="4" oninput="saveScriptInfoEdit(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.82rem;line-height:1.8;color:var(--text);resize:vertical;">${escHtml(parseScript(generatedScript).info)}</textarea>
     </div>
     <div class="card">
       <div class="result-header">
@@ -11783,6 +11786,20 @@ function copyScriptLines() {
   navigator.clipboard.writeText(lines).then(() => showToast('セリフをコピーしました')).catch(() => showToast('コピー失敗'));
 }
 
+let _saveScriptInfoDebounce = null;
+function saveScriptInfoEdit(val) {
+  clearTimeout(_saveScriptInfoDebounce);
+  _saveScriptInfoDebounce = setTimeout(() => {
+    try {
+      const parsed = JSON.parse(generatedScript);
+      parsed.info = val;
+      generatedScript = JSON.stringify(parsed);
+    } catch {
+      generatedScript = JSON.stringify({ info: val, lines: '' });
+    }
+    saveCurrentEpisode();
+  }, 600);
+}
 let _saveScriptDebounce = null;
 function saveScriptLinesEdit(val) {
   clearTimeout(_saveScriptDebounce);
