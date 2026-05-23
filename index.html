@@ -7799,7 +7799,7 @@ function renderDistributePanel() {
       ${clItem(!!cl.xPosted, 'STEP 4', '🐦 X (Twitter) 投稿',
         xToken ? (cl.xPosted ? '投稿済み' : 'ワンクリックで投稿できます') : 'X連携が必要です（設定タブ）',
         `<div style="display:flex;flex-direction:column;gap:8px;">
-          <textarea id="xTweetText" style="min-height:90px;font-size:.84rem;line-height:1.7;" oninput="_updateXCharCount(this)">${escHtml(replaceUrl(tweetText))}</textarea>
+          <textarea id="xTweetText" style="min-height:90px;font-size:.84rem;line-height:1.7;" oninput="_updateXCharCount(this);_saveXTweetEdit(this.value)">${escHtml(replaceUrl(tweetText))}</textarea>
           <div style="display:flex;justify-content:flex-end;margin-top:3px;"><span id="xCharCount" style="font-size:.72rem;color:${(replaceUrl(tweetText)||'').length > 260 ? '#e53935' : (replaceUrl(tweetText)||'').length > 230 ? '#e67e22' : 'var(--text-muted)'}">${(replaceUrl(tweetText)||'').length}/280</span></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${xToken
@@ -9177,6 +9177,18 @@ function saveFirstComment(text) {
   saveData(d);
 }
 
+let _saveXTweetDebounce = null;
+function _saveXTweetEdit(val) {
+  clearTimeout(_saveXTweetDebounce);
+  _saveXTweetDebounce = setTimeout(() => {
+    if (!currentEpisodeId) return;
+    const d = loadData();
+    const ep = (d.episodes||[]).find(e=>e.id===currentEpisodeId);
+    if (!ep) return;
+    ep.xTweet = val;
+    saveData(d); data = d;
+  }, 600);
+}
 let _saveIgCaptionDebounce = null;
 function saveIgCaptionEdit(val) {
   _updateIgCount(document.getElementById('igCaption'));
