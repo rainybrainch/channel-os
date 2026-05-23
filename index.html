@@ -3983,8 +3983,12 @@ function renderCreatePanel(char) {
       </div><!-- /planRadioMode -->
     </div>
     <div id="planResults" class="plan-grid">${generatedPlans.length ? renderPlanCards(generatedPlans, generatedPlans.indexOf(selectedPlan)) : ''}</div>
-    <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};">
-      <button class="btn btn-primary" onclick="switchTab('script')">この企画で台本を生成 →</button>
+    <div id="planSelected" style="display:${selectedPlan ? 'block' : 'none'};padding:10px 0;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" style="flex:2;" onclick="generateScript();if(simpleMode){simpleMode=false;localStorage.setItem('channelos_simple_mode','false');}setTimeout(()=>switchTab('script'),200)">📝 この企画で台本を生成</button>
+        <button class="btn btn-secondary" style="flex:1;font-size:.8rem;" onclick="switchTab('create')">🚀 一括生成 →</button>
+      </div>
+      <div style="font-size:.7rem;color:var(--text-muted);margin-top:6px;">一括生成ボタンで台本・概要欄・絵コンテをまとめて作れます</div>
     </div>
   </div>`;
 }
