@@ -2399,6 +2399,12 @@ document.addEventListener('keydown', e => {
         undoGenerate();
       }
       break;
+    case 's': // Ctrl+S: 手動保存
+      e.preventDefault();
+      saveCurrentEpisode();
+      { const ind = document.getElementById('saveIndicator'); if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); } }
+      showToast('💾 保存しました');
+      break;
     case '/': // Ctrl+/: ショートカット一覧
     case '?':
       e.preventDefault();
@@ -2411,7 +2417,8 @@ function showShortcutHelp() {
   const existing = document.getElementById('shortcutHelpModal');
   if (existing) { existing.remove(); return; }
   const shortcuts = [
-    ['Ctrl+Enter','一括生成'],['Ctrl+Z','生成前に戻す'],['Ctrl+N','新しい動画'],['Ctrl+D','デイリーダッシュボード'],
+    ['Ctrl+Enter','一括生成'],['Ctrl+S','手動保存'],['Ctrl+Z','生成前に戻す'],
+    ['Ctrl+N','新しい動画'],['Ctrl+D','デイリーダッシュボード'],
     ['Ctrl+W','ステータスウィジェット切替'],['Ctrl+→/←','次/前のチャンネル'],
     ['Ctrl+↓/↑','次/前のエピソード'],['Ctrl+/','このヘルプを閉じる'],
   ];
