@@ -4378,7 +4378,9 @@ function renderCreatePanel(char) {
         <div style="background:var(--surface2);border:1px solid #4a9edd55;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
           <div style="font-size:.8rem;font-weight:700;color:#4a9edd;margin-bottom:12px;">STEP 1 ── 収録メモ・文字起こしを貼り付け</div>
           <textarea id="planRadioTranscriptInline" placeholder="収録した内容・話したこと・文字起こしをそのまま貼り付けてください。&#10;AIが台本・概要欄・タイトルに整理します。"
+            oninput="document.getElementById('radioTranscriptCount').textContent=this.value.length+'字 / '+this.value.split(/\n/).filter(l=>l.trim()).length+'行'"
             style="width:100%;min-height:140px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;line-height:1.7;resize:vertical;font-family:inherit;"></textarea>
+          <div style="text-align:right;font-size:.7rem;color:var(--text-muted);margin-top:2px;"><span id="radioTranscriptCount">0字 / 0行</span></div>
           <input type="text" id="planRadioNoteInline" placeholder="補足（ゲスト回・前後編・シリーズ名 など）"
             style="width:100%;margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;">
         </div>
