@@ -2416,6 +2416,17 @@ function insertSceneAt(afterIdx) {
   document.getElementById('storyboardContainer').innerHTML = renderStoryboard();
   showToast(`✅ シーンを挿入しました`);
 }
+let _sbFilterUngenerated = false;
+function _toggleSbFilterUngenerated(btn) {
+  _sbFilterUngenerated = !_sbFilterUngenerated;
+  btn.style.background = _sbFilterUngenerated ? 'var(--accent)' : '';
+  btn.style.color = _sbFilterUngenerated ? '#fff' : '';
+  document.querySelectorAll('#storyboardContainer .sb-scene').forEach(el => {
+    const hasImg = !!el.querySelector('.sb-image-preview img');
+    el.style.display = (_sbFilterUngenerated && hasImg) ? 'none' : '';
+  });
+}
+
 function clearAllScenes() {
   if (!currentEpisodeId) return;
   if (!confirm('全シーンを削除しますか？この操作は元に戻せません。')) return;
@@ -6114,6 +6125,7 @@ function renderScenePanel() {
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="addManualScene()" style="flex:1;">＋ シーンを手動追加</button>
         <button class="btn btn-secondary btn-sm" onclick="copyAllSceneLines()" style="flex:1;">📋 全台本コピー</button>
+        <button id="sbFilterUngeneratedBtn" class="btn btn-secondary btn-sm" onclick="_toggleSbFilterUngenerated(this)" title="画像未生成シーンのみ表示">🔍 未生成のみ</button>
         <button class="btn btn-secondary btn-sm" onclick="clearAllScenes()" style="color:#e55;">🗑 全クリア</button>
       </div>
     </div>
