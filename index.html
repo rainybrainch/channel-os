@@ -2243,6 +2243,12 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       toggleStatusWidget();
       break;
+    case 'z': // Ctrl+Z: Undo（生成前に戻す）
+      if (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA')) {
+        e.preventDefault();
+        undoGenerate();
+      }
+      break;
     case '/': // Ctrl+/: ショートカット一覧
     case '?':
       e.preventDefault();
@@ -2255,7 +2261,7 @@ function showShortcutHelp() {
   const existing = document.getElementById('shortcutHelpModal');
   if (existing) { existing.remove(); return; }
   const shortcuts = [
-    ['Ctrl+Enter','一括生成'],['Ctrl+N','新しい動画'],['Ctrl+D','デイリーダッシュボード'],
+    ['Ctrl+Enter','一括生成'],['Ctrl+Z','生成前に戻す'],['Ctrl+N','新しい動画'],['Ctrl+D','デイリーダッシュボード'],
     ['Ctrl+W','ステータスウィジェット切替'],['Ctrl+→/←','次/前のチャンネル'],
     ['Ctrl+↓/↑','次/前のエピソード'],['Ctrl+/','このヘルプを閉じる'],
   ];
@@ -3516,6 +3522,24 @@ function _jumpToApiKeySetting() {
   }, 50);
 }
 
+let _episodeUndo = null;
+function undoGenerate() {
+  if (!_episodeUndo) { showToast('元に戻せる状態がありません'); return; }
+  const { epId, snapshot } = _episodeUndo;
+  const d = loadData();
+  const idx = (d.episodes||[]).findIndex(e => e.id === epId);
+  if (idx < 0) { showToast('エピソードが見つかりません'); return; }
+  Object.assign(d.episodes[idx], snapshot);
+  saveData(d); data = d;
+  generatedScript = snapshot.script || null;
+  generatedMeta   = snapshot.meta   || snapshot.generatedMeta || null;
+  generatedPlans  = snapshot._plans || [];
+  selectedPlan    = null;
+  _episodeUndo = null;
+  switchTab(currentTab);
+  showToast('✅ 生成前の状態に戻しました');
+}
+
 async function generateAll() {
   const char = data.characters.find(c => c.id === currentCharId);
   if (!char) { showToast('キャラクターを選択してください'); return; }
@@ -3542,10 +3566,13 @@ async function generateAll() {
     newEpisode();
     await new Promise(r => setTimeout(r, 100));
   }
-  // 入力値をエピソードに保存
+  // 入力値をエピソードに保存 & Undo スナップショット
   if (currentEpisodeId) {
     const _ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
-    if (_ep) { _ep.inputTheme = theme; _ep.inputNote = note; _ep.inputDetail = detail; _ep.inputFormat = format; _ep.inputPattern = pattern; saveData(data); }
+    if (_ep) {
+      _episodeUndo = { epId: currentEpisodeId, snapshot: JSON.parse(JSON.stringify({ ..._ep, _plans: generatedPlans })) };
+      _ep.inputTheme = theme; _ep.inputNote = note; _ep.inputDetail = detail; _ep.inputFormat = format; _ep.inputPattern = pattern; saveData(data);
+    }
   }
   const isShorts = format === 'shorts';
 
