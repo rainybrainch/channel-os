@@ -3837,7 +3837,7 @@ JSONのみ出力:
   } catch(e) {
     if (window._allGenTimerRef) { clearInterval(window._allGenTimerRef); window._allGenTimerRef = null; }
     aiEnd(null);
-    s1.textContent = '❌ エラー: ' + e.message;
+    s1.innerHTML = `❌ エラー: ${escHtml(e.message)} <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="generateAll()">🔄 リトライ</button>`;
     s1.style.color = '#e55';
     showToast('❌ 一括生成エラー: ' + e.message);
   }
