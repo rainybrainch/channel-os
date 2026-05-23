@@ -2538,11 +2538,14 @@ function renderConnectionBar() {
   else if (currentCharId && !ytToken) nextAction = `<div onclick="ytAuth(currentCharId)" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#ff000022;border:1px solid #ff000055;border-radius:6px;font-size:.72rem;color:#ff6666;font-weight:700;">▶ このキャラのYouTube認証</div>`;
   else if (currentCharId && currentEpisodeId) {
     const ep = (data.episodes||[]).find(e=>e.id===currentEpisodeId);
-    if (!ep?.plan)   nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ テーマを入力して「一括生成」を押してください</div>`;
-    else if (!ep?.script) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 台本タブで台本を確認してください</div>`;
-    else if (!(storyboardData[currentCharId+'_'+currentEpisodeId]?.scenes?.some(s=>s.imageDataUrl))) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 絵コンテタブで画像を一括生成してください</div>`;
-    else if (!ep?.youtubeUrl) nextAction = `<div style="margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;">✅ 投稿タブでYouTubeにアップロードしてください</div>`;
-    else nextAction = `<div style="margin-top:6px;padding:5px 8px;background:#9b59b622;border:1px solid #9b59b655;border-radius:6px;font-size:.72rem;color:#9b59b6;">🎉 投稿完了！配信タブでSNS展開してください</div>`;
+    const _sbKey = `sb_${currentEpisodeId}`;
+    const _hasSbImg = storyboardData[_sbKey]?.scenes?.some(s=>s.imageDataUrl||s.audioDataUrl);
+    if (!ep?.plan)        nextAction = `<div onclick="switchTab('create')" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;font-weight:700;">▶ テーマを入力して一括生成 → 作成タブへ</div>`;
+    else if (!ep?.script) nextAction = `<div onclick="switchTab('create')" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;font-weight:700;">▶ 台本を確認 → 作成タブへ</div>`;
+    else if (!_hasSbImg)  nextAction = `<div onclick="switchTab('scene')" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#4a9edd22;border:1px solid #4a9edd55;border-radius:6px;font-size:.72rem;color:#4a9edd;font-weight:700;">▶ 音声・絵コンテを生成 → 絵コンテタブへ</div>`;
+    else if (!ep?.thumbnailDataUrl&&!ep?.thumbnailSDataUrl) nextAction = `<div onclick="switchTab('post')" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#e67e2222;border:1px solid #e67e2255;border-radius:6px;font-size:.72rem;color:#e67e22;font-weight:700;">▶ サムネイルを設定 → 投稿準備タブへ</div>`;
+    else if (!ep?.youtubeUrl) nextAction = `<div onclick="switchTab('post')" style="cursor:pointer;margin-top:6px;padding:6px 8px;background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;font-size:.72rem;color:#27ae60;font-weight:700;">▶ YouTubeにアップロード → 投稿準備タブへ</div>`;
+    else nextAction = `<div onclick="switchTab('distribute')" style="cursor:pointer;margin-top:6px;padding:5px 8px;background:#9b59b622;border:1px solid #9b59b655;border-radius:6px;font-size:.72rem;color:#9b59b6;font-weight:700;">🎉 投稿完了！SNS展開 → 配信タブへ</div>`;
   }
 
   el.innerHTML = `
