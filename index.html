@@ -3256,10 +3256,10 @@ function renderMain() {
 
     <div class="tabs" id="mainTabs">
       ${(() => {
-        const allTabs = ['plan','create','script','meta','scene','assets','post','distribute','comments'];
+        const allTabs = ['plan','research','create','script','meta','scene','assets','post','distribute','comments'];
         // シンプルモード: 主要タブのみ（計画 / 作成 / 絵コンテ＆音声 / 投稿準備 / 配信）
         const simpleTabs = ['plan','create','scene','post','distribute'];
-        const labels = {plan:'📋 計画',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🎬 字幕',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
+        const labels = {plan:'📋 計画',research:'📊 リサーチ',create:'🎬 作成',script:'📝 台本',meta:'📄 概要欄',scene:'🎬 絵コンテ',assets:'🎬 字幕',post:'📦 投稿準備',distribute:'📡 配信',comments:'💬 コメント'};
         const tabs = simpleMode ? simpleTabs : allTabs;
         return tabs.map(t => {
           const badge = _getTabBadge(t);
@@ -3271,6 +3271,7 @@ function renderMain() {
 
     ${renderWorkflowGuide()}
     ${renderPlanPanel(char)}
+    ${renderResearchPanel()}
     ${renderCreatePanel(char)}
     ${renderScriptPanel(char)}
     ${renderMetaPanel(char)}
@@ -3391,6 +3392,7 @@ function switchTab(tab) {
   } else if (char) {
     const renders = {
       plan:       () => { const el = document.getElementById('panelPlan'); if (el) el.outerHTML = renderPlanPanel(char); setTimeout(()=>{ showStrategyHint(); _restoreWeeklyPlanResult(); }, 0); },
+      research:   () => { const el = document.getElementById('panelResearch'); if (el) el.outerHTML = renderResearchPanel(); },
       create:     () => { const el = document.getElementById('panelCreate'); if (el) el.outerHTML = renderCreatePanel(char); },
       script:     () => { const el = document.getElementById('panelScript');   if (el) el.outerHTML = renderScriptPanel(char); },
       meta:       () => { const el = document.getElementById('panelMeta');     if (el) el.outerHTML = renderMetaPanel(char); setTimeout(renderMetaFormatSwitch, 0); },
@@ -4237,6 +4239,328 @@ function renderPlanCards(plans, selIdx) {
       <div class="plan-card-desc">${p.description}</div>
       <div style="margin-top:8px;font-size:.75rem;color:var(--char-color);">つかみ: ${p.hook}</div>
     </div>`).join('');
+}
+
+// ════════════════════════════════════
+//  Research Panel（リサーチタブ）── 月1200本インプット戦略
+// ════════════════════════════════════
+function getResearch() {
+  data.research = data.research || [];
+  return data.research.filter(r => r.charId === currentCharId);
+}
+function saveResearch(items) {
+  data.research = data.research || [];
+  data.research = data.research.filter(r => r.charId !== currentCharId).concat(items);
+  saveData(data);
+}
+function _researchTodayKey() { return new Date().toISOString().slice(0,10); }
+function _researchMonthKey() { return new Date().toISOString().slice(0,7); }
+function renderResearchPanel() {
+  const isActive = currentTab === 'research';
+  const items = getResearch();
+  const today = _researchTodayKey();
+  const month = _researchMonthKey();
+  const todayCount  = items.filter(r => r.date === today).length;
+  const monthCount  = items.filter(r => r.date.startsWith(month)).length;
+  const goalDay     = 40;
+  const goalMonth   = 1200;
+  const dayPct      = Math.min(100, Math.round(todayCount / goalDay * 100));
+  const monthPct    = Math.min(100, Math.round(monthCount / goalMonth * 100));
+  const char        = data.characters.find(c => c.id === currentCharId);
+
+  // インサイトタグ集計
+  const tagMap = {};
+  items.forEach(r => (r.tags||[]).forEach(t => { tagMap[t] = (tagMap[t]||0)+1; }));
+  const topTags = Object.entries(tagMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  const listHtml = items.slice().reverse().map(r => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="flex-shrink:0;width:40px;height:40px;background:${char?.color||'#c9a84c'}22;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;">📺</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.88rem;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(r.title)}">${escHtml(r.title||'(タイトル未入力)')}</div>
+        ${r.channel?`<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">📡 ${escHtml(r.channel)}</div>`:''}
+        ${r.hook?`<div style="font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:4px;"><span style="color:${char?.color||'#c9a84c'};font-weight:700;">Hook:</span> ${escHtml(r.hook)}</div>`:''}
+        ${r.insight?`<div style="font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:4px;"><span style="color:#4a9edd;font-weight:700;">学び:</span> ${escHtml(r.insight)}</div>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+          ${(r.tags||[]).map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:.68rem;color:var(--text-muted);">${escHtml(t)}</span>`).join('')}
+          <span style="margin-left:auto;font-size:.68rem;color:var(--text-muted);">${r.date||''}</span>
+          ${r.url?`<a href="${escHtml(r.url)}" target="_blank" style="font-size:.68rem;color:${char?.color||'#c9a84c'};">▶ 動画を開く</a>`:''}
+          <button onclick="deleteResearchItem('${r.id}')" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:.72rem;padding:0 2px;">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || `<div class="empty" style="padding:32px;"><div class="empty-icon">📊</div><h3>まだリサーチがありません</h3><p style="font-size:.82rem;color:var(--text-muted);">動画を登録して大量インプットを始めよう</p></div>`;
+
+  return `<div class="panel ${isActive?'active':''}" id="panelResearch">
+
+    <!-- カウンターダッシュボード -->
+    <div class="card" style="border-left:4px solid ${char?.color||'#c9a84c'};">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">今日のインプット</div>
+          <div style="font-size:2.2rem;font-weight:700;color:${char?.color||'#c9a84c'};line-height:1;">${todayCount}<span style="font-size:1rem;font-weight:400;color:var(--text-muted);">/${goalDay}本</span></div>
+          <div style="background:var(--surface2);border-radius:4px;height:6px;margin-top:8px;overflow:hidden;">
+            <div style="background:${char?.color||'#c9a84c'};height:100%;width:${dayPct}%;border-radius:4px;transition:width .4s;"></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">今月の累計</div>
+          <div style="font-size:2.2rem;font-weight:700;color:${todayCount>=goalDay?'#27ae60':char?.color||'#c9a84c'};line-height:1;">${monthCount}<span style="font-size:1rem;font-weight:400;color:var(--text-muted);">/${goalMonth}本</span></div>
+          <div style="background:var(--surface2);border-radius:4px;height:6px;margin-top:8px;overflow:hidden;">
+            <div style="background:${monthCount>=goalMonth?'#27ae60':char?.color||'#c9a84c'};height:100%;width:${monthPct}%;border-radius:4px;transition:width .4s;"></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">累計インプット</div>
+          <div style="font-size:2.2rem;font-weight:700;line-height:1;">${items.length}<span style="font-size:1rem;font-weight:400;color:var(--text-muted);">本</span></div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px;">${Math.round(items.length/6)/10}年分の経験値</div>
+        </div>
+      </div>
+      ${todayCount >= goalDay ? `<div style="background:#27ae6022;border:1px solid #27ae6055;border-radius:6px;padding:8px 12px;font-size:.82rem;color:#27ae60;font-weight:700;">🎉 今日の目標達成！月1200本ペース維持中</div>` : ''}
+      ${monthCount >= goalMonth ? `<div style="background:#c9a84c22;border:1px solid #c9a84c55;border-radius:6px;padding:8px 12px;font-size:.82rem;color:#c9a84c;font-weight:700;">🏆 月1200本達成！個人6年分の経験を圧縮した</div>` : ''}
+    </div>
+
+    <!-- 登録フォーム -->
+    <div class="card">
+      <div class="card-title">📥 動画を登録</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="form-row">
+          <div style="flex:2;">
+            <label>YouTube URL（任意）</label>
+            <input type="text" id="researchUrl" placeholder="https://youtu.be/..." oninput="autoFillResearchTitle(this.value)">
+          </div>
+          <div style="flex:3;">
+            <label>動画タイトル <span style="color:#e55;">*</span></label>
+            <input type="text" id="researchTitle" placeholder="例: 筋トレ初心者が1ヶ月で変わった話">
+          </div>
+        </div>
+        <div class="form-row">
+          <div style="flex:1;">
+            <label>チャンネル名</label>
+            <input type="text" id="researchChannel" placeholder="例: @fitness_channel">
+          </div>
+          <div style="flex:1;">
+            <label>Hook技法</label>
+            <input type="text" id="researchHook" placeholder="例: 数字先行「○○日で〜」">
+          </div>
+        </div>
+        <div>
+          <label>学びとインサイト</label>
+          <textarea id="researchInsight" placeholder="この動画から何を学んだか。自分のコンテンツにどう活かすか。" style="min-height:64px;"></textarea>
+        </div>
+        <div>
+          <label>タグ（カンマ区切り）</label>
+          <input type="text" id="researchTags" placeholder="例: Hook, サムネ, 構成, 数字">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="addResearchItem()">＋ 登録</button>
+          <button class="btn btn-secondary" onclick="aiAnalyzeResearch()">✨ AIでURL分析</button>
+          <button class="btn btn-secondary" onclick="exportResearchInsights()">💡 インサイトを企画に流す</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- タグ分析 -->
+    ${topTags.length>0?`
+    <div class="card">
+      <div class="card-title">🔍 パターン分析（頻出タグ）</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${topTags.map(([t,n])=>`<span style="background:${char?.color||'#c9a84c'}22;border:1px solid ${char?.color||'#c9a84c'}55;border-radius:16px;padding:4px 12px;font-size:.78rem;color:${char?.color||'#c9a84c'};cursor:pointer;" onclick="filterResearchByTag('${escHtml(t)}')">${escHtml(t)} <strong>${n}</strong></span>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- リスト -->
+    <div class="card">
+      <div class="result-header">
+        <div class="card-title" style="margin-bottom:0;">📺 リサーチログ（${items.length}件）</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="researchSearch" placeholder="検索..." oninput="filterResearch(this.value)" style="width:140px;padding:5px 10px;font-size:.78rem;">
+        </div>
+      </div>
+      <div id="researchList" style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+        ${listHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+function addResearchItem() {
+  const title   = (document.getElementById('researchTitle')?.value||'').trim();
+  if (!title) { showToast('タイトルを入力してください'); return; }
+  const url     = (document.getElementById('researchUrl')?.value||'').trim();
+  const channel = (document.getElementById('researchChannel')?.value||'').trim();
+  const hook    = (document.getElementById('researchHook')?.value||'').trim();
+  const insight = (document.getElementById('researchInsight')?.value||'').trim();
+  const tags    = (document.getElementById('researchTags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const item = {
+    id: 'rs_' + Date.now(),
+    charId: currentCharId,
+    date: _researchTodayKey(),
+    title, url, channel, hook, insight, tags
+  };
+  const items = getResearch();
+  items.push(item);
+  saveResearch(items);
+  // フォームクリア
+  ['researchUrl','researchTitle','researchChannel','researchHook','researchInsight','researchTags'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // パネル再描画
+  const panel = document.getElementById('panelResearch');
+  if (panel) panel.outerHTML = renderResearchPanel();
+  showToast(`登録完了！今日 ${getResearch().filter(r=>r.date===_researchTodayKey()).length} 本目`);
+}
+
+function deleteResearchItem(id) {
+  let items = getResearch();
+  items = items.filter(r => r.id !== id);
+  saveResearch(items);
+  const panel = document.getElementById('panelResearch');
+  if (panel) panel.outerHTML = renderResearchPanel();
+}
+
+function filterResearch(query) {
+  const q = query.toLowerCase();
+  const list = document.getElementById('researchList');
+  if (!list) return;
+  const char = data.characters.find(c => c.id === currentCharId);
+  const items = getResearch().filter(r =>
+    !q || r.title?.toLowerCase().includes(q) ||
+    r.channel?.toLowerCase().includes(q) ||
+    r.insight?.toLowerCase().includes(q) ||
+    (r.tags||[]).some(t=>t.toLowerCase().includes(q))
+  ).reverse();
+  if (!items.length) { list.innerHTML = `<div class="empty" style="padding:24px;"><div class="empty-icon">🔍</div><h3>該当なし</h3></div>`; return; }
+  list.innerHTML = items.map(r => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="flex-shrink:0;width:40px;height:40px;background:${char?.color||'#c9a84c'}22;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;">📺</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.88rem;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(r.title||'')}</div>
+        ${r.channel?`<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">📡 ${escHtml(r.channel)}</div>`:''}
+        ${r.hook?`<div style="font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:4px;"><span style="color:${char?.color||'#c9a84c'};font-weight:700;">Hook:</span> ${escHtml(r.hook)}</div>`:''}
+        ${r.insight?`<div style="font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:4px;"><span style="color:#4a9edd;font-weight:700;">学び:</span> ${escHtml(r.insight)}</div>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+          ${(r.tags||[]).map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:.68rem;color:var(--text-muted);">${escHtml(t)}</span>`).join('')}
+          <span style="margin-left:auto;font-size:.68rem;color:var(--text-muted);">${r.date||''}</span>
+          ${r.url?`<a href="${escHtml(r.url)}" target="_blank" style="font-size:.68rem;color:${char?.color||'#c9a84c'};">▶ 動画を開く</a>`:''}
+          <button onclick="deleteResearchItem('${r.id}')" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:.72rem;padding:0 2px;">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterResearchByTag(tag) {
+  switchTab('research');
+  setTimeout(()=>{
+    const el = document.getElementById('researchSearch');
+    if (el) { el.value = tag; filterResearch(tag); }
+  }, 100);
+}
+
+async function aiAnalyzeResearch() {
+  const url = (document.getElementById('researchUrl')?.value||'').trim();
+  const title = (document.getElementById('researchTitle')?.value||'').trim();
+  if (!url && !title) { showToast('URLかタイトルを入力してください'); return; }
+  const geminiKey = localStorage.getItem(GEMINI_KEY_SK);
+  const claudeKey = localStorage.getItem(API_KEY_SK);
+  if (!geminiKey && !claudeKey) { showToast('設定タブでAPIキーを設定してください'); return; }
+  const char = data.characters.find(c => c.id === currentCharId);
+  const prompt = `以下のYouTube動画について分析してください。
+
+URL: ${url||'(なし)'}
+タイトル: ${title||'(URLから判断)'}
+チャンネルテーマ: ${char?.theme||'不明'}
+
+以下のJSON形式で返してください（他のテキスト不要）：
+{
+  "hook": "タイトルのHook技法（例: 数字先行、逆張り、恐怖訴求など）",
+  "insight": "このコンテンツから${char?.name||'自分'}のチャンネルに活かせる学び",
+  "tags": ["タグ1", "タグ2", "タグ3"]
+}`;
+
+  aiStart('AI分析中...');
+  try {
+    let result;
+    if (geminiKey) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+      });
+      const j = await r.json();
+      result = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'x-api-key':claudeKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:512,messages:[{role:'user',content:prompt}]})
+      });
+      const j = await r.json();
+      result = j.content?.[0]?.text || '';
+    }
+    // JSON抽出
+    const match = result.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (parsed.hook) { const el = document.getElementById('researchHook'); if (el) el.value = parsed.hook; }
+      if (parsed.insight) { const el = document.getElementById('researchInsight'); if (el) el.value = parsed.insight; }
+      if (parsed.tags) { const el = document.getElementById('researchTags'); if (el) el.value = parsed.tags.join(', '); }
+      showToast('AI分析完了！内容を確認して登録してください');
+    } else {
+      showToast('分析結果を取得できませんでした');
+    }
+  } catch(e) { showToast('AI分析エラー: ' + e.message); }
+  aiEnd();
+}
+
+async function exportResearchInsights() {
+  const items = getResearch();
+  if (!items.length) { showToast('リサーチデータがありません'); return; }
+  const char = data.characters.find(c => c.id === currentCharId);
+  const geminiKey = localStorage.getItem(GEMINI_KEY_SK);
+  const claudeKey = localStorage.getItem(API_KEY_SK);
+  if (!geminiKey && !claudeKey) { showToast('設定タブでAPIキーを設定してください'); return; }
+
+  // 最新20件のインサイトを集約
+  const recent = items.slice(-20);
+  const insightSummary = recent.map(r => `・${r.title}: ${r.hook?'Hook='+r.hook+', ':''}${r.insight||''}`).join('\n');
+  const prompt = `${char?.name||'チャンネル'}（${char?.theme||''}）のYouTube動画リサーチで集めたインサイトを元に、次に作るべき動画企画を5案提案してください。
+
+【リサーチインサイト】
+${insightSummary}
+
+【キャラクタートーン】${char?.tone||''}
+
+以下の形式で5案：
+1. タイトル案：「〜〜〜」
+   企画理由：（リサーチから学んだパターンを活用）
+2. ...`;
+
+  aiStart('インサイト分析中...');
+  try {
+    let result;
+    if (geminiKey) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+      });
+      const j = await r.json();
+      result = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'x-api-key':claudeKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,messages:[{role:'user',content:prompt}]})
+      });
+      const j = await r.json();
+      result = j.content?.[0]?.text || '';
+    }
+    // 計画タブのresultに流し込む
+    window._weeklyPlanResult = result;
+    localStorage.setItem('channelos_weekly_plan_result', result);
+    showToast('インサイトを計画タブに流しました！');
+    switchTab('plan');
+  } catch(e) { showToast('エラー: ' + e.message); }
+  aiEnd();
 }
 
 // ════════════════════════════════════
