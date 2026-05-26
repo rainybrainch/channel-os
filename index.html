@@ -1769,10 +1769,8 @@ window.addEventListener('message', handleOAuthCallback);
 })();
 
 function _showWelcomeScreen() {
-  // 既に通常キャラがいる場合はスキップ
-  if (loadData().characters?.some(c => c.id.startsWith('char_'))) return;
-  const el = document.getElementById('welcomeOverlay');
-  if (el) el.style.display = 'flex';
+  // ログインゲート無効化のためウェルカム画面も非表示
+  return;
 }
 
 function _hideWelcomeScreen() {
@@ -12660,7 +12658,7 @@ renderSidebar();
   const el = document.getElementById('loginGateClientId');
   if (el) el.value = localStorage.getItem('channelos_gd_client_id') || '';
 })();
-_checkLoginGate();
+// _checkLoginGate(); // ログインゲート無効化（Google認証不要モード）
 // loadFromDrive() は起動時自動呼び出し廃止。手動同期ボタンからのみ呼ぶ。
 </script>
 </body>
