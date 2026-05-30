@@ -113,6 +113,8 @@ export default function HomePage() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [plans, setPlans] = useState<ContentPlan[]>(mockPlans);
   const [personas, setPersonas] = useState<CommentPersona[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [sortFilter, setSortFilter] = useState<VideoItem['status'] | 'all'>('all');
   const [quickUrl, setQuickUrl] = useState('');
@@ -145,11 +147,16 @@ export default function HomePage() {
   // データ取得
   useEffect(() => {
     if (!user) return;
+    setLoadError(null);
     const load = async () => {
-      const [{ data: vData }, { data: pData }] = await Promise.all([
+      const [{ data: vData, error: vErr }, { data: pData, error: pErr }] = await Promise.all([
         supabase.from('videos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('personas').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       ]);
+      if (vErr || pErr) {
+        setLoadError('データの読み込みに失敗しました。再読み込みしてください。');
+        return;
+      }
       if (vData) setVideos(vData.map(dbToVideo));
       if (pData) setPersonas(pData.map(dbToPersona));
     };
@@ -173,48 +180,54 @@ export default function HomePage() {
   const filteredVideos = useMemo(() => sortFilter === 'all' ? videos : videos.filter(v => v.status === sortFilter), [videos, sortFilter]);
   const filteredPlans  = useMemo(() => pubFilter === 'all'  ? plans  : plans.filter(p => p.status === pubFilter),   [plans, pubFilter]);
 
-  const addVideoOnly = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!user) return;
+  const addVideoOnly = async (e: React.MouseEvent) => {
+    if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
+    setIsSubmitting(true);
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     setVideos([next, ...videos]); setQuickUrl(''); setQuickTitle('');
     const { error } = await supabase.from('videos').insert(videoToDb(next, user.id));
     if (error) setVideos(prev => prev.filter(v => v.id !== next.id));
+    setIsSubmitting(false);
   };
 
-  const addVideoAndGeneratePersona = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!user) return;
+  const addVideoAndGeneratePersona = async (e: React.MouseEvent) => {
+    if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
+    setIsSubmitting(true);
     const videoId = `video-${Date.now()}`;
+    // personaのIDはvideoと衝突しないよう+1msずらす
+    const personaId = `persona-${Date.now() + 1}`;
     const newVideo: VideoItem = { id:videoId, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
-    const newPersona = generatePersonaMock({ videoId, charaName:quickCharaName, personalityType:quickPersonality, energy:quickEnergy });
+    const newPersona = { ...generatePersonaMock({ videoId, charaName:quickCharaName, personalityType:quickPersonality, energy:quickEnergy }), id: personaId };
     setVideos([newVideo, ...videos]); setPersonas([newPersona, ...personas]); setExpandedPersonaId(newPersona.id);
     setQuickUrl(''); setQuickTitle(''); setQuickCharaName('');
-    const results = await Promise.all([
+    const [vResult, pResult] = await Promise.all([
       supabase.from('videos').insert(videoToDb(newVideo, user.id)),
       supabase.from('personas').insert(personaToDb(newPersona, user.id))
     ]);
-    if (results.some(r => r.error)) {
-      // rollback: DBへの保存が失敗した場合はUIからも除去
-      setVideos(prev => prev.filter(v => v.id !== newVideo.id));
-      setPersonas(prev => prev.filter(p => p.id !== newPersona.id));
-    }
+    // 個別にrollback（片方だけ失敗する場合に対応）
+    if (vResult.error) setVideos(prev => prev.filter(v => v.id !== newVideo.id));
+    if (pResult.error) setPersonas(prev => prev.filter(p => p.id !== newPersona.id));
+    setIsSubmitting(false);
   };
 
   const updateVideo = async (id: string, updated: Partial<VideoItem>) => {
-    if (!user) return; // auth切れの場合はlocal stateも書き換えない
+    if (!user) return;
+    const prevVideos = videos; // snapshot before update
     setVideos(videos.map(v => v.id === id ? { ...v, ...updated } : v));
     const d: Record<string,unknown> = {};
     if (updated.status !== undefined) d.status = updated.status;
     if (updated.title  !== undefined) d.title  = updated.title;
     const { error } = await supabase.from('videos').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setVideos(videos); // rollback on failure
+    if (error) setVideos(prevVideos); // スナップショットから正しくrollback
   };
 
   const updatePlan = (id: string, updated: Partial<ContentPlan>) => setPlans(plans.map(p => p.id === id ? { ...p, ...updated } : p));
 
   const updatePersona = async (id: string, updated: Partial<CommentPersona>) => {
-    if (!user) return; // auth切れの場合はlocal stateも書き換えない
+    if (!user) return;
+    const prevPersonas = personas; // snapshot before update
     setPersonas(personas.map(p => p.id === id ? { ...p, ...updated } : p));
     const d: Record<string,unknown> = {};
     if (updated.name           !== undefined) d.name            = updated.name;
@@ -222,9 +235,9 @@ export default function HomePage() {
     if (updated.tone           !== undefined) d.tone            = updated.tone;
     if (updated.commentStyle   !== undefined) d.comment_style   = updated.commentStyle;
     if (updated.triggerTopics  !== undefined) d.trigger_topics  = updated.triggerTopics;
-    if (updated.sampleComments !== undefined) d.sample_comments = updated.sampleComments; // Bug1修正
+    if (updated.sampleComments !== undefined) d.sample_comments = updated.sampleComments;
     const { error } = await supabase.from('personas').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setPersonas(personas); // rollback on failure
+    if (error) setPersonas(prevPersonas); // スナップショットから正しくrollback
   };
 
   const goToPersonaForm = (videoId: string) => {
@@ -233,7 +246,9 @@ export default function HomePage() {
   };
 
   const addPersona = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!user || !draftPersona.name?.trim() || !draftPersona.sourceVideoId) return;
+    e.preventDefault();
+    if (!user || !draftPersona.name?.trim() || !draftPersona.sourceVideoId || isSubmitting) return;
+    setIsSubmitting(true);
     const next: CommentPersona = {
       id:`persona-${Date.now()}`, sourceVideoId:draftPersona.sourceVideoId, name:draftPersona.name.trim(),
       icon:draftPersona.icon||'💬', commentStyle:draftPersona.commentStyle??'short', tone:draftPersona.tone??'',
@@ -242,7 +257,9 @@ export default function HomePage() {
     };
     setPersonas([next, ...personas]); setExpandedPersonaId(next.id);
     setDraftPersona({ ...draftPersona, name:'', icon:'💬', tone:'', triggerTopics:[], sampleComments:[] }); setSampleCommentsText('');
-    await supabase.from('personas').insert(personaToDb(next, user.id));
+    const { error } = await supabase.from('personas').insert(personaToDb(next, user.id));
+    if (error) setPersonas(prev => prev.filter(p => p.id !== next.id));
+    setIsSubmitting(false);
   };
 
   const startEdit = (p: CommentPersona) => { setEditingPersonaId(p.id); setEditDraft({ name:p.name, icon:p.icon, tone:p.tone, commentStyle:p.commentStyle, triggerTopics:p.triggerTopics }); };
@@ -315,6 +332,14 @@ export default function HomePage() {
 
         {/* ── Main ── */}
         <section className="flex-1 space-y-6">
+
+          {/* ロードエラー表示 */}
+          {loadError && (
+            <div className="rounded-2xl border border-red-900/50 bg-red-900/20 px-5 py-3 text-sm text-red-400 flex items-center justify-between">
+              <span>{loadError}</span>
+              <button onClick={() => setLoadError(null)} className="text-red-500 hover:text-red-300">✕</button>
+            </div>
+          )}
 
           {/* Header */}
           <div className={`flex flex-col gap-4 p-6 ${C.card} sm:flex-row sm:items-center sm:justify-between`}>
@@ -419,8 +444,8 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex gap-3">
-                    <button onClick={addVideoOnly} className="flex-1 rounded-2xl border border-[#2e3148] bg-[#252838] py-3 text-sm font-medium text-slate-400 transition hover:bg-[#2e3148]">URLのみ登録</button>
-                    <button onClick={addVideoAndGeneratePersona} className={`flex-[2] ${C.btnGold}`}>登録 ＋ 人格を自動生成 →</button>
+                    <button type="button" onClick={addVideoOnly} disabled={isSubmitting || !quickUrl.trim()} className="flex-1 rounded-2xl border border-[#2e3148] bg-[#252838] py-3 text-sm font-medium text-slate-400 transition hover:bg-[#2e3148] disabled:opacity-50">URLのみ登録</button>
+                    <button type="button" onClick={addVideoAndGeneratePersona} disabled={isSubmitting || !quickUrl.trim()} className={`flex-[2] ${C.btnGold} disabled:opacity-50`}>{isSubmitting ? '処理中...' : '登録 ＋ 人格を自動生成 →'}</button>
                   </div>
                 </div>
               </div>
@@ -577,7 +602,7 @@ export default function HomePage() {
                             <input value={editDraft.name??''} onChange={e => setEditDraft({ ...editDraft, name:e.target.value })} className={C.inputSm} />
                             <input value={editDraft.icon??''} onChange={e => setEditDraft({ ...editDraft, icon:e.target.value })} className={`${C.inputSm} px-2 text-center text-xl`} />
                           </div>
-                          <select value={editDraft.commentStyle} onChange={e => setEditDraft({ ...editDraft, commentStyle:e.target.value as CommentStyle })} className={C.inputSm}>
+                          <select value={editDraft.commentStyle ?? 'short'} onChange={e => setEditDraft({ ...editDraft, commentStyle:e.target.value as CommentStyle })} className={C.inputSm}>
                             {Object.entries(commentStyleLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                           </select>
                           <textarea value={editDraft.tone??''} onChange={e => setEditDraft({ ...editDraft, tone:e.target.value })} rows={2} placeholder="口調メモ" className={C.inputSm} />
@@ -678,10 +703,15 @@ export default function HomePage() {
                 <p className="mt-2 text-sm text-slate-500">Supabaseとlocalのデータを削除します。</p>
                 <button onClick={async () => {
                   if (!user) return;
-                  await Promise.all([
+                  if (!window.confirm('全データを削除します。この操作は元に戻せません。')) return;
+                  const [vRes, pRes] = await Promise.all([
                     supabase.from('videos').delete().eq('user_id', user.id),
                     supabase.from('personas').delete().eq('user_id', user.id)
                   ]);
+                  if (vRes.error || pRes.error) {
+                    alert('削除に失敗しました。再度お試しください。');
+                    return;
+                  }
                   localStorage.removeItem(PLANS_KEY);
                   setVideos([]); setPersonas([]); setPlans(mockPlans);
                 }} className={`mt-4 ${C.btnDanger}`}>
