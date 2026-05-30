@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
+  const mounted = useRef(true);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,20 +14,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
 
+  useEffect(() => { return () => { mounted.current = false; }; }, []);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
     setLoading(true);
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError('メールアドレスまたはパスワードが正しくありません');
-      else router.push('/');
+      if (!mounted.current) return; // unmount後のsetStateを防ぐ
+      if (error) { setError('メールアドレスまたはパスワードが正しくありません'); setLoading(false); }
+      else router.push('/'); // 成功時はsetLoadingしない（unmountされるため）
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
+      if (!mounted.current) return;
       if (error) setError(error.message);
       else setSignupDone(true);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

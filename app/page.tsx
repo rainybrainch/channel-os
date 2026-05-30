@@ -178,7 +178,8 @@ export default function HomePage() {
     const url = quickUrl.trim(); if (!url) return;
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     setVideos([next, ...videos]); setQuickUrl(''); setQuickTitle('');
-    await supabase.from('videos').insert(videoToDb(next, user.id));
+    const { error } = await supabase.from('videos').insert(videoToDb(next, user.id));
+    if (error) setVideos(prev => prev.filter(v => v.id !== next.id));
   };
 
   const addVideoAndGeneratePersona = async (e: React.FormEvent) => {
@@ -189,30 +190,41 @@ export default function HomePage() {
     const newPersona = generatePersonaMock({ videoId, charaName:quickCharaName, personalityType:quickPersonality, energy:quickEnergy });
     setVideos([newVideo, ...videos]); setPersonas([newPersona, ...personas]); setExpandedPersonaId(newPersona.id);
     setQuickUrl(''); setQuickTitle(''); setQuickCharaName('');
-    await Promise.all([supabase.from('videos').insert(videoToDb(newVideo, user.id)), supabase.from('personas').insert(personaToDb(newPersona, user.id))]);
+    const results = await Promise.all([
+      supabase.from('videos').insert(videoToDb(newVideo, user.id)),
+      supabase.from('personas').insert(personaToDb(newPersona, user.id))
+    ]);
+    if (results.some(r => r.error)) {
+      // rollback: DBへの保存が失敗した場合はUIからも除去
+      setVideos(prev => prev.filter(v => v.id !== newVideo.id));
+      setPersonas(prev => prev.filter(p => p.id !== newPersona.id));
+    }
   };
 
   const updateVideo = async (id: string, updated: Partial<VideoItem>) => {
+    if (!user) return; // auth切れの場合はlocal stateも書き換えない
     setVideos(videos.map(v => v.id === id ? { ...v, ...updated } : v));
-    if (!user) return;
     const d: Record<string,unknown> = {};
     if (updated.status !== undefined) d.status = updated.status;
     if (updated.title  !== undefined) d.title  = updated.title;
-    await supabase.from('videos').update(d).eq('id', id).eq('user_id', user.id);
+    const { error } = await supabase.from('videos').update(d).eq('id', id).eq('user_id', user.id);
+    if (error) setVideos(videos); // rollback on failure
   };
 
   const updatePlan = (id: string, updated: Partial<ContentPlan>) => setPlans(plans.map(p => p.id === id ? { ...p, ...updated } : p));
 
   const updatePersona = async (id: string, updated: Partial<CommentPersona>) => {
+    if (!user) return; // auth切れの場合はlocal stateも書き換えない
     setPersonas(personas.map(p => p.id === id ? { ...p, ...updated } : p));
-    if (!user) return;
     const d: Record<string,unknown> = {};
-    if (updated.name          !== undefined) d.name           = updated.name;
-    if (updated.icon          !== undefined) d.icon           = updated.icon;
-    if (updated.tone          !== undefined) d.tone           = updated.tone;
-    if (updated.commentStyle  !== undefined) d.comment_style  = updated.commentStyle;
-    if (updated.triggerTopics !== undefined) d.trigger_topics = updated.triggerTopics;
-    await supabase.from('personas').update(d).eq('id', id).eq('user_id', user.id);
+    if (updated.name           !== undefined) d.name            = updated.name;
+    if (updated.icon           !== undefined) d.icon            = updated.icon;
+    if (updated.tone           !== undefined) d.tone            = updated.tone;
+    if (updated.commentStyle   !== undefined) d.comment_style   = updated.commentStyle;
+    if (updated.triggerTopics  !== undefined) d.trigger_topics  = updated.triggerTopics;
+    if (updated.sampleComments !== undefined) d.sample_comments = updated.sampleComments; // Bug1修正
+    const { error } = await supabase.from('personas').update(d).eq('id', id).eq('user_id', user.id);
+    if (error) setPersonas(personas); // rollback on failure
   };
 
   const goToPersonaForm = (videoId: string) => {
