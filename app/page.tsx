@@ -108,6 +108,7 @@ const C = {
   btnGold: 'rounded-2xl bg-[#c9a84c] px-6 py-3 text-sm font-semibold text-[#12141f] transition hover:bg-[#b8963f]',
   btnSm:   'rounded-2xl bg-[#252838] px-4 py-2.5 text-xs font-medium text-slate-300 transition hover:bg-[#2e3148]',
   btnDanger:'rounded-2xl border border-red-900/50 bg-red-900/20 px-5 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-900/40',
+  btnDangerSm: 'rounded-xl px-3 py-1.5 text-xs font-medium text-red-500/70 transition hover:bg-red-900/20 hover:text-red-400',
   label:   'block space-y-1.5 text-sm text-slate-400',
   h3:      'font-semibold text-slate-100',
   muted:   'text-xs text-slate-500',
@@ -121,7 +122,6 @@ export default function HomePage() {
   const [activePage, setActivePage] = useState<PageKey>('dashboard');
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [plans, setPlans] = useState<ContentPlan[]>(() => {
-    // 初回レンダリング時に localStorage から復元（mockPlans フラッシュを防ぐ）
     if (typeof window === 'undefined') return [];
     try {
       const r = localStorage.getItem(PLANS_KEY);
@@ -132,13 +132,20 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // ── 仕分けページ state
   const [sortFilter, setSortFilter] = useState<VideoItem['status'] | 'all'>('all');
+  const [videoSearch, setVideoSearch] = useState('');
   const [quickUrl, setQuickUrl] = useState('');
   const [quickTitle, setQuickTitle] = useState('');
   const [quickCharaName, setQuickCharaName] = useState('');
   const [quickPersonality, setQuickPersonality] = useState<PersonalityType>('考察系');
   const [quickEnergy, setQuickEnergy] = useState<EnergyLevel>('ふつう');
 
+  // ── 動画展開編集 state
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [videoEditDraft, setVideoEditDraft] = useState<Partial<VideoItem>>({});
+
+  // ── 人格ページ state
   const [draftPersona, setDraftPersona] = useState<Partial<CommentPersona>>({
     sourceVideoId:'', name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[]
   });
@@ -147,10 +154,14 @@ export default function HomePage() {
   const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<CommentPersona>>({});
 
+  // ── 投稿管理 state
   const [pubFilter, setPubFilter] = useState<ContentPlan['status'] | 'all'>('all');
   const [exportSuccess, setExportSuccess] = useState(false);
+  const [newPlanOpen, setNewPlanOpen] = useState(false);
+  const [newPlanTitle, setNewPlanTitle] = useState('');
+  const [newPlanVideoId, setNewPlanVideoId] = useState('');
 
-  // 認証
+  // ── 認証
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -160,7 +171,7 @@ export default function HomePage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // データ取得
+  // ── データ取得
   useEffect(() => {
     if (!user) return;
     setLoadError(null);
@@ -185,13 +196,11 @@ export default function HomePage() {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
-      // 前ユーザーのデータを完全クリア（ブラウザ「戻る」で残留しないよう）
       setVideos([]); setPersonas([]); setPlans([]); setActivePage('dashboard');
       router.push('/login');
     }
   };
 
-  // ページ遷移ラッパー（personaページへの直接遷移でフォームをリセット）
   const navigateTo = (page: PageKey) => {
     if (page === 'persona') {
       setDraftPersona({ sourceVideoId:'', name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[] });
@@ -209,9 +218,16 @@ export default function HomePage() {
     onHold:    videos.filter(v => v.status === 'onHold').length
   }), [videos]);
 
-  const filteredVideos = useMemo(() => sortFilter === 'all' ? videos : videos.filter(v => v.status === sortFilter), [videos, sortFilter]);
-  const filteredPlans  = useMemo(() => pubFilter === 'all'  ? plans  : plans.filter(p => p.status === pubFilter),   [plans, pubFilter]);
+  const filteredVideos = useMemo(() => {
+    let vids = sortFilter === 'all' ? videos : videos.filter(v => v.status === sortFilter);
+    const q = videoSearch.trim().toLowerCase();
+    if (q) vids = vids.filter(v => v.title.toLowerCase().includes(q) || v.url.toLowerCase().includes(q) || v.memo.toLowerCase().includes(q));
+    return vids;
+  }, [videos, sortFilter, videoSearch]);
 
+  const filteredPlans  = useMemo(() => pubFilter === 'all' ? plans : plans.filter(p => p.status === pubFilter), [plans, pubFilter]);
+
+  // ── 動画操作
   const addVideoOnly = async (e: React.MouseEvent) => {
     if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
@@ -228,7 +244,6 @@ export default function HomePage() {
     const url = quickUrl.trim(); if (!url) return;
     setIsSubmitting(true);
     const videoId = `video-${Date.now()}`;
-    // personaのIDはvideoと衝突しないよう+1msずらす
     const personaId = `persona-${Date.now() + 1}`;
     const newVideo: VideoItem = { id:videoId, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     const newPersona = { ...generatePersonaMock({ videoId, charaName:quickCharaName, personalityType:quickPersonality, energy:quickEnergy }), id: personaId };
@@ -238,7 +253,6 @@ export default function HomePage() {
       supabase.from('videos').insert(videoToDb(newVideo, user.id)),
       supabase.from('personas').insert(personaToDb(newPersona, user.id))
     ]);
-    // 個別にrollback（片方だけ失敗する場合に対応）
     if (vResult.error) setVideos(prev => prev.filter(v => v.id !== newVideo.id));
     if (pResult.error) setPersonas(prev => prev.filter(p => p.id !== newPersona.id));
     setIsSubmitting(false);
@@ -246,20 +260,46 @@ export default function HomePage() {
 
   const updateVideo = async (id: string, updated: Partial<VideoItem>) => {
     if (!user) return;
-    const prevVideos = videos; // snapshot before update (rollback用)
+    const prevVideos = videos;
     setVideos(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
     const d: Record<string,unknown> = {};
-    if (updated.status !== undefined) d.status = updated.status;
-    if (updated.title  !== undefined) d.title  = updated.title;
+    if (updated.status    !== undefined) d.status    = updated.status;
+    if (updated.title     !== undefined) d.title     = updated.title;
+    if (updated.memo      !== undefined) d.memo      = updated.memo;
+    if (updated.summary   !== undefined) d.summary   = updated.summary;
+    if (updated.genre     !== undefined) d.genre     = updated.genre;
+    if (updated.tags      !== undefined) d.tags      = updated.tags;
     const { error } = await supabase.from('videos').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setVideos(prevVideos); // スナップショットから正しくrollback
+    if (error) setVideos(prevVideos);
   };
 
+  const deleteVideo = async (id: string) => {
+    if (!user) return;
+    if (!window.confirm('この動画を削除しますか？')) return;
+    const prevVideos = videos;
+    setVideos(prev => prev.filter(v => v.id !== id));
+    if (expandedVideoId === id) setExpandedVideoId(null);
+    const { error } = await supabase.from('videos').delete().eq('id', id).eq('user_id', user.id);
+    if (error) setVideos(prevVideos);
+  };
+
+  // 動画詳細展開編集
+  const openVideoEdit = (v: VideoItem) => {
+    setExpandedVideoId(v.id);
+    setVideoEditDraft({ title: v.title, memo: v.memo, summary: v.summary, genre: v.genre, tags: v.tags });
+  };
+
+  const saveVideoEdit = async (id: string) => {
+    await updateVideo(id, videoEditDraft);
+    setExpandedVideoId(null);
+  };
+
+  // ── 人格操作
   const updatePlan = (id: string, updated: Partial<ContentPlan>) => setPlans(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
 
   const updatePersona = async (id: string, updated: Partial<CommentPersona>) => {
     if (!user) return;
-    const prevPersonas = personas; // snapshot before update (rollback用)
+    const prevPersonas = personas;
     setPersonas(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
     const d: Record<string,unknown> = {};
     if (updated.name           !== undefined) d.name            = updated.name;
@@ -269,12 +309,42 @@ export default function HomePage() {
     if (updated.triggerTopics  !== undefined) d.trigger_topics  = updated.triggerTopics;
     if (updated.sampleComments !== undefined) d.sample_comments = updated.sampleComments;
     const { error } = await supabase.from('personas').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setPersonas(prevPersonas); // スナップショットから正しくrollback
+    if (error) setPersonas(prevPersonas);
+  };
+
+  const deletePersona = async (id: string) => {
+    if (!user) return;
+    if (!window.confirm('この人格を削除しますか？')) return;
+    const prevPersonas = personas;
+    setPersonas(prev => prev.filter(p => p.id !== id));
+    if (expandedPersonaId === id) setExpandedPersonaId(null);
+    const { error } = await supabase.from('personas').delete().eq('id', id).eq('user_id', user.id);
+    if (error) setPersonas(prevPersonas);
+  };
+
+  // ── 投稿管理操作
+  const addPlan = () => {
+    if (!newPlanTitle.trim()) return;
+    const next: ContentPlan = {
+      id: `plan-${Date.now()}`,
+      sourceVideoId: newPlanVideoId,
+      title: newPlanTitle.trim(),
+      hook: '', scriptMemo: '', thumbnailIdea: '', purpose: '',
+      priority: 'medium', status: 'idea',
+      scheduledDate: '', postedUrl: '', metricsMemo: '', selectedPersonas: []
+    };
+    setPlans(prev => [next, ...prev]);
+    setNewPlanTitle(''); setNewPlanVideoId(''); setNewPlanOpen(false);
+  };
+
+  const deletePlan = (id: string) => {
+    if (!window.confirm('この企画を削除しますか？')) return;
+    setPlans(prev => prev.filter(p => p.id !== id));
   };
 
   const goToPersonaForm = (videoId: string) => {
     setDraftPersona({ sourceVideoId:videoId, name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[] });
-    setSampleCommentsText(''); setActivePage('persona'); // navigateTo を使わない（sourceVideoId を保持するため）
+    setSampleCommentsText(''); setActivePage('persona');
   };
 
   const addPersona = async (e: React.FormEvent) => {
@@ -296,7 +366,7 @@ export default function HomePage() {
 
   const startEdit = (p: CommentPersona) => { setEditingPersonaId(p.id); setEditDraft({ name:p.name, icon:p.icon, tone:p.tone, commentStyle:p.commentStyle, triggerTopics:p.triggerTopics }); };
   const saveEdit  = (id: string) => {
-    if (!editDraft.name?.trim()) return; // 名前が空のまま保存させない
+    if (!editDraft.name?.trim()) return;
     updatePersona(id, editDraft);
     setEditingPersonaId(null);
     setEditDraft({});
@@ -307,16 +377,14 @@ export default function HomePage() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'channel-os-personas.json'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 100); // Firefox等でダウンロード前にrevokeされるのを防ぐ
+    setTimeout(() => URL.revokeObjectURL(url), 100);
     setExportSuccess(true); setTimeout(() => setExportSuccess(false), 3000);
   };
 
   const activeLabel = navItems.find(n => n.key === activePage)?.label ?? '';
 
-  // ── 認証ローディング ──
   if (authLoading) return <main className="flex min-h-screen items-center justify-center"><p className="text-sm text-slate-500">読み込み中...</p></main>;
 
-  // ── 未ログイン ──
   if (!user) return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
@@ -355,7 +423,7 @@ export default function HomePage() {
             ))}
           </nav>
           <div className="mt-8 space-y-2">
-            {[['登録動画', videos.length], ['コメント人格', personas.length]].map(([label, count]) => (
+            {[['登録動画', videos.length], ['コメント人格', personas.length], ['企画', plans.length]].map(([label, count]) => (
               <div key={label as string} className="flex items-center justify-between rounded-2xl bg-[#252838] px-4 py-3 text-sm">
                 <span className="text-slate-500">{label}</span>
                 <span className="font-semibold text-slate-200">{count}</span>
@@ -373,7 +441,6 @@ export default function HomePage() {
         {/* ── Main ── */}
         <section className="flex-1 space-y-6">
 
-          {/* ロードエラー表示 */}
           {loadError && (
             <div className="rounded-2xl border border-red-900/50 bg-red-900/20 px-5 py-3 text-sm text-red-400 flex items-center justify-between">
               <span>{loadError}</span>
@@ -401,47 +468,74 @@ export default function HomePage() {
 
           {/* ── Dashboard ── */}
           {activePage === 'dashboard' && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className={`p-6 ${C.card}`}>
-                <h3 className={C.h3}>動画ステータス</h3>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {(['reference','idea','onHold','posted'] as const).map(s => (
-                    <button key={s} onClick={() => { setSortFilter(s); navigateTo('sorting'); }}
-                      className="rounded-2xl bg-[#252838] p-4 text-left transition hover:bg-[#2e3148]">
-                      <p className="text-xs text-slate-500">{videoStatusLabels[s]}</p>
-                      <p className="mt-2 text-2xl font-semibold text-slate-100">{counts[s]}</p>
-                    </button>
-                  ))}
+            <div className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className={`p-6 ${C.card}`}>
+                  <h3 className={C.h3}>動画ステータス</h3>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {(['reference','idea','onHold','posted'] as const).map(s => (
+                      <button key={s} onClick={() => { setSortFilter(s); navigateTo('sorting'); }}
+                        className="rounded-2xl bg-[#252838] p-4 text-left transition hover:bg-[#2e3148]">
+                        <p className="text-xs text-slate-500">{videoStatusLabels[s]}</p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-100">{counts[s]}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => { setSortFilter('all'); navigateTo('sorting'); }}
+                    className="mt-3 w-full rounded-2xl bg-[#c9a84c] py-2.5 text-sm font-medium text-[#12141f] transition hover:bg-[#b8963f]">
+                    仕分けページへ
+                  </button>
                 </div>
-                <button onClick={() => { setSortFilter('all'); navigateTo('sorting'); }}
-                  className="mt-3 w-full rounded-2xl bg-[#c9a84c] py-2.5 text-sm font-medium text-[#12141f] transition hover:bg-[#b8963f]">
-                  仕分けページへ
-                </button>
+
+                <div className={`p-6 ${C.card}`}>
+                  <div className="flex items-center justify-between">
+                    <h3 className={C.h3}>コメント人格</h3>
+                    <button onClick={() => navigateTo('persona')} aria-label="コメント人格をすべて見る" className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {personas.slice(0, 5).map(p => (
+                      <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-[#252838] px-4 py-3">
+                        <span className="text-2xl">{p.icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-200">{p.name}</p>
+                          <p className="truncate text-xs text-slate-500">{commentStyleLabels[p.commentStyle]} · {videoMap[p.sourceVideoId]?.title ?? '動画未設定'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {personas.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-[#2e3148] p-5 text-center">
+                        <p className="text-sm text-slate-500">まだ人格がありません</p>
+                        <button onClick={() => navigateTo('sorting')} className="mt-2 text-xs text-[#c9a84c] underline-offset-2 hover:underline">YouTube仕分けから作成する</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className={`p-6 ${C.card}`}>
-                <div className="flex items-center justify-between">
-                  <h3 className={C.h3}>コメント人格</h3>
-                  <button onClick={() => navigateTo('persona')} aria-label="コメント人格をすべて見る" className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+              {/* 最近の動画 */}
+              {videos.length > 0 && (
+                <div className={`p-6 ${C.card}`}>
+                  <div className="flex items-center justify-between">
+                    <h3 className={C.h3}>最近登録した動画</h3>
+                    <button onClick={() => navigateTo('sorting')} className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {videos.slice(0, 3).map(v => {
+                      const linked = personas.filter(p => p.sourceVideoId === v.id);
+                      return (
+                        <div key={v.id} className="flex items-center gap-4 rounded-2xl bg-[#252838] px-4 py-3">
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${videoStatusColors[v.status]}`}>{videoStatusLabels[v.status]}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-200">{v.title}</p>
+                            <p className={C.muted}>{formatDate(v.createdAt)}{linked.length > 0 && <> · 人格 {linked.length}件</>}</p>
+                          </div>
+                          <button onClick={() => { setSortFilter('all'); navigateTo('sorting'); }} className="shrink-0 text-xs text-slate-600 hover:text-slate-400">詳細 →</button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="mt-4 space-y-3">
-                  {personas.slice(0, 5).map(p => (
-                    <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-[#252838] px-4 py-3">
-                      <span className="text-2xl">{p.icon}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-200">{p.name}</p>
-                        <p className="truncate text-xs text-slate-500">{commentStyleLabels[p.commentStyle]} · {videoMap[p.sourceVideoId]?.title ?? '動画未設定'}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {personas.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-[#2e3148] p-5 text-center">
-                      <p className="text-sm text-slate-500">まだ人格がありません</p>
-                      <button onClick={() => navigateTo('sorting')} className="mt-2 text-xs text-[#c9a84c] underline-offset-2 hover:underline">YouTube仕分けから作成する</button>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -490,28 +584,45 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {(['all','reference','idea','onHold','posted'] as const).map(f => (
-                  <button key={f} onClick={() => setSortFilter(f)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sortFilter === f ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#1c1f2e] text-slate-500 ring-1 ring-[#2e3148] hover:bg-[#252838]'}`}>
-                    {f === 'all' ? 'すべて' : videoStatusLabels[f]}
-                    <span className="ml-1.5 text-xs opacity-60">{f === 'all' ? videos.length : counts[f]}</span>
-                  </button>
-                ))}
+              {/* 検索 + フィルター */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <input
+                  value={videoSearch}
+                  onChange={e => setVideoSearch(e.target.value)}
+                  placeholder="タイトル・URL・メモで検索..."
+                  className="flex-1 rounded-2xl border border-[#2e3148] bg-[#1c1f2e] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-[#c9a84c]/60"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {(['all','reference','idea','onHold','posted'] as const).map(f => (
+                    <button key={f} onClick={() => setSortFilter(f)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sortFilter === f ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#1c1f2e] text-slate-500 ring-1 ring-[#2e3148] hover:bg-[#252838]'}`}>
+                      {f === 'all' ? 'すべて' : videoStatusLabels[f]}
+                      <span className="ml-1.5 text-xs opacity-60">{f === 'all' ? videos.length : counts[f]}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {videoSearch && (
+                <p className={C.muted}>「{videoSearch}」の検索結果: {filteredVideos.length}件</p>
+              )}
 
               <div className="grid gap-4 lg:grid-cols-2">
                 {filteredVideos.map(video => {
                   const linked = personas.filter(p => p.sourceVideoId === video.id);
+                  const isExpanded = expandedVideoId === video.id;
                   return (
                     <article key={video.id} className={`p-5 ${C.card}`}>
+                      {/* ── 通常表示 ── */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium text-slate-200">{video.title}</p>
                           <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-xs text-slate-600 transition hover:text-slate-400">{video.url}</a>
                           <p className="mt-1 text-xs text-slate-600">{formatDate(video.createdAt)}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${videoStatusColors[video.status]}`}>{videoStatusLabels[video.status]}</span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${videoStatusColors[video.status]}`}>{videoStatusLabels[video.status]}</span>
+                        </div>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-1.5">
@@ -524,10 +635,62 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-4 flex gap-2 border-t border-[#2e3148] pt-4">
-                        <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className={`flex-1 text-center ${C.btnSm}`}>動画を開く</a>
-                        <button onClick={() => goToPersonaForm(video.id)} className={`flex-[2] ${C.btnGold}`}>コメント人格を作る →</button>
+                        <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className={`text-center ${C.btnSm}`}>動画を開く</a>
+                        <button onClick={() => goToPersonaForm(video.id)} className={`flex-1 ${C.btnGold}`}>人格を作る →</button>
+                        <button
+                          onClick={() => isExpanded ? setExpandedVideoId(null) : openVideoEdit(video)}
+                          aria-label="詳細編集"
+                          className={`rounded-2xl px-3 py-2.5 text-xs font-medium transition ${isExpanded ? 'bg-[#c9a84c]/20 text-[#c9a84c]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
+                          {isExpanded ? '閉じる' : '編集'}
+                        </button>
+                        <button onClick={() => deleteVideo(video.id)} aria-label="削除" className={C.btnDangerSm}>削除</button>
                       </div>
 
+                      {/* ── 展開編集フォーム ── */}
+                      {isExpanded && (
+                        <div className="mt-4 space-y-3 border-t border-[#2e3148] pt-4">
+                          <label className={C.label}>
+                            タイトル
+                            <input value={videoEditDraft.title ?? ''} onChange={e => setVideoEditDraft(d => ({ ...d, title: e.target.value }))} className={`mt-1.5 ${C.inputSm}`} />
+                          </label>
+                          <label className={C.label}>
+                            メモ
+                            <textarea value={videoEditDraft.memo ?? ''} onChange={e => setVideoEditDraft(d => ({ ...d, memo: e.target.value }))} rows={2} placeholder="参考にしたいポイントなど..." className={`mt-1.5 ${C.inputSm}`} />
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className={C.label}>
+                              ジャンル
+                              <input value={videoEditDraft.genre ?? ''} onChange={e => setVideoEditDraft(d => ({ ...d, genre: e.target.value }))} placeholder="考察・ゲームなど" className={`mt-1.5 ${C.inputSm}`} />
+                            </label>
+                            <label className={C.label}>
+                              タグ（カンマ区切り）
+                              <input value={(videoEditDraft.tags ?? []).join(', ')} onChange={e => setVideoEditDraft(d => ({ ...d, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))} placeholder="AI, 分析, ..." className={`mt-1.5 ${C.inputSm}`} />
+                            </label>
+                          </div>
+                          <label className={C.label}>
+                            サマリー
+                            <textarea value={videoEditDraft.summary ?? ''} onChange={e => setVideoEditDraft(d => ({ ...d, summary: e.target.value }))} rows={2} placeholder="動画の要約..." className={`mt-1.5 ${C.inputSm}`} />
+                          </label>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setExpandedVideoId(null)} className={C.btnSm}>キャンセル</button>
+                            <button onClick={() => saveVideoEdit(video.id)} className={`${C.btnGold} py-2.5`}>保存</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── タグ表示 ── */}
+                      {!isExpanded && video.tags.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {video.tags.map(t => <span key={t} className="badge badge-light">{t}</span>)}
+                        </div>
+                      )}
+
+                      {/* ── メモ表示 ── */}
+                      {!isExpanded && video.memo && (
+                        <p className="mt-3 text-xs text-slate-500 line-clamp-2">{video.memo}</p>
+                      )}
+
+                      {/* ── 紐づき人格 ── */}
                       {linked.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2 border-t border-[#2e3148] pt-3">
                           {linked.map(p => (
@@ -542,7 +705,9 @@ export default function HomePage() {
                   );
                 })}
                 {filteredVideos.length === 0 && (
-                  <div className="col-span-2 rounded-3xl border border-dashed border-[#2e3148] p-10 text-center text-sm text-slate-600">動画がありません。URLを登録してください。</div>
+                  <div className="col-span-2 rounded-3xl border border-dashed border-[#2e3148] p-10 text-center text-sm text-slate-600">
+                    {videoSearch ? `「${videoSearch}」に一致する動画がありません。` : '動画がありません。URLを登録してください。'}
+                  </div>
                 )}
               </div>
             </div>
@@ -633,6 +798,7 @@ export default function HomePage() {
                                 className="rounded-xl p-2 text-xs text-slate-500 transition hover:bg-[#2e3148]">
                                 <span aria-hidden="true">{expandedPersonaId === persona.id ? '▲' : '▼'}</span>
                               </button>
+                              <button onClick={() => deletePersona(persona.id)} aria-label={`${persona.name}を削除`} className={C.btnDangerSm}>削除</button>
                             </div>
                           </div>
                           {expandedPersonaId === persona.id && (
@@ -679,6 +845,35 @@ export default function HomePage() {
           {/* ── 投稿管理 ── */}
           {activePage === 'publishing' && (
             <div className="space-y-5">
+              {/* 企画追加フォーム */}
+              {newPlanOpen ? (
+                <div className={`p-6 ${C.card}`}>
+                  <h3 className={`mb-4 ${C.h3}`}>新しい企画を追加</h3>
+                  <div className="space-y-3">
+                    <input
+                      value={newPlanTitle}
+                      onChange={e => setNewPlanTitle(e.target.value)}
+                      placeholder="企画タイトル（例：AI活用で動画編集を半自動化する方法）"
+                      className={C.input}
+                      autoFocus
+                    />
+                    <select value={newPlanVideoId} onChange={e => setNewPlanVideoId(e.target.value)} className={C.input}>
+                      <option value="">元動画を選択（任意）</option>
+                      {videos.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
+                    </select>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setNewPlanOpen(false); setNewPlanTitle(''); setNewPlanVideoId(''); }} className={C.btnSm}>キャンセル</button>
+                      <button onClick={addPlan} disabled={!newPlanTitle.trim()} className={`${C.btnGold} disabled:opacity-50`}>企画を追加</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setNewPlanOpen(true)} className={`w-full rounded-3xl border-2 border-dashed border-[#2e3148] py-4 text-sm font-medium text-slate-500 transition hover:border-[#c9a84c]/40 hover:text-slate-300`}>
+                  ＋ 新しい企画を追加
+                </button>
+              )}
+
+              {/* フィルター */}
               <div className="flex flex-wrap gap-2">
                 {(['all','idea','script','production','editing','published','review'] as const).map(f => (
                   <button key={f} onClick={() => setPubFilter(f)}
@@ -687,6 +882,8 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
+
+              {/* 企画カード */}
               <div className="space-y-4">
                 {filteredPlans.map(plan => (
                   <article key={plan.id} className={`p-5 ${C.card}`}>
@@ -695,9 +892,12 @@ export default function HomePage() {
                         <p className="font-semibold text-slate-200">{plan.title}</p>
                         <p className="mt-0.5 text-xs text-slate-500">元動画: {videoMap[plan.sourceVideoId]?.title ?? '未選択'}{plan.scheduledDate && <> · 予定: {formatDate(plan.scheduledDate)}</>}</p>
                       </div>
-                      <select value={plan.status} onChange={e => updatePlan(plan.id, { status:e.target.value as ContentPlan['status'] })} className="rounded-2xl border border-[#2e3148] bg-[#252838] px-3 py-2 text-xs font-medium text-slate-300 outline-none">
-                        {Object.entries(planStatusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select value={plan.status} onChange={e => updatePlan(plan.id, { status:e.target.value as ContentPlan['status'] })} className="rounded-2xl border border-[#2e3148] bg-[#252838] px-3 py-2 text-xs font-medium text-slate-300 outline-none">
+                          {Object.entries(planStatusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                        <button onClick={() => deletePlan(plan.id)} aria-label="この企画を削除" className={C.btnDangerSm}>削除</button>
+                      </div>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <label className="block text-xs text-slate-500">
@@ -711,6 +911,11 @@ export default function HomePage() {
                     </div>
                   </article>
                 ))}
+                {filteredPlans.length === 0 && (
+                  <div className="rounded-3xl border border-dashed border-[#2e3148] p-10 text-center text-sm text-slate-600">
+                    企画がありません。「＋ 新しい企画を追加」から作成してください。
+                  </div>
+                )}
               </div>
             </div>
           )}
