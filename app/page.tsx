@@ -228,6 +228,30 @@ export default function HomePage() {
   useEffect(() => { try { const r = localStorage.getItem(PLANS_KEY); if (r) setPlans(JSON.parse(r)); } catch {} }, []);
   useEffect(() => { localStorage.setItem(PLANS_KEY, JSON.stringify(plans)); }, [plans]);
 
+  // ── キーボードショートカット
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag);
+
+      // / → 仕分けページの検索にフォーカス
+      if (e.key === '/' && !isInput) {
+        e.preventDefault();
+        setActivePage('sorting');
+        setTimeout(() => document.getElementById('video-search-input')?.focus(), 50);
+      }
+      // Escape → 展開中パネルを閉じる
+      if (e.key === 'Escape') {
+        setExpandedVideoId(null);
+        setExpandedPersonaId(null);
+        setExpandedPlanId(null);
+        setNewPlanOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
@@ -397,6 +421,57 @@ export default function HomePage() {
     setIsFetchingTitle(false);
   };
 
+  // ── ステータスサイクル（バッジクリック用）
+  const STATUS_ORDER: VideoItem['status'][] = ['reference', 'idea', 'onHold', 'posted'];
+  const cycleVideoStatus = (video: VideoItem) => {
+    const idx = STATUS_ORDER.indexOf(video.status);
+    updateVideo(video.id, { status: STATUS_ORDER[(idx + 1) % STATUS_ORDER.length] });
+  };
+
+  // ── 人格複製
+  const duplicatePersona = async (p: CommentPersona) => {
+    if (!user) return;
+    const next: CommentPersona = {
+      ...p,
+      id: `persona-${Date.now()}`,
+      name: `${p.name}（コピー）`,
+      createdAt: new Date().toISOString()
+    };
+    setPersonas(prev => [next, ...prev]);
+    setExpandedPersonaId(next.id);
+    const { error } = await supabase.from('personas').insert(personaToDb(next, user.id));
+    if (error) setPersonas(prev => prev.filter(x => x.id !== next.id));
+  };
+
+  // ── CSV エクスポート
+  function downloadCSV(rows: string[][], filename: string) {
+    const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
+
+  const exportVideosCSV = () => {
+    downloadCSV(
+      [
+        ['タイトル', 'URL', 'ステータス', 'ジャンル', 'タグ', 'メモ', 'サマリー', '登録日'],
+        ...videos.map(v => [v.title, v.url, videoStatusLabels[v.status], v.genre, v.tags.join('|'), v.memo, v.summary, formatDate(v.createdAt)])
+      ],
+      'channel-os-videos.csv'
+    );
+  };
+
+  const exportPersonasCSV = () => {
+    downloadCSV(
+      [
+        ['名前', 'アイコン', 'スタイル', '口調', '反応トピック', 'サンプルコメント', '元動画', '作成日'],
+        ...personas.map(p => [p.name, p.icon, commentStyleLabels[p.commentStyle], p.tone, p.triggerTopics.join('|'), p.sampleComments.join('|'), videoMap[p.sourceVideoId]?.title ?? '', formatDate(p.createdAt)])
+      ],
+      'channel-os-personas.csv'
+    );
+  };
+
   const goToPersonaForm = (videoId: string) => {
     setDraftPersona({ sourceVideoId:videoId, name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[] });
     setSampleCommentsText(''); setActivePage('persona');
@@ -514,8 +589,12 @@ export default function HomePage() {
                 <p className="text-xs text-slate-500">企画候補</p>
                 <p className="text-xl font-semibold text-slate-100">{counts.idea}</p>
               </div>
+              <div className="rounded-2xl bg-[#252838] px-5 py-3 text-center">
+                <p className="text-xs text-slate-500">全動画</p>
+                <p className="text-xl font-semibold text-slate-100">{videos.length}</p>
+              </div>
               <div className="rounded-2xl bg-[#c9a84c]/10 px-5 py-3 text-center">
-                <p className="text-xs text-[#c9a84c]">コメント人格</p>
+                <p className="text-xs text-[#c9a84c]">人格</p>
                 <p className="text-xl font-semibold text-slate-100">{personas.length}</p>
               </div>
             </div>
@@ -540,6 +619,24 @@ export default function HomePage() {
                     className="mt-3 w-full rounded-2xl bg-[#c9a84c] py-2.5 text-sm font-medium text-[#12141f] transition hover:bg-[#b8963f]">
                     仕分けページへ
                   </button>
+                  {videos.length > 0 && (
+                    <div className="mt-4 flex gap-4 border-t border-[#2e3148] pt-4 text-center">
+                      <div className="flex-1">
+                        <p className={C.muted}>人格/動画比</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-200">
+                          {videos.length > 0 ? (personas.length / videos.length).toFixed(1) : '0'}
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <p className={C.muted}>企画数</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-200">{plans.length}</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className={C.muted}>投稿済み</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-200">{counts.posted}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className={`p-6 ${C.card}`}>
@@ -677,9 +774,10 @@ export default function HomePage() {
               {/* 検索 + フィルター */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input
+                  id="video-search-input"
                   value={videoSearch}
                   onChange={e => setVideoSearch(e.target.value)}
-                  placeholder="タイトル・URL・メモで検索..."
+                  placeholder="タイトル・URL・メモで検索...（/キーでフォーカス）"
                   className="flex-1 rounded-2xl border border-[#2e3148] bg-[#1c1f2e] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-[#c9a84c]/60"
                 />
                 <div className="flex flex-wrap gap-2">
@@ -725,7 +823,12 @@ export default function HomePage() {
                           <p className="mt-1 text-xs text-slate-600">{formatDate(video.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 items-start gap-1">
-                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${videoStatusColors[video.status]}`}>{videoStatusLabels[video.status]}</span>
+                          <button
+                            onClick={() => cycleVideoStatus(video)}
+                            title="クリックしてステータスを変更"
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition hover:opacity-70 ${videoStatusColors[video.status]}`}>
+                            {videoStatusLabels[video.status]}
+                          </button>
                         </div>
                       </div>
 
@@ -904,6 +1007,7 @@ export default function HomePage() {
                             </div>
                             <div className="flex gap-1">
                               <button onClick={() => startEdit(persona)} className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-[#2e3148] hover:text-slate-300">編集</button>
+                              <button onClick={() => duplicatePersona(persona)} title="複製" aria-label={`${persona.name}を複製`} className="rounded-xl px-2 py-1.5 text-xs text-slate-500 transition hover:bg-[#2e3148] hover:text-slate-300">複製</button>
                               <button
                                 aria-expanded={expandedPersonaId === persona.id}
                                 aria-label={`${persona.name}の詳細を${expandedPersonaId === persona.id ? '閉じる' : '開く'}`}
@@ -1131,6 +1235,20 @@ export default function HomePage() {
                   </ol>
                 </div>
                 <p className={`mt-3 ${C.muted}`}>将来 Gemini API を追加する際は GEMINI_API_KEY も同様に環境変数へ</p>
+              </div>
+
+              {/* CSV エクスポート */}
+              <div className={`p-6 ${C.card}`}>
+                <h3 className={C.h3}>データエクスポート（CSV）</h3>
+                <p className="mt-2 text-sm text-slate-500">登録した動画・人格データをCSVで一括ダウンロードできます。Excelでの分析やバックアップに使えます。</p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button onClick={exportVideosCSV} disabled={videos.length === 0} className={`${C.btnGold} disabled:opacity-50`}>
+                    動画リストをCSV（{videos.length}件）
+                  </button>
+                  <button onClick={exportPersonasCSV} disabled={personas.length === 0} className={`rounded-2xl border border-[#2e3148] bg-[#252838] px-6 py-3 text-sm font-semibold text-slate-300 transition hover:bg-[#2e3148] disabled:opacity-50`}>
+                    人格リストをCSV（{personas.length}件）
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-3xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 p-6 shadow-panel">
