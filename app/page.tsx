@@ -63,6 +63,22 @@ function isSafeUrl(url: string): boolean {
   }
 }
 
+function getYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0] || null;
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getYouTubeThumbnail(url: string): string | null {
+  const id = getYouTubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : null;
+}
+
 async function fetchYouTubeTitle(url: string): Promise<string | null> {
   try {
     const res = await fetch(`/api/fetch-title?url=${encodeURIComponent(url)}`);
@@ -562,12 +578,19 @@ export default function HomePage() {
                     <div className="mt-4 space-y-3">
                       {videos.slice(0, 3).map(v => {
                         const linked = personas.filter(p => p.sourceVideoId === v.id);
+                        const thumb = getYouTubeThumbnail(v.url);
                         return (
-                          <div key={v.id} className="flex items-center gap-4 rounded-2xl bg-[#252838] px-4 py-3">
-                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${videoStatusColors[v.status]}`}>{videoStatusLabels[v.status]}</span>
+                          <div key={v.id} className="flex items-center gap-3 rounded-2xl bg-[#252838] px-3 py-2.5">
+                            {thumb && (
+                              <img src={thumb} alt={v.title} width={64} height={36}
+                                className="shrink-0 rounded-lg object-cover"
+                                style={{ width: 64, height: 36 }}
+                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            )}
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-slate-200">{v.title}</p>
-                              <p className={C.muted}>{formatDate(v.createdAt)}{linked.length > 0 && <> · 人格 {linked.length}件</>}</p>
+                              <p className={C.muted}><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${videoStatusColors[v.status]}`}>{videoStatusLabels[v.status]}</span>{linked.length > 0 && <> · 人格 {linked.length}件</>}</p>
                             </div>
                           </div>
                         );
@@ -678,16 +701,30 @@ export default function HomePage() {
                 {filteredVideos.map(video => {
                   const linked = personas.filter(p => p.sourceVideoId === video.id);
                   const isExpanded = expandedVideoId === video.id;
+                  const thumbnail = getYouTubeThumbnail(video.url);
                   return (
                     <article key={video.id} className={`p-5 ${C.card}`}>
                       {/* ── 通常表示 ── */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex items-start gap-3">
+                        {thumbnail && (
+                          <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className="shrink-0">
+                            <img
+                              src={thumbnail}
+                              alt={video.title}
+                              width={100}
+                              height={56}
+                              className="rounded-xl object-cover"
+                              style={{ width: 100, height: 56 }}
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          </a>
+                        )}
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-slate-200">{video.title}</p>
                           <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-xs text-slate-600 transition hover:text-slate-400">{video.url}</a>
                           <p className="mt-1 text-xs text-slate-600">{formatDate(video.createdAt)}</p>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex shrink-0 items-start gap-1">
                           <span className={`rounded-full px-3 py-1 text-xs font-medium ${videoStatusColors[video.status]}`}>{videoStatusLabels[video.status]}</span>
                         </div>
                       </div>
