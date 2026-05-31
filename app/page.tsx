@@ -120,7 +120,14 @@ export default function HomePage() {
 
   const [activePage, setActivePage] = useState<PageKey>('dashboard');
   const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [plans, setPlans] = useState<ContentPlan[]>(mockPlans);
+  const [plans, setPlans] = useState<ContentPlan[]>(() => {
+    // 初回レンダリング時に localStorage から復元（mockPlans フラッシュを防ぐ）
+    if (typeof window === 'undefined') return [];
+    try {
+      const r = localStorage.getItem(PLANS_KEY);
+      return r ? JSON.parse(r) : [];
+    } catch { return []; }
+  });
   const [personas, setPersonas] = useState<CommentPersona[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -177,7 +184,11 @@ export default function HomePage() {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (!error) router.push('/login');
+    if (!error) {
+      // 前ユーザーのデータを完全クリア（ブラウザ「戻る」で残留しないよう）
+      setVideos([]); setPersonas([]); setPlans([]); setActivePage('dashboard');
+      router.push('/login');
+    }
   };
 
   // ページ遷移ラッパー（personaページへの直接遷移でフォームをリセット）
@@ -263,7 +274,7 @@ export default function HomePage() {
 
   const goToPersonaForm = (videoId: string) => {
     setDraftPersona({ sourceVideoId:videoId, name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[] });
-    setSampleCommentsText(''); setActivePage('persona');
+    setSampleCommentsText(''); setActivePage('persona'); // navigateTo を使わない（sourceVideoId を保持するため）
   };
 
   const addPersona = async (e: React.FormEvent) => {
@@ -334,7 +345,8 @@ export default function HomePage() {
           </div>
           <nav aria-label="メインナビゲーション" className="space-y-1">
             {navItems.map(item => (
-              <button key={item.key} onClick={() => setActivePage(item.key)}
+              <button key={item.key}
+                onClick={() => navigateTo(item.key)}
                 aria-current={activePage === item.key ? 'page' : undefined}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${activePage === item.key ? 'bg-[#c9a84c] text-[#12141f]' : 'text-slate-500 hover:bg-[#252838] hover:text-slate-200'}`}>
                 <span aria-hidden="true" className="w-4 text-center text-xs">{item.symbol}</span>
@@ -394,14 +406,14 @@ export default function HomePage() {
                 <h3 className={C.h3}>動画ステータス</h3>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   {(['reference','idea','onHold','posted'] as const).map(s => (
-                    <button key={s} onClick={() => { setSortFilter(s); setActivePage('sorting'); }}
+                    <button key={s} onClick={() => { setSortFilter(s); navigateTo('sorting'); }}
                       className="rounded-2xl bg-[#252838] p-4 text-left transition hover:bg-[#2e3148]">
                       <p className="text-xs text-slate-500">{videoStatusLabels[s]}</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-100">{counts[s]}</p>
                     </button>
                   ))}
                 </div>
-                <button onClick={() => { setSortFilter('all'); setActivePage('sorting'); }}
+                <button onClick={() => { setSortFilter('all'); navigateTo('sorting'); }}
                   className="mt-3 w-full rounded-2xl bg-[#c9a84c] py-2.5 text-sm font-medium text-[#12141f] transition hover:bg-[#b8963f]">
                   仕分けページへ
                 </button>
@@ -425,7 +437,7 @@ export default function HomePage() {
                   {personas.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-[#2e3148] p-5 text-center">
                       <p className="text-sm text-slate-500">まだ人格がありません</p>
-                      <button onClick={() => setActivePage('sorting')} className="mt-2 text-xs text-[#c9a84c] underline-offset-2 hover:underline">YouTube仕分けから作成する</button>
+                      <button onClick={() => navigateTo('sorting')} className="mt-2 text-xs text-[#c9a84c] underline-offset-2 hover:underline">YouTube仕分けから作成する</button>
                     </div>
                   )}
                 </div>
@@ -519,7 +531,7 @@ export default function HomePage() {
                       {linked.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2 border-t border-[#2e3148] pt-3">
                           {linked.map(p => (
-                            <button key={p.id} onClick={() => { setExpandedPersonaId(p.id); setActivePage('persona'); }}
+                            <button key={p.id} onClick={() => { setExpandedPersonaId(p.id); navigateTo('persona'); }}
                               className="flex items-center gap-1.5 rounded-full bg-[#c9a84c]/10 px-3 py-1 text-xs font-medium text-[#c9a84c] transition hover:bg-[#c9a84c]/20">
                               {p.icon} {p.name}
                             </button>
@@ -583,7 +595,16 @@ export default function HomePage() {
                     サンプルコメント（1行 = 1コメント）
                     <textarea value={sampleCommentsText} onChange={e => setSampleCommentsText(e.target.value)} rows={4} placeholder={'この動画めちゃわかりやすい！\nここもっと詳しく知りたい'} className={`mt-1.5 ${C.input}`} />
                   </label>
-                  <div className="flex justify-end"><button type="submit" className={C.btnGold}>人格を保存</button></div>
+                  {!draftPersona.sourceVideoId && (
+                    <p className="text-xs text-amber-400">⚠ 元動画を選択してください</p>
+                  )}
+                  <div className="flex justify-end">
+                    <button type="submit"
+                      disabled={!draftPersona.sourceVideoId || !draftPersona.name?.trim() || isSubmitting}
+                      className={`${C.btnGold} disabled:opacity-50`}>
+                      {isSubmitting ? '保存中...' : '人格を保存'}
+                    </button>
+                  </div>
                 </form>
               </div>
 

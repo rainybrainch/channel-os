@@ -2,6 +2,7 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: ['./app/**/*.{js,ts,jsx,tsx}', './lib/**/*.{ts,tsx}', './components/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class', // html.dark クラスでダークモードを制御（layout.tsx で <html className="dark"> が必要）
   theme: {
     extend: {
       colors: {

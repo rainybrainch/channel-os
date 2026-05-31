@@ -28,9 +28,13 @@ export default function LoginPage() {
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (!mounted.current) return;
-      if (error) setError('登録に失敗しました。別のメールアドレスをお試しください。'); // 生メッセージを隠す
-      else setSignupDone(true);
-      setLoading(false);
+      if (error) {
+        setError('登録に失敗しました。別のメールアドレスをお試しください。');
+        setLoading(false); // エラー時のみローディング解除
+      } else {
+        setSignupDone(true);
+        // setLoading は不要（signupDone で画面が切り替わる）
+      }
     }
   };
 
@@ -55,9 +59,10 @@ export default function LoginPage() {
           </div>
         ) : (
           <div className="rounded-3xl border border-[#2e3148] bg-[#1c1f2e] p-8 shadow-panel">
-            <div className="mb-6 flex rounded-2xl bg-[#252838] p-1">
+            <div role="tablist" aria-label="認証方法" className="mb-6 flex rounded-2xl bg-[#252838] p-1">
               {(['login', 'signup'] as const).map(m => (
-                <button key={m} onClick={() => { setMode(m); setError(''); }}
+                <button key={m} role="tab" aria-selected={mode === m}
+                  onClick={() => { setMode(m); setError(''); }}
                   className={`flex-1 rounded-xl py-2 text-sm font-medium transition ${mode === m ? 'bg-[#1c1f2e] text-slate-100 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
                   {m === 'login' ? 'ログイン' : '新規登録'}
                 </button>
