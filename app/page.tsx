@@ -54,6 +54,15 @@ const STYLE_COLORS: Record<CommentStyle, string> = {
   analysis: '#5c8a91', reaction: '#f97316', short: '#a78bfa', long: '#4ade80', question: '#60a5fa'
 };
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function toVTuberFormat(personas: CommentPersona[], videoMap: Record<string, VideoItem>) {
   return personas.map(p => ({
     id: p.id, name: p.name,
@@ -166,7 +175,19 @@ export default function HomePage() {
   useEffect(() => { try { const r = localStorage.getItem(PLANS_KEY); if (r) setPlans(JSON.parse(r)); } catch {} }, []);
   useEffect(() => { localStorage.setItem(PLANS_KEY, JSON.stringify(plans)); }, [plans]);
 
-  const signOut = async () => { await supabase.auth.signOut(); router.push('/login'); };
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (!error) router.push('/login');
+  };
+
+  // ページ遷移ラッパー（personaページへの直接遷移でフォームをリセット）
+  const navigateTo = (page: PageKey) => {
+    if (page === 'persona') {
+      setDraftPersona({ sourceVideoId:'', name:'', icon:'💬', commentStyle:'short', tone:'', triggerTopics:[], sampleComments:[] });
+      setSampleCommentsText('');
+    }
+    setActivePage(page);
+  };
 
   const videoMap = useMemo(() => Object.fromEntries(videos.map(v => [v.id, v])), [videos]);
 
@@ -185,7 +206,7 @@ export default function HomePage() {
     const url = quickUrl.trim(); if (!url) return;
     setIsSubmitting(true);
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
-    setVideos([next, ...videos]); setQuickUrl(''); setQuickTitle('');
+    setVideos(prev => [next, ...prev]); setQuickUrl(''); setQuickTitle('');
     const { error } = await supabase.from('videos').insert(videoToDb(next, user.id));
     if (error) setVideos(prev => prev.filter(v => v.id !== next.id));
     setIsSubmitting(false);
@@ -200,7 +221,7 @@ export default function HomePage() {
     const personaId = `persona-${Date.now() + 1}`;
     const newVideo: VideoItem = { id:videoId, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     const newPersona = { ...generatePersonaMock({ videoId, charaName:quickCharaName, personalityType:quickPersonality, energy:quickEnergy }), id: personaId };
-    setVideos([newVideo, ...videos]); setPersonas([newPersona, ...personas]); setExpandedPersonaId(newPersona.id);
+    setVideos(prev => [newVideo, ...prev]); setPersonas(prev => [newPersona, ...prev]); setExpandedPersonaId(newPersona.id);
     setQuickUrl(''); setQuickTitle(''); setQuickCharaName('');
     const [vResult, pResult] = await Promise.all([
       supabase.from('videos').insert(videoToDb(newVideo, user.id)),
@@ -214,8 +235,8 @@ export default function HomePage() {
 
   const updateVideo = async (id: string, updated: Partial<VideoItem>) => {
     if (!user) return;
-    const prevVideos = videos; // snapshot before update
-    setVideos(videos.map(v => v.id === id ? { ...v, ...updated } : v));
+    const prevVideos = videos; // snapshot before update (rollback用)
+    setVideos(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
     const d: Record<string,unknown> = {};
     if (updated.status !== undefined) d.status = updated.status;
     if (updated.title  !== undefined) d.title  = updated.title;
@@ -223,12 +244,12 @@ export default function HomePage() {
     if (error) setVideos(prevVideos); // スナップショットから正しくrollback
   };
 
-  const updatePlan = (id: string, updated: Partial<ContentPlan>) => setPlans(plans.map(p => p.id === id ? { ...p, ...updated } : p));
+  const updatePlan = (id: string, updated: Partial<ContentPlan>) => setPlans(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
 
   const updatePersona = async (id: string, updated: Partial<CommentPersona>) => {
     if (!user) return;
-    const prevPersonas = personas; // snapshot before update
-    setPersonas(personas.map(p => p.id === id ? { ...p, ...updated } : p));
+    const prevPersonas = personas; // snapshot before update (rollback用)
+    setPersonas(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
     const d: Record<string,unknown> = {};
     if (updated.name           !== undefined) d.name            = updated.name;
     if (updated.icon           !== undefined) d.icon            = updated.icon;
@@ -255,7 +276,7 @@ export default function HomePage() {
       triggerTopics:draftPersona.triggerTopics??[], sampleComments:sampleCommentsText.split('\n').map(s=>s.trim()).filter(Boolean),
       createdAt:new Date().toISOString()
     };
-    setPersonas([next, ...personas]); setExpandedPersonaId(next.id);
+    setPersonas(prev => [next, ...prev]); setExpandedPersonaId(next.id);
     setDraftPersona({ ...draftPersona, name:'', icon:'💬', tone:'', triggerTopics:[], sampleComments:[] }); setSampleCommentsText('');
     const { error } = await supabase.from('personas').insert(personaToDb(next, user.id));
     if (error) setPersonas(prev => prev.filter(p => p.id !== next.id));
@@ -263,14 +284,20 @@ export default function HomePage() {
   };
 
   const startEdit = (p: CommentPersona) => { setEditingPersonaId(p.id); setEditDraft({ name:p.name, icon:p.icon, tone:p.tone, commentStyle:p.commentStyle, triggerTopics:p.triggerTopics }); };
-  const saveEdit  = (id: string) => { updatePersona(id, editDraft); setEditingPersonaId(null); setEditDraft({}); };
+  const saveEdit  = (id: string) => {
+    if (!editDraft.name?.trim()) return; // 名前が空のまま保存させない
+    updatePersona(id, editDraft);
+    setEditingPersonaId(null);
+    setEditDraft({});
+  };
 
   const exportToVTuber = () => {
     const data = toVTuberFormat(personas, videoMap);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'channel-os-personas.json'; a.click();
-    URL.revokeObjectURL(url); setExportSuccess(true); setTimeout(() => setExportSuccess(false), 3000);
+    setTimeout(() => URL.revokeObjectURL(url), 100); // Firefox等でダウンロード前にrevokeされるのを防ぐ
+    setExportSuccess(true); setTimeout(() => setExportSuccess(false), 3000);
   };
 
   const activeLabel = navItems.find(n => n.key === activePage)?.label ?? '';
@@ -305,11 +332,12 @@ export default function HomePage() {
               <h1 className="text-lg font-semibold text-slate-100">Channel OS</h1>
             </div>
           </div>
-          <nav className="space-y-1">
+          <nav aria-label="メインナビゲーション" className="space-y-1">
             {navItems.map(item => (
               <button key={item.key} onClick={() => setActivePage(item.key)}
+                aria-current={activePage === item.key ? 'page' : undefined}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${activePage === item.key ? 'bg-[#c9a84c] text-[#12141f]' : 'text-slate-500 hover:bg-[#252838] hover:text-slate-200'}`}>
-                <span className="w-4 text-center text-xs">{item.symbol}</span>
+                <span aria-hidden="true" className="w-4 text-center text-xs">{item.symbol}</span>
                 <span>{item.label}</span>
               </button>
             ))}
@@ -337,7 +365,7 @@ export default function HomePage() {
           {loadError && (
             <div className="rounded-2xl border border-red-900/50 bg-red-900/20 px-5 py-3 text-sm text-red-400 flex items-center justify-between">
               <span>{loadError}</span>
-              <button onClick={() => setLoadError(null)} className="text-red-500 hover:text-red-300">✕</button>
+              <button aria-label="エラーを閉じる" onClick={() => setLoadError(null)} className="text-red-500 hover:text-red-300">✕</button>
             </div>
           )}
 
@@ -382,7 +410,7 @@ export default function HomePage() {
               <div className={`p-6 ${C.card}`}>
                 <div className="flex items-center justify-between">
                   <h3 className={C.h3}>コメント人格</h3>
-                  <button onClick={() => setActivePage('persona')} className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+                  <button onClick={() => navigateTo('persona')} aria-label="コメント人格をすべて見る" className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
                 </div>
                 <div className="mt-4 space-y-3">
                   {personas.slice(0, 5).map(p => (
@@ -468,7 +496,7 @@ export default function HomePage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium text-slate-200">{video.title}</p>
-                          <a href={video.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-xs text-slate-600 transition hover:text-slate-400">{video.url}</a>
+                          <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-xs text-slate-600 transition hover:text-slate-400">{video.url}</a>
                           <p className="mt-1 text-xs text-slate-600">{formatDate(video.createdAt)}</p>
                         </div>
                         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${videoStatusColors[video.status]}`}>{videoStatusLabels[video.status]}</span>
@@ -484,7 +512,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-4 flex gap-2 border-t border-[#2e3148] pt-4">
-                        <a href={video.url} target="_blank" rel="noreferrer" className={`flex-1 text-center ${C.btnSm}`}>動画を開く</a>
+                        <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className={`flex-1 text-center ${C.btnSm}`}>動画を開く</a>
                         <button onClick={() => goToPersonaForm(video.id)} className={`flex-[2] ${C.btnGold}`}>コメント人格を作る →</button>
                       </div>
 
@@ -577,7 +605,13 @@ export default function HomePage() {
                             </div>
                             <div className="flex gap-1">
                               <button onClick={() => startEdit(persona)} className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-[#2e3148] hover:text-slate-300">編集</button>
-                              <button onClick={() => setExpandedPersonaId(expandedPersonaId === persona.id ? null : persona.id)} className="rounded-xl p-2 text-xs text-slate-500 transition hover:bg-[#2e3148]">{expandedPersonaId === persona.id ? '▲' : '▼'}</button>
+                              <button
+                                aria-expanded={expandedPersonaId === persona.id}
+                                aria-label={`${persona.name}の詳細を${expandedPersonaId === persona.id ? '閉じる' : '開く'}`}
+                                onClick={() => setExpandedPersonaId(expandedPersonaId === persona.id ? null : persona.id)}
+                                className="rounded-xl p-2 text-xs text-slate-500 transition hover:bg-[#2e3148]">
+                                <span aria-hidden="true">{expandedPersonaId === persona.id ? '▲' : '▼'}</span>
+                              </button>
                             </div>
                           </div>
                           {expandedPersonaId === persona.id && (

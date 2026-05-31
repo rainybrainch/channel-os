@@ -28,7 +28,7 @@ export default function LoginPage() {
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (!mounted.current) return;
-      if (error) setError(error.message);
+      if (error) setError('登録に失敗しました。別のメールアドレスをお試しください。'); // 生メッセージを隠す
       else setSignupDone(true);
       setLoading(false);
     }
@@ -68,17 +68,19 @@ export default function LoginPage() {
               <label className="block space-y-1.5 text-sm text-slate-400">
                 メールアドレス
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                  autoComplete="email"
                   className="mt-1.5 w-full rounded-2xl border border-[#2e3148] bg-[#141720] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-[#c9a84c]/60 focus:ring-2 focus:ring-[#c9a84c]/15" />
               </label>
               <label className="block space-y-1.5 text-sm text-slate-400">
                 パスワード{mode === 'signup' && <span className="text-slate-600">（8文字以上）</span>}
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'signup' ? 8 : 1}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   className="mt-1.5 w-full rounded-2xl border border-[#2e3148] bg-[#141720] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-[#c9a84c]/60 focus:ring-2 focus:ring-[#c9a84c]/15" />
               </label>
 
-              {error && <p className="rounded-2xl bg-red-900/20 px-4 py-2.5 text-sm text-red-400">{error}</p>}
+              {error && <p role="alert" aria-live="assertive" className="rounded-2xl bg-red-900/20 px-4 py-2.5 text-sm text-red-400">{error}</p>}
 
-              <button type="submit" disabled={loading}
+              <button type="submit" disabled={loading} aria-busy={loading}
                 className="w-full rounded-2xl bg-[#c9a84c] py-3 text-sm font-semibold text-[#12141f] transition hover:bg-[#b8963f] disabled:opacity-60">
                 {loading ? '処理中...' : mode === 'login' ? 'ログイン' : 'アカウント作成'}
               </button>

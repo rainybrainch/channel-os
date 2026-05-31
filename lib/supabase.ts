@@ -74,7 +74,7 @@ export function personaToDb(persona: CommentPersona, userId: string) {
   return {
     id: persona.id,
     user_id: userId,
-    source_video_id: persona.sourceVideoId,
+    source_video_id: persona.sourceVideoId || null, // 空文字はFKエラーになるのでnullに変換
     name: persona.name,
     icon: persona.icon,
     comment_style: persona.commentStyle,
