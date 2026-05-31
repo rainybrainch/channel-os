@@ -290,6 +290,7 @@ export default function HomePage() {
   const addVideoOnly = async (e: React.MouseEvent) => {
     if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
+    if (videos.some(v => v.url === url)) { alert('同じURLがすでに登録されています'); return; }
     setIsSubmitting(true);
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     setVideos(prev => [next, ...prev]); setQuickUrl(''); setQuickTitle('');
@@ -301,6 +302,7 @@ export default function HomePage() {
   const addVideoAndGeneratePersona = async (e: React.MouseEvent) => {
     if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
+    if (videos.some(v => v.url === url)) { alert('同じURLがすでに登録されています'); return; }
     setIsSubmitting(true);
     const videoId = `video-${Date.now()}`;
     const personaId = `persona-${Date.now() + 1}`;
@@ -382,19 +384,23 @@ export default function HomePage() {
   };
 
   // ── 投稿管理操作
-  const addPlan = () => {
-    if (!newPlanTitle.trim()) return;
+  const addPlan = (titleOverride?: string, videoIdOverride?: string) => {
+    const title = titleOverride ?? newPlanTitle.trim();
+    if (!title) return;
     const next: ContentPlan = {
       id: `plan-${Date.now()}`,
-      sourceVideoId: newPlanVideoId,
-      title: newPlanTitle.trim(),
+      sourceVideoId: videoIdOverride ?? newPlanVideoId,
+      title,
       hook: '', scriptMemo: '', thumbnailIdea: '', purpose: '',
       priority: 'medium', status: 'idea',
       scheduledDate: '', postedUrl: '', metricsMemo: '', selectedPersonas: []
     };
     setPlans(prev => [next, ...prev]);
-    setNewPlanTitle(''); setNewPlanVideoId(''); setNewPlanOpen(false);
+    if (!titleOverride) { setNewPlanTitle(''); setNewPlanVideoId(''); setNewPlanOpen(false); }
+    else setActivePage('publishing');
   };
+
+  const promoteVideoToPlan = (video: VideoItem) => addPlan(video.title, video.id);
 
   const deletePlan = (id: string) => {
     if (!window.confirm('この企画を削除しますか？')) return;
@@ -479,10 +485,10 @@ export default function HomePage() {
 
   const addPersona = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !draftPersona.name?.trim() || !draftPersona.sourceVideoId || isSubmitting) return;
+    if (!user || !draftPersona.name?.trim() || isSubmitting) return;
     setIsSubmitting(true);
     const next: CommentPersona = {
-      id:`persona-${Date.now()}`, sourceVideoId:draftPersona.sourceVideoId, name:draftPersona.name.trim(),
+      id:`persona-${Date.now()}`, sourceVideoId:draftPersona.sourceVideoId ?? '', name:draftPersona.name.trim(),
       icon:draftPersona.icon||'💬', commentStyle:draftPersona.commentStyle??'short', tone:draftPersona.tone??'',
       triggerTopics:draftPersona.triggerTopics??[], sampleComments:sampleCommentsText.split('\n').map(s=>s.trim()).filter(Boolean),
       createdAt:new Date().toISOString()
@@ -841,9 +847,10 @@ export default function HomePage() {
                         ))}
                       </div>
 
-                      <div className="mt-4 flex gap-2 border-t border-[#2e3148] pt-4">
-                        <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className={`text-center ${C.btnSm}`}>動画を開く</a>
-                        <button onClick={() => goToPersonaForm(video.id)} className={`flex-1 ${C.btnGold}`}>人格を作る →</button>
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-[#2e3148] pt-4">
+                        <a href={isSafeUrl(video.url) ? video.url : '#'} target="_blank" rel="noreferrer" className={`text-center ${C.btnSm}`}>開く</a>
+                        <button onClick={() => goToPersonaForm(video.id)} className={`${C.btnGold}`}>人格を作る</button>
+                        <button onClick={() => promoteVideoToPlan(video)} title="投稿管理に企画として追加" className="rounded-2xl bg-[#252838] px-3 py-2.5 text-xs font-medium text-slate-400 transition hover:bg-[#2e3148]">企画化 ▲</button>
                         <button
                           onClick={() => isExpanded ? setExpandedVideoId(null) : openVideoEdit(video)}
                           aria-label="詳細編集"
@@ -967,12 +974,9 @@ export default function HomePage() {
                     サンプルコメント（1行 = 1コメント）
                     <textarea value={sampleCommentsText} onChange={e => setSampleCommentsText(e.target.value)} rows={4} placeholder={'この動画めちゃわかりやすい！\nここもっと詳しく知りたい'} className={`mt-1.5 ${C.input}`} />
                   </label>
-                  {!draftPersona.sourceVideoId && (
-                    <p className="text-xs text-amber-400">⚠ 元動画を選択してください</p>
-                  )}
                   <div className="flex justify-end">
                     <button type="submit"
-                      disabled={!draftPersona.sourceVideoId || !draftPersona.name?.trim() || isSubmitting}
+                      disabled={!draftPersona.name?.trim() || isSubmitting}
                       className={`${C.btnGold} disabled:opacity-50`}>
                       {isSubmitting ? '保存中...' : '人格を保存'}
                     </button>
@@ -1080,7 +1084,7 @@ export default function HomePage() {
                     </select>
                     <div className="flex justify-end gap-2">
                       <button onClick={() => { setNewPlanOpen(false); setNewPlanTitle(''); setNewPlanVideoId(''); }} className={C.btnSm}>キャンセル</button>
-                      <button onClick={addPlan} disabled={!newPlanTitle.trim()} className={`${C.btnGold} disabled:opacity-50`}>企画を追加</button>
+                      <button onClick={() => addPlan()} disabled={!newPlanTitle.trim()} className={`${C.btnGold} disabled:opacity-50`}>企画を追加</button>
                     </div>
                   </div>
                 </div>
