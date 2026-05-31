@@ -1,0 +1,13 @@
+{
+  "name": "Channel OS",
+  "short_name": "Channel OS",
+  "description": "YouTube仕分け・コメント人格作成・投稿管理SaaS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12141f",
+  "theme_color": "#c9a84c",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

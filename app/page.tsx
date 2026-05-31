@@ -199,6 +199,13 @@ export default function HomePage() {
   // ── 仕分けページ：人格生成フォームの折りたたみ
   const [showPersonaGen, setShowPersonaGen] = useState(false);
 
+  // ── トースト通知
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
   // ── 認証
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -298,7 +305,8 @@ export default function HomePage() {
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     setVideos(prev => [next, ...prev]); setQuickUrl(''); setQuickTitle('');
     const { error } = await supabase.from('videos').insert(videoToDb(next, user.id));
-    if (error) setVideos(prev => prev.filter(v => v.id !== next.id));
+    if (error) { setVideos(prev => prev.filter(v => v.id !== next.id)); showToast('動画の登録に失敗しました', 'error'); }
+    else showToast('動画を登録しました');
     setIsSubmitting(false);
   };
 
@@ -317,8 +325,9 @@ export default function HomePage() {
       supabase.from('videos').insert(videoToDb(newVideo, user.id)),
       supabase.from('personas').insert(personaToDb(newPersona, user.id))
     ]);
-    if (vResult.error) setVideos(prev => prev.filter(v => v.id !== newVideo.id));
-    if (pResult.error) setPersonas(prev => prev.filter(p => p.id !== newPersona.id));
+    if (vResult.error) { setVideos(prev => prev.filter(v => v.id !== newVideo.id)); showToast('動画の登録に失敗しました', 'error'); }
+    else if (pResult.error) { setPersonas(prev => prev.filter(p => p.id !== newPersona.id)); showToast('動画は登録しましたが人格の保存に失敗しました', 'error'); }
+    else showToast('登録 ＋ 人格を生成しました');
     setIsSubmitting(false);
   };
 
@@ -334,7 +343,7 @@ export default function HomePage() {
     if (updated.genre     !== undefined) d.genre     = updated.genre;
     if (updated.tags      !== undefined) d.tags      = updated.tags;
     const { error } = await supabase.from('videos').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setVideos(prevVideos);
+    if (error) { setVideos(prevVideos); showToast('動画の更新に失敗しました', 'error'); }
   };
 
   const deleteVideo = async (id: string) => {
@@ -344,7 +353,8 @@ export default function HomePage() {
     setVideos(prev => prev.filter(v => v.id !== id));
     if (expandedVideoId === id) setExpandedVideoId(null);
     const { error } = await supabase.from('videos').delete().eq('id', id).eq('user_id', user.id);
-    if (error) setVideos(prevVideos);
+    if (error) { setVideos(prevVideos); showToast('動画の削除に失敗しました', 'error'); }
+    else showToast('動画を削除しました');
   };
 
   // 動画詳細展開編集
@@ -373,7 +383,7 @@ export default function HomePage() {
     if (updated.triggerTopics  !== undefined) d.trigger_topics  = updated.triggerTopics;
     if (updated.sampleComments !== undefined) d.sample_comments = updated.sampleComments;
     const { error } = await supabase.from('personas').update(d).eq('id', id).eq('user_id', user.id);
-    if (error) setPersonas(prevPersonas);
+    if (error) { setPersonas(prevPersonas); showToast('人格の更新に失敗しました', 'error'); }
   };
 
   const deletePersona = async (id: string) => {
@@ -383,7 +393,8 @@ export default function HomePage() {
     setPersonas(prev => prev.filter(p => p.id !== id));
     if (expandedPersonaId === id) setExpandedPersonaId(null);
     const { error } = await supabase.from('personas').delete().eq('id', id).eq('user_id', user.id);
-    if (error) setPersonas(prevPersonas);
+    if (error) { setPersonas(prevPersonas); showToast('人格の削除に失敗しました', 'error'); }
+    else showToast('人格を削除しました');
   };
 
   // ── 投稿管理操作
@@ -449,7 +460,8 @@ export default function HomePage() {
     setPersonas(prev => [next, ...prev]);
     setExpandedPersonaId(next.id);
     const { error } = await supabase.from('personas').insert(personaToDb(next, user.id));
-    if (error) setPersonas(prev => prev.filter(x => x.id !== next.id));
+    if (error) { setPersonas(prev => prev.filter(x => x.id !== next.id)); showToast('人格の複製に失敗しました', 'error'); }
+    else showToast(`「${next.name}」を複製しました`);
   };
 
   // ── CSV エクスポート
@@ -499,7 +511,8 @@ export default function HomePage() {
     setPersonas(prev => [next, ...prev]); setExpandedPersonaId(next.id);
     setDraftPersona({ ...draftPersona, name:'', icon:'💬', tone:'', triggerTopics:[], sampleComments:[] }); setSampleCommentsText('');
     const { error } = await supabase.from('personas').insert(personaToDb(next, user.id));
-    if (error) setPersonas(prev => prev.filter(p => p.id !== next.id));
+    if (error) { setPersonas(prev => prev.filter(p => p.id !== next.id)); showToast('人格の保存に失敗しました', 'error'); }
+    else showToast('人格を保存しました');
     setIsSubmitting(false);
   };
 
@@ -584,6 +597,16 @@ export default function HomePage() {
             <div className="rounded-2xl border border-red-900/50 bg-red-900/20 px-5 py-3 text-sm text-red-400 flex items-center justify-between">
               <span>{loadError}</span>
               <button aria-label="エラーを閉じる" onClick={() => setLoadError(null)} className="text-red-500 hover:text-red-300">✕</button>
+            </div>
+          )}
+
+          {/* トースト通知 */}
+          {toast && (
+            <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3 shadow-panel text-sm font-medium transition-all ${toast.type === 'error' ? 'bg-red-900/90 text-red-200 border border-red-800' : 'bg-[#1c2e22] text-emerald-300 border border-emerald-900/60'}`}
+              role="alert" aria-live="assertive">
+              <span>{toast.type === 'error' ? '✕' : '✓'}</span>
+              <span>{toast.message}</span>
+              <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
             </div>
           )}
 
