@@ -65,7 +65,7 @@ function isSafeUrl(url: string): boolean {
 
 async function fetchYouTubeTitle(url: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+    const res = await fetch(`/api/fetch-title?url=${encodeURIComponent(url)}`);
     if (!res.ok) return null;
     const data = await res.json() as { title?: string };
     return data.title ?? null;
@@ -551,30 +551,55 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* 最近の動画 */}
-              {videos.length > 0 && (
-                <div className={`p-6 ${C.card}`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className={C.h3}>最近登録した動画</h3>
-                    <button onClick={() => navigateTo('sorting')} className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {videos.slice(0, 3).map(v => {
-                      const linked = personas.filter(p => p.sourceVideoId === v.id);
-                      return (
-                        <div key={v.id} className="flex items-center gap-4 rounded-2xl bg-[#252838] px-4 py-3">
-                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${videoStatusColors[v.status]}`}>{videoStatusLabels[v.status]}</span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-200">{v.title}</p>
-                            <p className={C.muted}>{formatDate(v.createdAt)}{linked.length > 0 && <> · 人格 {linked.length}件</>}</p>
+              {/* 最近の動画 + 進行中企画 */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {videos.length > 0 && (
+                  <div className={`p-6 ${C.card}`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className={C.h3}>最近登録した動画</h3>
+                      <button onClick={() => navigateTo('sorting')} className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {videos.slice(0, 3).map(v => {
+                        const linked = personas.filter(p => p.sourceVideoId === v.id);
+                        return (
+                          <div key={v.id} className="flex items-center gap-4 rounded-2xl bg-[#252838] px-4 py-3">
+                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${videoStatusColors[v.status]}`}>{videoStatusLabels[v.status]}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-slate-200">{v.title}</p>
+                              <p className={C.muted}>{formatDate(v.createdAt)}{linked.length > 0 && <> · 人格 {linked.length}件</>}</p>
+                            </div>
                           </div>
-                          <button onClick={() => { setSortFilter('all'); navigateTo('sorting'); }} className="shrink-0 text-xs text-slate-600 hover:text-slate-400">詳細 →</button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {plans.length > 0 && (
+                  <div className={`p-6 ${C.card}`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className={C.h3}>進行中の企画</h3>
+                      <button onClick={() => navigateTo('publishing')} className="text-xs text-slate-500 underline-offset-2 hover:text-[#c9a84c] hover:underline">すべて見る →</button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {plans.filter(p => p.status !== 'published').slice(0, 4).map(p => (
+                        <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-[#252838] px-4 py-3">
+                          <span className="badge badge-light shrink-0">{planStatusLabels[p.status]}</span>
+                          <p className="min-w-0 flex-1 truncate text-sm text-slate-300">{p.title}</p>
+                          {p.priority === 'high' && <span className="shrink-0 text-xs text-amber-400">優先</span>}
+                        </div>
+                      ))}
+                      {plans.filter(p => p.status !== 'published').length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-[#2e3148] p-5 text-center">
+                          <p className="text-sm text-slate-500">進行中の企画なし</p>
+                          <button onClick={() => navigateTo('publishing')} className="mt-2 text-xs text-[#c9a84c] underline-offset-2 hover:underline">企画を追加する</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
