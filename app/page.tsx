@@ -206,6 +206,9 @@ export default function HomePage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // ── インライン削除確認（window.confirm非依存）
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
   // ── 認証
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -300,7 +303,7 @@ export default function HomePage() {
   const addVideoOnly = async (e: React.MouseEvent) => {
     if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
-    if (videos.some(v => v.url === url)) { alert('同じURLがすでに登録されています'); return; }
+    if (videos.some(v => v.url === url)) { showToast('同じURLがすでに登録されています', 'error'); return; }
     setIsSubmitting(true);
     const next: VideoItem = { id:`video-${Date.now()}`, url, title:quickTitle.trim()||url, summary:'', genre:'', tags:[], memo:'', status:'reference', createdAt:new Date().toISOString() };
     setVideos(prev => [next, ...prev]); setQuickUrl(''); setQuickTitle('');
@@ -313,7 +316,7 @@ export default function HomePage() {
   const addVideoAndGeneratePersona = async (e: React.MouseEvent) => {
     if (!user || isSubmitting) return;
     const url = quickUrl.trim(); if (!url) return;
-    if (videos.some(v => v.url === url)) { alert('同じURLがすでに登録されています'); return; }
+    if (videos.some(v => v.url === url)) { showToast('同じURLがすでに登録されています', 'error'); return; }
     setIsSubmitting(true);
     const videoId = `video-${Date.now()}`;
     const personaId = `persona-${Date.now() + 1}`;
@@ -348,10 +351,10 @@ export default function HomePage() {
 
   const deleteVideo = async (id: string) => {
     if (!user) return;
-    if (!window.confirm('この動画を削除しますか？')) return;
     const prevVideos = videos;
     setVideos(prev => prev.filter(v => v.id !== id));
     if (expandedVideoId === id) setExpandedVideoId(null);
+    setPendingDelete(null);
     const { error } = await supabase.from('videos').delete().eq('id', id).eq('user_id', user.id);
     if (error) { setVideos(prevVideos); showToast('動画の削除に失敗しました', 'error'); }
     else showToast('動画を削除しました');
@@ -388,10 +391,10 @@ export default function HomePage() {
 
   const deletePersona = async (id: string) => {
     if (!user) return;
-    if (!window.confirm('この人格を削除しますか？')) return;
     const prevPersonas = personas;
     setPersonas(prev => prev.filter(p => p.id !== id));
     if (expandedPersonaId === id) setExpandedPersonaId(null);
+    setPendingDelete(null);
     const { error } = await supabase.from('personas').delete().eq('id', id).eq('user_id', user.id);
     if (error) { setPersonas(prevPersonas); showToast('人格の削除に失敗しました', 'error'); }
     else showToast('人格を削除しました');
@@ -417,9 +420,10 @@ export default function HomePage() {
   const promoteVideoToPlan = (video: VideoItem) => addPlan(video.title, video.id);
 
   const deletePlan = (id: string) => {
-    if (!window.confirm('この企画を削除しますか？')) return;
     setPlans(prev => prev.filter(p => p.id !== id));
     if (expandedPlanId === id) setExpandedPlanId(null);
+    setPendingDelete(null);
+    showToast('企画を削除しました');
   };
 
   const openPlanEdit = (p: ContentPlan) => {
@@ -898,7 +902,14 @@ export default function HomePage() {
                           className={`rounded-2xl px-3 py-2.5 text-xs font-medium transition ${isExpanded ? 'bg-[#c9a84c]/20 text-[#c9a84c]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
                           {isExpanded ? '閉じる' : '編集'}
                         </button>
-                        <button onClick={() => deleteVideo(video.id)} aria-label="削除" className={C.btnDangerSm}>削除</button>
+                        {pendingDelete === `video-${video.id}` ? (
+                          <>
+                            <button onClick={() => deleteVideo(video.id)} className="rounded-xl bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600">確認</button>
+                            <button onClick={() => setPendingDelete(null)} className="rounded-xl px-2 py-1.5 text-xs text-slate-500 hover:text-slate-300">✕</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setPendingDelete(`video-${video.id}`)} aria-label="削除" className={C.btnDangerSm}>削除</button>
+                        )}
                       </div>
 
                       {/* ── 展開編集フォーム ── */}
@@ -1060,7 +1071,14 @@ export default function HomePage() {
                                 className="rounded-xl p-2 text-xs text-slate-500 transition hover:bg-[#2e3148]">
                                 <span aria-hidden="true">{expandedPersonaId === persona.id ? '▲' : '▼'}</span>
                               </button>
-                              <button onClick={() => deletePersona(persona.id)} aria-label={`${persona.name}を削除`} className={C.btnDangerSm}>削除</button>
+                              {pendingDelete === `persona-${persona.id}` ? (
+                                <>
+                                  <button onClick={() => deletePersona(persona.id)} className="rounded-xl bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600">確認</button>
+                                  <button onClick={() => setPendingDelete(null)} className="rounded-xl px-2 py-1.5 text-xs text-slate-500 hover:text-slate-300">✕</button>
+                                </>
+                              ) : (
+                                <button onClick={() => setPendingDelete(`persona-${persona.id}`)} aria-label={`${persona.name}を削除`} className={C.btnDangerSm}>削除</button>
+                              )}
                             </div>
                           </div>
                           {expandedPersonaId === persona.id && (
@@ -1169,7 +1187,14 @@ export default function HomePage() {
                             className={`rounded-2xl px-3 py-2 text-xs font-medium transition ${isPlanExpanded ? 'bg-[#c9a84c]/20 text-[#c9a84c]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
                             {isPlanExpanded ? '閉じる' : '詳細'}
                           </button>
-                          <button onClick={() => deletePlan(plan.id)} aria-label="この企画を削除" className={C.btnDangerSm}>削除</button>
+                          {pendingDelete === `plan-${plan.id}` ? (
+                            <>
+                              <button onClick={() => deletePlan(plan.id)} className="rounded-xl bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-600">確認</button>
+                              <button onClick={() => setPendingDelete(null)} className="rounded-xl px-2 py-2 text-xs text-slate-500 hover:text-slate-300">✕</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setPendingDelete(`plan-${plan.id}`)} aria-label="この企画を削除" className={C.btnDangerSm}>削除</button>
+                          )}
                         </div>
                       </div>
 
@@ -1319,22 +1344,28 @@ export default function HomePage() {
               <div className={`p-6 ${C.card}`}>
                 <h3 className={C.h3}>データリセット</h3>
                 <p className="mt-2 text-sm text-slate-500">Supabaseとlocalのデータを削除します。</p>
-                <button onClick={async () => {
-                  if (!user) return;
-                  if (!window.confirm('全データを削除します。この操作は元に戻せません。')) return;
-                  const [vRes, pRes] = await Promise.all([
-                    supabase.from('videos').delete().eq('user_id', user.id),
-                    supabase.from('personas').delete().eq('user_id', user.id)
-                  ]);
-                  if (vRes.error || pRes.error) {
-                    alert('削除に失敗しました。再度お試しください。');
-                    return;
-                  }
-                  localStorage.removeItem(PLANS_KEY);
-                  setVideos([]); setPersonas([]); setPlans(mockPlans);
-                }} className={`mt-4 ${C.btnDanger}`}>
-                  データをリセット
-                </button>
+                {pendingDelete === 'reset' ? (
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className="text-sm text-red-400">本当に全データを削除しますか？</span>
+                    <button onClick={async () => {
+                      if (!user) return;
+                      const [vRes, pRes] = await Promise.all([
+                        supabase.from('videos').delete().eq('user_id', user.id),
+                        supabase.from('personas').delete().eq('user_id', user.id)
+                      ]);
+                      if (vRes.error || pRes.error) { showToast('削除に失敗しました', 'error'); setPendingDelete(null); return; }
+                      localStorage.removeItem(PLANS_KEY);
+                      setVideos([]); setPersonas([]); setPlans(mockPlans);
+                      setPendingDelete(null);
+                      showToast('データをリセットしました');
+                    }} className="rounded-2xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600">はい、削除する</button>
+                    <button onClick={() => setPendingDelete(null)} className={C.btnSm}>キャンセル</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setPendingDelete('reset')} className={`mt-4 ${C.btnDanger}`}>
+                    データをリセット
+                  </button>
+                )}
               </div>
             </div>
           )}
