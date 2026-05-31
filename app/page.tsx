@@ -63,6 +63,17 @@ function isSafeUrl(url: string): boolean {
   }
 }
 
+async function fetchYouTubeTitle(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+    if (!res.ok) return null;
+    const data = await res.json() as { title?: string };
+    return data.title ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function toVTuberFormat(personas: CommentPersona[], videoMap: Record<string, VideoItem>) {
   return personas.map(p => ({
     id: p.id, name: p.name,
@@ -160,6 +171,14 @@ export default function HomePage() {
   const [newPlanOpen, setNewPlanOpen] = useState(false);
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [newPlanVideoId, setNewPlanVideoId] = useState('');
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [planEditDraft, setPlanEditDraft] = useState<Partial<ContentPlan>>({});
+
+  // ── 人格検索 state
+  const [personaSearch, setPersonaSearch] = useState('');
+
+  // ── URL自動タイトル取得
+  const [isFetchingTitle, setIsFetchingTitle] = useState(false);
 
   // ── 認証
   useEffect(() => {
@@ -340,6 +359,26 @@ export default function HomePage() {
   const deletePlan = (id: string) => {
     if (!window.confirm('この企画を削除しますか？')) return;
     setPlans(prev => prev.filter(p => p.id !== id));
+    if (expandedPlanId === id) setExpandedPlanId(null);
+  };
+
+  const openPlanEdit = (p: ContentPlan) => {
+    setExpandedPlanId(p.id);
+    setPlanEditDraft({ hook: p.hook, scriptMemo: p.scriptMemo, thumbnailIdea: p.thumbnailIdea, purpose: p.purpose, scheduledDate: p.scheduledDate, priority: p.priority });
+  };
+
+  const savePlanEdit = (id: string) => {
+    updatePlan(id, planEditDraft);
+    setExpandedPlanId(null);
+  };
+
+  const handleUrlBlur = async () => {
+    const url = quickUrl.trim();
+    if (!url || quickTitle.trim() || !isSafeUrl(url)) return;
+    setIsFetchingTitle(true);
+    const title = await fetchYouTubeTitle(url);
+    if (title) setQuickTitle(title);
+    setIsFetchingTitle(false);
   };
 
   const goToPersonaForm = (videoId: string) => {
@@ -546,8 +585,11 @@ export default function HomePage() {
                 <h3 className={C.h3}>YouTube URLを登録</h3>
                 <div className="mt-4 space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <input value={quickUrl} onChange={e => setQuickUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." className={`flex-[2] ${C.input}`} />
-                    <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)} placeholder="タイトル（省略可）" className={`flex-1 ${C.input}`} />
+                    <div className="relative flex-[2]">
+                      <input value={quickUrl} onChange={e => setQuickUrl(e.target.value)} onBlur={handleUrlBlur} placeholder="https://www.youtube.com/watch?v=..." className={`w-full ${C.input}`} />
+                      {isFetchingTitle && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">取得中...</span>}
+                    </div>
+                    <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)} placeholder={isFetchingTitle ? 'タイトル取得中...' : 'タイトル（URL入力後に自動取得）'} className={`flex-1 ${C.input}`} />
                   </div>
 
                   <div className="rounded-2xl border border-[#2e3148] bg-[#141720] p-4 space-y-4">
@@ -778,8 +820,17 @@ export default function HomePage() {
                   <h3 className={C.h3}>作成済み人格</h3>
                   <span className="badge badge-light">{personas.length} 件</span>
                 </div>
-                <div className="mt-5 space-y-4">
-                  {personas.map(persona => (
+                <input
+                  value={personaSearch}
+                  onChange={e => setPersonaSearch(e.target.value)}
+                  placeholder="名前・スタイルで検索..."
+                  className={`mt-3 ${C.inputSm}`}
+                />
+                <div className="mt-4 space-y-4">
+                  {personas.filter(p => {
+                    const q = personaSearch.trim().toLowerCase();
+                    return !q || p.name.toLowerCase().includes(q) || commentStyleLabels[p.commentStyle].includes(q) || p.tone.toLowerCase().includes(q) || p.triggerTopics.some(t => t.toLowerCase().includes(q));
+                  }).map(persona => (
                     <article key={persona.id} className="rounded-3xl border border-[#2e3148] bg-[#252838] p-4">
                       {editingPersonaId !== persona.id ? (
                         <>
@@ -885,32 +936,92 @@ export default function HomePage() {
 
               {/* 企画カード */}
               <div className="space-y-4">
-                {filteredPlans.map(plan => (
-                  <article key={plan.id} className={`p-5 ${C.card}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-200">{plan.title}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">元動画: {videoMap[plan.sourceVideoId]?.title ?? '未選択'}{plan.scheduledDate && <> · 予定: {formatDate(plan.scheduledDate)}</>}</p>
+                {filteredPlans.map(plan => {
+                  const isPlanExpanded = expandedPlanId === plan.id;
+                  return (
+                    <article key={plan.id} className={`p-5 ${C.card}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-200">{plan.title}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            元動画: {videoMap[plan.sourceVideoId]?.title ?? '未選択'}
+                            {plan.scheduledDate && <> · 予定: {formatDate(plan.scheduledDate)}</>}
+                            {plan.priority !== 'medium' && <> · <span className={plan.priority === 'high' ? 'text-amber-400' : 'text-slate-600'}>{plan.priority === 'high' ? '優先度高' : '優先度低'}</span></>}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <select value={plan.status} onChange={e => updatePlan(plan.id, { status:e.target.value as ContentPlan['status'] })} className="rounded-2xl border border-[#2e3148] bg-[#252838] px-3 py-2 text-xs font-medium text-slate-300 outline-none">
+                            {Object.entries(planStatusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                          <button
+                            onClick={() => isPlanExpanded ? setExpandedPlanId(null) : openPlanEdit(plan)}
+                            className={`rounded-2xl px-3 py-2 text-xs font-medium transition ${isPlanExpanded ? 'bg-[#c9a84c]/20 text-[#c9a84c]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
+                            {isPlanExpanded ? '閉じる' : '詳細'}
+                          </button>
+                          <button onClick={() => deletePlan(plan.id)} aria-label="この企画を削除" className={C.btnDangerSm}>削除</button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select value={plan.status} onChange={e => updatePlan(plan.id, { status:e.target.value as ContentPlan['status'] })} className="rounded-2xl border border-[#2e3148] bg-[#252838] px-3 py-2 text-xs font-medium text-slate-300 outline-none">
-                          {Object.entries(planStatusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
-                        <button onClick={() => deletePlan(plan.id)} aria-label="この企画を削除" className={C.btnDangerSm}>削除</button>
+
+                      {/* フック・台本メモ（常時表示） */}
+                      {!isPlanExpanded && plan.hook && (
+                        <p className="mt-3 text-xs text-slate-500 line-clamp-1">フック: {plan.hook}</p>
+                      )}
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label className="block text-xs text-slate-500">
+                          投稿URL
+                          <input value={plan.postedUrl} onChange={e => updatePlan(plan.id, { postedUrl:e.target.value })} placeholder="https://youtu.be/..." className={`mt-1.5 ${C.inputSm}`} />
+                        </label>
+                        <label className="block text-xs text-slate-500">
+                          反応メモ
+                          <input value={plan.metricsMemo} onChange={e => updatePlan(plan.id, { metricsMemo:e.target.value })} placeholder="再生数、コメント傾向など" className={`mt-1.5 ${C.inputSm}`} />
+                        </label>
                       </div>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <label className="block text-xs text-slate-500">
-                        投稿URL
-                        <input value={plan.postedUrl} onChange={e => updatePlan(plan.id, { postedUrl:e.target.value })} placeholder="https://youtu.be/..." className={`mt-1.5 ${C.inputSm}`} />
-                      </label>
-                      <label className="block text-xs text-slate-500">
-                        反応メモ
-                        <input value={plan.metricsMemo} onChange={e => updatePlan(plan.id, { metricsMemo:e.target.value })} placeholder="再生数、コメント傾向など" className={`mt-1.5 ${C.inputSm}`} />
-                      </label>
-                    </div>
-                  </article>
-                ))}
+
+                      {/* 展開編集フォーム */}
+                      {isPlanExpanded && (
+                        <div className="mt-4 space-y-3 border-t border-[#2e3148] pt-4">
+                          <label className={C.label}>
+                            フック（冒頭で視聴者を引く一言）
+                            <input value={planEditDraft.hook ?? ''} onChange={e => setPlanEditDraft(d => ({ ...d, hook: e.target.value }))} placeholder="視聴者が「そういう見方があったか」と思う切り口。" className={`mt-1.5 ${C.inputSm}`} />
+                          </label>
+                          <label className={C.label}>
+                            台本メモ
+                            <textarea value={planEditDraft.scriptMemo ?? ''} onChange={e => setPlanEditDraft(d => ({ ...d, scriptMemo: e.target.value }))} rows={3} placeholder="構成・流れ・キーワードなど" className={`mt-1.5 ${C.inputSm}`} />
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className={C.label}>
+                              サムネアイデア
+                              <input value={planEditDraft.thumbnailIdea ?? ''} onChange={e => setPlanEditDraft(d => ({ ...d, thumbnailIdea: e.target.value }))} placeholder="色・構図・テキスト案..." className={`mt-1.5 ${C.inputSm}`} />
+                            </label>
+                            <label className={C.label}>
+                              目的
+                              <input value={planEditDraft.purpose ?? ''} onChange={e => setPlanEditDraft(d => ({ ...d, purpose: e.target.value }))} placeholder="視聴者に何を届けるか" className={`mt-1.5 ${C.inputSm}`} />
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className={C.label}>
+                              投稿予定日
+                              <input type="date" value={planEditDraft.scheduledDate ?? ''} onChange={e => setPlanEditDraft(d => ({ ...d, scheduledDate: e.target.value }))} className={`mt-1.5 ${C.inputSm}`} />
+                            </label>
+                            <label className={C.label}>
+                              優先度
+                              <select value={planEditDraft.priority ?? 'medium'} onChange={e => setPlanEditDraft(d => ({ ...d, priority: e.target.value as ContentPlan['priority'] }))} className={`mt-1.5 ${C.inputSm}`}>
+                                <option value="high">高い</option>
+                                <option value="medium">ふつう</option>
+                                <option value="low">低い</option>
+                              </select>
+                            </label>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setExpandedPlanId(null)} className={C.btnSm}>キャンセル</button>
+                            <button onClick={() => savePlanEdit(plan.id)} className={`${C.btnGold} py-2.5`}>保存</button>
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
                 {filteredPlans.length === 0 && (
                   <div className="rounded-3xl border border-dashed border-[#2e3148] p-10 text-center text-sm text-slate-600">
                     企画がありません。「＋ 新しい企画を追加」から作成してください。
