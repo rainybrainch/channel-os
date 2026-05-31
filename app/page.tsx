@@ -1100,15 +1100,37 @@ export default function HomePage() {
                 <h3 className={C.h3}>今後の拡張案</h3>
                 <ul className="mt-4 space-y-3 text-sm text-slate-400">
                   {[
-                    'Gemini APIで「登録＋人格を自動生成」を本物のAI生成に差し替え（generatePersonaMock関数を置き換えるだけ）',
-                    'YouTube oEmbed でURLからタイトル・サムネを自動取得',
-                    '人格データをJSON/CSVで配信画面にエクスポート',
-                    'Supabase移行済み → 次はStripe月額課金追加',
-                    '雨域Core / 人格実験場との API 接続'
+                    'Gemini APIで「登録＋人格を自動生成」を本物のAI生成に差し替え（lib/mockData.ts の generatePersonaMock を置き換えるだけ）',
+                    'Supabase移行済み → 次はStripe月額課金追加（SaaS化）',
+                    '雨域Core / 人格実験場との Supabase リアルタイム接続',
+                    'YouTube Analytics API でインプレッション・CTR 取得',
+                    '人格ごとのコメント生成確率・頻度設定'
                   ].map(item => (
                     <li key={item} className="flex gap-2"><span className="text-[#2e3148]">—</span>{item}</li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Vercelデプロイ手順 */}
+              <div className={`p-6 ${C.card}`}>
+                <div className="flex items-center gap-3">
+                  <h3 className={C.h3}>Vercelデプロイ手順</h3>
+                  <span className="rounded-full bg-emerald-900/30 px-2.5 py-0.5 text-xs font-medium text-emerald-400">未デプロイ</span>
+                </div>
+                <div className="mt-4 rounded-2xl bg-[#141720] p-4 text-sm space-y-1.5">
+                  <ol className="list-decimal space-y-2 pl-5 text-slate-400">
+                    <li><a href="https://vercel.com/new" target="_blank" rel="noreferrer" className="text-[#c9a84c] hover:underline">vercel.com/new</a> で <code className="text-xs bg-[#252838] px-1 rounded">rainybrainch/channel-os</code> をインポート</li>
+                    <li>「Environment Variables」に以下を設定：
+                      <div className="mt-2 space-y-1">
+                        {['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'].map(k => (
+                          <div key={k} className="rounded-lg bg-[#252838] px-3 py-1.5 font-mono text-xs text-slate-300">{k}</div>
+                        ))}
+                      </div>
+                    </li>
+                    <li>「Deploy」をクリック → 自動ビルド完了</li>
+                  </ol>
+                </div>
+                <p className={`mt-3 ${C.muted}`}>将来 Gemini API を追加する際は GEMINI_API_KEY も同様に環境変数へ</p>
               </div>
 
               <div className="rounded-3xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 p-6 shadow-panel">
