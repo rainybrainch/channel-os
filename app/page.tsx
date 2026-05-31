@@ -196,6 +196,9 @@ export default function HomePage() {
   // ── URL自動タイトル取得
   const [isFetchingTitle, setIsFetchingTitle] = useState(false);
 
+  // ── 仕分けページ：人格生成フォームの折りたたみ
+  const [showPersonaGen, setShowPersonaGen] = useState(false);
+
   // ── 認証
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -743,36 +746,51 @@ export default function HomePage() {
                     <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)} placeholder={isFetchingTitle ? 'タイトル取得中...' : 'タイトル（URL入力後に自動取得）'} className={`flex-1 ${C.input}`} />
                   </div>
 
-                  <div className="rounded-2xl border border-[#2e3148] bg-[#141720] p-4 space-y-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-slate-600">コメント人格を同時に生成する（任意）</p>
-                    <input value={quickCharaName} onChange={e => setQuickCharaName(e.target.value)} placeholder="キャラ名（省略すると自動生成）" className={C.input} />
-                    <div>
-                      <p className="mb-2 text-xs text-slate-500">性格タイプ</p>
-                      <div className="flex flex-wrap gap-2">
-                        {PERSONALITY_TYPES.map(t => (
-                          <button key={t} type="button" onClick={() => setQuickPersonality(t)}
-                            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${quickPersonality === t ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
-                            {t}
-                          </button>
-                        ))}
+                  {/* 人格生成フォーム（折りたたみ） */}
+                  <div className="rounded-2xl border border-[#2e3148] bg-[#141720] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowPersonaGen(v => !v)}
+                      className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    >
+                      <p className="text-xs font-medium uppercase tracking-wider text-slate-500">コメント人格を同時に生成する（任意）</p>
+                      <span className="text-xs text-slate-600">{showPersonaGen ? '▲ 閉じる' : '▼ 開く'}</span>
+                    </button>
+                    {showPersonaGen && (
+                      <div className="space-y-4 px-4 pb-4">
+                        <input value={quickCharaName} onChange={e => setQuickCharaName(e.target.value)} placeholder="キャラ名（省略すると自動生成）" className={C.input} />
+                        <div>
+                          <p className="mb-2 text-xs text-slate-500">性格タイプ</p>
+                          <div className="flex flex-wrap gap-2">
+                            {PERSONALITY_TYPES.map(t => (
+                              <button key={t} type="button" onClick={() => setQuickPersonality(t)}
+                                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${quickPersonality === t ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs text-slate-500">熱量</p>
+                          <div className="flex gap-2">
+                            {ENERGY_LEVELS.map(e => (
+                              <button key={e} type="button" onClick={() => setQuickEnergy(e)}
+                                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${quickEnergy === e ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <p className="mb-2 text-xs text-slate-500">熱量</p>
-                      <div className="flex gap-2">
-                        {ENERGY_LEVELS.map(e => (
-                          <button key={e} type="button" onClick={() => setQuickEnergy(e)}
-                            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${quickEnergy === e ? 'bg-[#c9a84c] text-[#12141f]' : 'bg-[#252838] text-slate-400 hover:bg-[#2e3148]'}`}>
-                            {e}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="flex gap-3">
                     <button type="button" onClick={addVideoOnly} disabled={isSubmitting || !quickUrl.trim()} className="flex-1 rounded-2xl border border-[#2e3148] bg-[#252838] py-3 text-sm font-medium text-slate-400 transition hover:bg-[#2e3148] disabled:opacity-50">URLのみ登録</button>
-                    <button type="button" onClick={addVideoAndGeneratePersona} disabled={isSubmitting || !quickUrl.trim()} className={`flex-[2] ${C.btnGold} disabled:opacity-50`}>{isSubmitting ? '処理中...' : '登録 ＋ 人格を自動生成 →'}</button>
+                    {showPersonaGen
+                      ? <button type="button" onClick={addVideoAndGeneratePersona} disabled={isSubmitting || !quickUrl.trim()} className={`flex-[2] ${C.btnGold} disabled:opacity-50`}>{isSubmitting ? '処理中...' : '登録 ＋ 人格を自動生成 →'}</button>
+                      : <button type="button" onClick={addVideoOnly} disabled={isSubmitting || !quickUrl.trim()} className={`flex-[2] ${C.btnGold} disabled:opacity-50`}>{isSubmitting ? '処理中...' : '登録'}</button>
+                    }
                   </div>
                 </div>
               </div>
